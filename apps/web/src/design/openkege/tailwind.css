@@ -1,0 +1,276 @@
+/* =====================================================================
+   OpenKEGE — тема для Tailwind v4 (CSS-first, tailwind.config не нужен)
+
+   Подключение — в главном CSS проекта:  @import "./tailwind.css";
+   tailwindcss импортируется здесь же, второй раз его не подключайте.
+
+   Утилиты: bg-primary, text-fg-muted, border-line, divide-line, rounded-island,
+   shadow-modal, font-code, text-h1 md:text-h1-lg, motion-safe:animate-streak-pop…
+   Дефолтная палитра Tailwind сброшена: text-red-500, bg-gray-100 не существуют.
+   Шкала отступов, брейкпоинты и rounded-full — стандартные Tailwind.
+   ===================================================================== */
+
+@import "tailwindcss";
+@import "./fonts/fonts.css";
+/* @plugin "@tailwindcss/typography";  — prose для текста заданий, как в продакшене */
+
+:root {
+  /* ---------- ПРИМИТИВЫ — в разметке не используются ---------- */
+  /* Бренд — синий */
+  --brand-50: #EEF0FE;
+  --brand-100: #DDE1FD;
+  --brand-300: #97A2F4;
+  --brand-600: #2438E5;
+  --brand-700: #1B2FE0; /* акцент: кнопки, шапка, ссылки */
+  --brand-800: #1728BE; /* нажатие / hover на заливке */
+  --brand-900: #13219D; /* акцентный текст на бледно-синем */
+
+  /* Нейтраль — тёплая бумага → чернила */
+  --neutral-50: #FAFAF9;
+  --neutral-100: #F3F2F2; /* бумага — фон страницы */
+  --neutral-200: #EAE9E9;
+  --neutral-300: #DCDBDA;
+  --neutral-400: #B3B1AF;
+  --neutral-500: #8A8785;
+  --neutral-600: #66635F;
+  --neutral-700: #4A4744;
+  --neutral-800: #302E2C;
+  --neutral-900: #201E1D; /* чернила — основной текст */
+
+  /* Красный — неверно, удаление */
+  --red-50: #FDEEEC;
+  --red-100: #FBD9D6;
+  --red-300: #F09E96;
+  --red-600: #E32213;
+  --red-700: #C21B0F;
+
+  /* Зелёный — верно, успех */
+  --green-50: #EAF7EF;
+  --green-100: #D3EEDD;
+  --green-300: #86D3A5;
+  --green-600: #0C9245;
+  --green-700: #0A7A39;
+
+  /* ---------- СЕТКА И РАЗМЕРЫ — для произвольных значений: max-w-(--content-max) ---------- */
+  /* Сетка */
+  --space-unit: 4px; /* шаг сетки */
+  --island-gap: 20px; /* между островками (gap-5) */
+  --island-padding: 18px; /* паддинг островка; от 768 px — island-padding-md */
+  --island-padding-md: 28px;
+  --island-padding-compact: 16px; /* компактный островок; от 768 px — 20 px */
+  --island-padding-compact-md: 20px;
+  --page-padding: 16px; /* поля страницы; от 768 px — page-padding-md */
+  --page-padding-md: 32px;
+  --content-max: 1164px; /* ширина контента */
+  --content-narrow: 924px; /* узкий контент */
+  --sidebar: 264px; /* колонка фильтров каталога */
+  --aside: 300px; /* сопутствующая колонка детальной страницы */
+
+  /* Размеры */
+  --control-height: 46px; /* кнопка и поле md */
+  --control-height-sm: 38px;
+  --control-height-lg: 52px;
+  --touch-target: 44px; /* минимальная нажимаемая область на мобильном */
+
+  /* Мера строки */
+  --measure-text: 56ch; /* абзац интерфейса */
+  --measure-lead: 26ch; /* лид, пустое состояние */
+  --measure-display: 16ch; /* заголовок задания */
+  --measure-longread: 38em; /* лонгрид, ~70 знаков */
+
+  /* Рамки и фокус */
+  --border-island: 1px; /* рамка островка */
+  --border-state: 2px; /* рамка состояния, обводка кнопки */
+  --focus-ring: 2px solid var(--color-primary); /* кнопки, чипы, ссылки; у полей кольца нет */
+  --focus-offset: 2px;
+
+  /* Слои */
+  --z-header: 20;
+  --z-overlay: 50; /* модалка, меню, поиск */
+  --z-tooltip: 100;
+
+  /* Движение */
+  --duration-base: 150ms; /* смена цвета, рамки, фона */
+  --ease-base: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-hold: 3s; /* удержание кнопки подтверждения */
+}
+
+@theme {
+  /* ---------- ШРИФТЫ — загружены 400, 600, 800 ---------- */
+  --font-primary: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* SF Pro на Apple, Golos Text на остальных — замените строку выше на:
+  --font-primary: -apple-system, BlinkMacSystemFont, 'Golos Text', system-ui, sans-serif; */
+  --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; /* ответы, код, #id, числа в таблицах */
+  --default-font-family: var(--font-primary);
+  --default-mono-font-family: var(--font-code);
+
+  /* ---------- РАДИУСЫ — интерактивное: rounded-full ---------- */
+  --radius-island: 22px; /* островок, меню профиля */
+  --radius-panel: 18px; /* вложенная панель, обычное меню, тост */
+  --radius-field: 14px; /* поле формы с подписью, пункт меню, плашка ошибки, подсказка */
+
+  /* ---------- ЦВЕТ: РОЛИ ---------- */
+  --color-*: initial;
+
+  /* База */
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+
+  /* Primary — действие, ссылка, фокус */
+  --color-primary: var(--brand-700);
+  --color-primary-hover: var(--brand-800);
+  --color-primary-soft: var(--brand-50);
+  --color-primary-soft-hover: var(--brand-100);
+  --color-primary-faint: var(--brand-300);
+  --color-primary-ink: var(--brand-900); /* текст на бледно-синем */
+
+  /* Danger — неверный ответ, удаление, ошибка */
+  --color-danger: var(--red-600);
+  --color-danger-hover: var(--red-700);
+  --color-danger-soft: var(--red-50);
+  --color-danger-soft-hover: var(--red-100);
+  --color-danger-faint: var(--red-300);
+  --color-danger-ink: var(--red-700); /* текст ошибки на светлом */
+
+  /* Success — верный ответ */
+  --color-success: var(--green-600);
+  --color-success-hover: var(--green-700);
+  --color-success-soft: var(--green-50);
+  --color-success-soft-hover: var(--green-100);
+  --color-success-faint: var(--green-300);
+
+  /* Neutral — «ответ показан», кнопка slate */
+  --color-neutral: var(--neutral-600);
+  --color-neutral-hover: var(--neutral-700);
+  --color-neutral-soft: var(--neutral-100);
+  --color-neutral-soft-hover: var(--neutral-300);
+
+  /* Поверхности */
+  --color-surface-page: var(--neutral-100); /* бумага */
+  --color-surface-island: var(--color-white); /* островок */
+  --color-surface-muted: var(--neutral-50); /* панель внутри островка */
+  --color-surface-active: var(--neutral-200); /* дорожки, скелетон, выключенная кнопка */
+  --color-surface-strong: var(--neutral-300);
+  --color-surface-inverse: var(--neutral-900); /* бар для анонимов, тост-инфо, подсказка */
+
+  /* Текст */
+  --color-fg: var(--neutral-900); /* основной */
+  --color-fg-muted: var(--neutral-700); /* вторичный */
+  --color-fg-subtle: var(--neutral-600); /* третичный */
+  --color-fg-faint: var(--neutral-500); /* служебный — подписи, плейсхолдеры */
+  --color-fg-disabled: var(--neutral-400);
+  --color-fg-inverse: var(--neutral-100); /* на тёмной плашке */
+
+  /* Линии и затемнение */
+  --color-line: color-mix(in srgb, var(--neutral-900) 22%, transparent); /* рамка островка, разделители строк */
+  --color-line-strong: color-mix(in srgb, var(--neutral-900) 28%, transparent); /* рамка поля */
+  --color-line-heavy: var(--neutral-900); /* правило 2 px */
+  --color-overlay: color-mix(in srgb, var(--neutral-900) 42%, transparent); /* затемнение под модалкой */
+
+  /* ---------- ТЕНИ ---------- */
+  --shadow-modal: 0 24px 60px color-mix(in srgb, var(--neutral-900) 22%, transparent); /* модалка, диалог, тост */
+  --shadow-popover: 0 14px 34px color-mix(in srgb, var(--neutral-900) 16%, transparent); /* меню, подсказка */
+
+  /* ---------- АНИМАЦИЯ ---------- */
+  --animate-streak-pop: streak-pop 700ms cubic-bezier(0.22, 1, 0.36, 1); /* рост серии; только motion-safe */
+
+  @keyframes streak-pop {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-white) 55%, transparent); }
+    40% { transform: scale(1.18); box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-white) 0%, transparent); }
+    70% { transform: scale(0.97); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-white) 0%, transparent); }
+  }
+
+  /* ---------- КЕГЛИ — именованная шкала ----------
+     В продакшене те же значения пока записаны произвольными: text-[34px] md:text-[44px]… */
+  --text-display: 40px; /* заголовок страницы задания; от 768 px — display-lg */
+  --text-display--line-height: 0.98;
+  --text-display--letter-spacing: -0.04em;
+  --text-display--font-weight: 800;
+  --text-display-lg: 60px; /* заголовок задания, десктоп */
+  --text-display-lg--line-height: 0.98;
+  --text-display-lg--letter-spacing: -0.04em;
+  --text-display-lg--font-weight: 800;
+  --text-h1: 34px; /* заголовок страницы; от 768 px — h1-lg */
+  --text-h1--line-height: 1;
+  --text-h1--letter-spacing: -0.035em;
+  --text-h1--font-weight: 800;
+  --text-h1-lg: 44px; /* заголовок страницы, десктоп */
+  --text-h1-lg--line-height: 1;
+  --text-h1-lg--letter-spacing: -0.035em;
+  --text-h1-lg--font-weight: 800;
+  --text-form-title: 30px; /* вход, регистрация; от 768 px — form-title-lg */
+  --text-form-title--line-height: 1.04;
+  --text-form-title--letter-spacing: -0.03em;
+  --text-form-title--font-weight: 800;
+  --text-form-title-lg: 36px; /* вход, регистрация, десктоп */
+  --text-form-title-lg--line-height: 1.04;
+  --text-form-title-lg--letter-spacing: -0.03em;
+  --text-form-title-lg--font-weight: 800;
+  --text-h2: 28px; /* секция */
+  --text-h2--line-height: 1.1;
+  --text-h2--letter-spacing: -0.03em;
+  --text-h2--font-weight: 800;
+  --text-h3: 24px; /* диалог */
+  --text-h3--line-height: 1.25;
+  --text-h3--letter-spacing: -0.02em;
+  --text-h3--font-weight: 800;
+  --text-title: 20px; /* заголовок островка */
+  --text-title--line-height: 1.4;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 800;
+  --text-card-title: 19px; /* заголовок карточки, #id задания */
+  --text-card-title--line-height: 1.25;
+  --text-card-title--letter-spacing: -0.01em;
+  --text-card-title--font-weight: 800;
+  --text-metric: 34px; /* крупная цифра статистики */
+  --text-metric--line-height: 1;
+  --text-metric--font-weight: 800;
+  --text-lead: 20px; /* лид, фраза пустого состояния */
+  --text-lead--line-height: 1.4;
+  --text-lead--font-weight: 400;
+  --text-task: 17px; /* условие задания, абзац текста */
+  --text-task--line-height: 1.75;
+  --text-task--font-weight: 400;
+  --text-body: 15px; /* интерфейсный текст */
+  --text-body--line-height: 1.6;
+  --text-body--font-weight: 400;
+  --text-input: 16px; /* поле ввода — не меньше 16 px, иначе iOS зумит */
+  --text-input--line-height: 1.5;
+  --text-input--font-weight: 400;
+  --text-small: 14px; /* тост, чип, плашка */
+  --text-small--line-height: 1.5;
+  --text-small--font-weight: 400;
+  --text-meta: 13px; /* мета, подсказка, ошибка под полем */
+  --text-meta--line-height: 1.5;
+  --text-meta--font-weight: 400;
+  --text-caps: 11px; /* капс-подпись (uppercase) */
+  --text-caps--line-height: 1.5;
+  --text-caps--letter-spacing: 0.2em;
+  --text-caps--font-weight: 400;
+  --text-caps-table: 11px; /* заголовок таблицы (uppercase) */
+  --text-caps-table--line-height: 1.5;
+  --text-caps-table--letter-spacing: 0.16em;
+  --text-caps-table--font-weight: 400;
+  --text-tab: 12px; /* вкладка-подчёркивание (uppercase) */
+  --text-tab--line-height: 1.5;
+  --text-tab--letter-spacing: 0.12em;
+  --text-tab--font-weight: 800;
+  --text-button: 13px; /* кнопка-действие md (uppercase); xs 11, sm 12, lg 14, xl 15 */
+  --text-button--line-height: 1;
+  --text-button--letter-spacing: 0.1em;
+  --text-button--font-weight: 800;
+  --text-badge: 10.5px; /* бейдж (uppercase) */
+  --text-badge--line-height: 1;
+  --text-badge--letter-spacing: 0.14em;
+  --text-badge--font-weight: 800;
+  --text-logo: 22px; /* логотип OPENKEGE */
+  --text-logo--line-height: 1;
+  --text-logo--letter-spacing: -0.02em;
+  --text-logo--font-weight: 800;
+}
+
+@layer base {
+  body { background-color: var(--color-surface-page); color: var(--color-fg); }
+  ::selection { background: color-mix(in srgb, var(--color-primary) 25%, transparent); }
+}

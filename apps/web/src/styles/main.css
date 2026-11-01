@@ -1,0 +1,43 @@
+@import "../design/openkege/tailwind.css";
+
+@theme {
+  --color-project-gray: #787774;
+  --color-project-brown: #9f6b53;
+  --color-project-orange: #d9730d;
+  --color-project-yellow: #cb912f;
+  --color-project-green: #448361;
+  --color-project-blue: #337ea9;
+  --color-project-purple: #9065b0;
+  --color-project-pink: #c14c8a;
+  --color-project-red: #d44c47;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  p {
+    text-wrap: pretty;
+  }
+
+  a {
+    color: var(--color-primary);
+    text-underline-offset: 3px;
+  }
+
+  a:hover {
+    color: var(--color-primary-hover);
+  }
+
+  :focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+  }
+}

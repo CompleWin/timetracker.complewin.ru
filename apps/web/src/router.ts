@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from "vue-router";
+import ArchivePage from "./pages/ArchivePage.vue";
 import HomePage from "./pages/HomePage.vue";
 import LoginPage from "./pages/LoginPage.vue";
 import { useSessionStore } from "./stores/session.ts";
@@ -9,6 +10,7 @@ export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", component: HomePage },
+    { path: "/archive", component: ArchivePage },
     { path: LOGIN_PATH, component: LoginPage },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],

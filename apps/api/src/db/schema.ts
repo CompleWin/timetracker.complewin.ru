@@ -1,4 +1,4 @@
-import { locales } from "@stt/shared";
+import { locales, projectColors } from "@stt/shared";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
@@ -36,3 +36,38 @@ export const oauthStates = sqliteTable("oauth_states", {
   returnTo: text("return_to").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
 });
+
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color", { enum: projectColors }).notNull(),
+    archivedAt: timestamp("archived_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [index("projects_user_id_idx").on(table.userId)],
+);
+
+export const tasks = sqliteTable(
+  "tasks",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: text("project_id").references(() => projects.id),
+    title: text("title").notNull(),
+    archivedAt: timestamp("archived_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [
+    index("tasks_user_id_idx").on(table.userId),
+    index("tasks_project_id_idx").on(table.projectId),
+  ],
+);

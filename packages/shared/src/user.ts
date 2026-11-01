@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { locales } from "./i18n/locale.ts";
+import { atLeastOneField } from "./patch.ts";
 
 export const userSchema = z.object({
   id: z.string(),
@@ -38,11 +39,11 @@ export const devLoginBody = z.object({
 
 export type DevLoginBody = z.infer<typeof devLoginBody>;
 
-export const updateMeBody = z
-  .object({
+export const updateMeBody = atLeastOneField(
+  z.object({
     timezone: timeZone.optional(),
     locale: z.enum(locales).optional(),
-  })
-  .refine((body) => Object.keys(body).length > 0, "At least one known field is required");
+  }),
+);
 
 export type UpdateMeBody = z.infer<typeof updateMeBody>;

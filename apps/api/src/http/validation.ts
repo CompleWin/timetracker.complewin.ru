@@ -3,11 +3,17 @@ import type { z } from "zod";
 import { validationError, type FieldErrors } from "./errors.ts";
 
 export function jsonBody<Schema extends z.ZodType>(schema: Schema) {
-  return validator("json", (value): z.output<Schema> => {
-    const parsed = schema.safeParse(value);
-    if (!parsed.success) throw validationError(fieldErrors(parsed.error));
-    return parsed.data;
-  });
+  return validator("json", (value): z.output<Schema> => parseOrThrow(schema, value));
+}
+
+export function queryParams<Schema extends z.ZodType>(schema: Schema) {
+  return validator("query", (value): z.output<Schema> => parseOrThrow(schema, value));
+}
+
+function parseOrThrow<Schema extends z.ZodType>(schema: Schema, value: unknown): z.output<Schema> {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw validationError(fieldErrors(parsed.error));
+  return parsed.data;
 }
 
 const WHOLE_BODY_FIELD = "body";

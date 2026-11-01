@@ -8,6 +8,8 @@ import { serveAssets } from "./routes/assets.ts";
 import { auth } from "./routes/auth.ts";
 import { health } from "./routes/health.ts";
 import { me } from "./routes/me.ts";
+import { projects } from "./routes/projects.ts";
+import { tasks } from "./routes/tasks.ts";
 import { testHooks } from "./routes/test-hooks.ts";
 
 const WORKER_PREFIXES = ["/auth", "/notion", "/tg", "/__test"];
@@ -17,6 +19,8 @@ function apiRoutes() {
     .route("/", health)
     .use(requireSession)
     .route("/me", me)
+    .route("/projects", projects)
+    .route("/tasks", tasks)
     .all("*", () => {
       throw notFound();
     });
