@@ -11,8 +11,9 @@ import { archivedAtAfter } from "../db/archive.ts";
 import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
 import { projects, tasks } from "../db/schema.ts";
-import { notFound, validationError } from "../http/errors.ts";
+import { notFound, taskArchived, validationError } from "../http/errors.ts";
 import { isActiveProject } from "../projects/projects.ts";
+import { IDLE_TIMER, stopTaskEntries, taskTimers, type TaskTimer } from "../timers/time-entries.ts";
 
 type TaskRow = typeof tasks.$inferSelect;
 
@@ -31,19 +32,27 @@ export async function listTasks(
   db: Database,
   userId: string,
   { projectId, archived, q }: TaskListQuery,
+  now: Date,
 ): Promise<Task[]> {
-  const rows = await db
-    .select({ task: tasks })
-    .from(tasks)
-    .leftJoin(projects, eq(tasks.projectId, projects.id))
-    .where(and(eq(tasks.userId, userId), projectCondition(projectId), activityConditions[archived]))
-    .then((joined) => joined.map(({ task }) => task));
+  const [rows, timers] = await Promise.all([
+    db
+      .select({ task: tasks })
+      .from(tasks)
+      .leftJoin(projects, eq(tasks.projectId, projects.id))
+      .where(
+        and(eq(tasks.userId, userId), projectCondition(projectId), activityConditions[archived]),
+      )
+      .then((joined) => joined.map(({ task }) => task)),
+    taskTimers(db, userId, now),
+  ]);
   const found = q === undefined ? rows : rows.filter((row) => titleMatches(row.title, q));
-  return sortByName(found, (row) => row.title).map(toTask);
+  return sortByName(found, (row) => row.title).map((row) =>
+    toTask(row, timers.get(row.id) ?? IDLE_TIMER),
+  );
 }
 
-export async function getTask(db: Database, userId: string, id: string): Promise<Task> {
-  return toTask(await requireTask(db, userId, id));
+export async function getTask(db: Database, userId: string, id: string, now: Date): Promise<Task> {
+  return withTimer(db, await requireTask(db, userId, id), now);
 }
 
 export async function createTask(
@@ -58,7 +67,7 @@ export async function createTask(
     .values({ id: crypto.randomUUID(), userId, ...task, createdAt: now, updatedAt: now })
     .returning();
   if (row === undefined) throw new Error(`Task "${task.title}" was not created`);
-  return toTask(row);
+  return toTask(row, IDLE_TIMER);
 }
 
 export async function updateTask(
@@ -70,6 +79,7 @@ export async function updateTask(
 ): Promise<Task> {
   const current = await requireTask(db, userId, id);
   await ensureProjectUsable(db, userId, changes.projectId);
+  if (changes.archived === true) await stopTaskEntries(db, userId, id, now);
   const [row] = await db
     .update(tasks)
     .set({
@@ -81,20 +91,30 @@ export async function updateTask(
     .where(eq(tasks.id, id))
     .returning();
   if (row === undefined) throw new Error(`Task ${id} was not updated`);
-  return toTask(row);
+  return withTimer(db, row, now);
 }
 
-function projectCondition(projectId: string | undefined): SQL | undefined {
-  if (projectId === undefined) return undefined;
-  return projectId === NO_PROJECT ? isNull(tasks.projectId) : eq(tasks.projectId, projectId);
-}
-
-async function requireTask(db: Database, userId: string, id: string): Promise<TaskRow> {
+export async function requireTask(db: Database, userId: string, id: string): Promise<TaskRow> {
   const row = await db.query.tasks.findFirst({
     where: and(eq(tasks.id, id), eq(tasks.userId, userId)),
   });
   if (row === undefined) throw notFound();
   return row;
+}
+
+export async function requireActiveTask(db: Database, userId: string, id: string): Promise<void> {
+  const [row] = await db
+    .select({ archivedAt: tasks.archivedAt, projectArchivedAt: projects.archivedAt })
+    .from(tasks)
+    .leftJoin(projects, eq(tasks.projectId, projects.id))
+    .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+  if (row === undefined) throw notFound();
+  if (row.archivedAt !== null || row.projectArchivedAt !== null) throw taskArchived();
+}
+
+function projectCondition(projectId: string | undefined): SQL | undefined {
+  if (projectId === undefined) return undefined;
+  return projectId === NO_PROJECT ? isNull(tasks.projectId) : eq(tasks.projectId, projectId);
 }
 
 async function ensureProjectUsable(
@@ -108,7 +128,12 @@ async function ensureProjectUsable(
   }
 }
 
-function toTask(row: TaskRow): Task {
+async function withTimer(db: Database, row: TaskRow, now: Date): Promise<Task> {
+  const timers = await taskTimers(db, row.userId, now, row.id);
+  return toTask(row, timers.get(row.id) ?? IDLE_TIMER);
+}
+
+function toTask(row: TaskRow, timer: TaskTimer): Task {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -116,5 +141,7 @@ function toTask(row: TaskRow): Task {
     archived: row.archivedAt !== null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    totalSec: timer.totalSec,
+    runningSessionId: timer.runningSessionId,
   };
 }

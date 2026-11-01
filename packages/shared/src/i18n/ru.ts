@@ -45,4 +45,12 @@ export const ru = {
   "archive.tasks": "Задачи в архиве",
   "archive.restore": "Вернуть",
   "archive.restoreItem": "Вернуть {name}",
+  "timers.running": "Сейчас идёт",
+  "timers.start": "Старт",
+  "timers.stop": "Стоп",
+  "timers.startTask": "Запустить таймер: {title}",
+  "timers.stopTask": "Остановить таймер: {title}",
+  "duration.minutes": "{minutes} мин",
+  "duration.hours": "{hours} ч",
+  "duration.hoursMinutes": "{hours} ч {minutes} мин",
 };

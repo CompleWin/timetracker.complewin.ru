@@ -4,7 +4,7 @@ import { loginAs } from "./helpers/auth.ts";
 import { button, focusWithKeyboard, heading, textOf } from "./helpers/ui.ts";
 
 const PAPER = "rgb(243, 242, 242)";
-const PRIMARY = "rgb(27, 47, 224)";
+const PRIMARY = "rgb(18, 91, 58)";
 const GOLOS_TEXT_FIRST = /^["']?Golos Text["']?(,|$)/;
 const NETWORK_URL = /^(https?|wss?):/;
 

@@ -47,4 +47,12 @@ export const en: Messages = {
   "archive.tasks": "Archived tasks",
   "archive.restore": "Restore",
   "archive.restoreItem": "Restore {name}",
+  "timers.running": "Running now",
+  "timers.start": "Start",
+  "timers.stop": "Stop",
+  "timers.startTask": "Start timer: {title}",
+  "timers.stopTask": "Stop timer: {title}",
+  "duration.minutes": "{minutes} min",
+  "duration.hours": "{hours} h",
+  "duration.hoursMinutes": "{hours} h {minutes} min",
 };

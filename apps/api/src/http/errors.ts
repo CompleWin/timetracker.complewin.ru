@@ -3,12 +3,22 @@ import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 export type ErrorCode =
-  "validation_error" | "unauthorized" | "forbidden" | "not_found" | "name_taken" | "internal_error";
+  | "validation_error"
+  | "unauthorized"
+  | "forbidden"
+  | "not_found"
+  | "name_taken"
+  | "already_running"
+  | "not_running"
+  | "task_archived"
+  | "too_many_running"
+  | "internal_error";
 
 export type FieldErrors = Record<string, string>;
 
 type ErrorDetails = {
   fields?: FieldErrors;
+  sessionId?: string;
 };
 
 export class ApiError extends Error {
@@ -34,6 +44,17 @@ export const notFound = () => new ApiError(404, "not_found", "Resource not found
 
 export const nameTaken = () =>
   new ApiError(409, "name_taken", "A project with this name already exists");
+
+export const alreadyRunning = (sessionId: string) =>
+  new ApiError(409, "already_running", "The task timer is already running", { sessionId });
+
+export const notRunning = () => new ApiError(409, "not_running", "The timer is not running");
+
+export const taskArchived = () =>
+  new ApiError(409, "task_archived", "The task or its project is archived");
+
+export const tooManyRunning = () =>
+  new ApiError(409, "too_many_running", "Too many timers are running");
 
 const internalError = () => new ApiError(500, "internal_error", "Internal server error");
 

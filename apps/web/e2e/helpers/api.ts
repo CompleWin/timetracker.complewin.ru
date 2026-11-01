@@ -46,6 +46,11 @@ export async function createTask(
   return task;
 }
 
+export async function startTimer(page: Page, taskId: string): Promise<void> {
+  const request: ApiRequest = { method: "POST", path: `/api/tasks/${taskId}/start` };
+  await requestFromPage(page, request, 201);
+}
+
 export async function listProjects(page: Page): Promise<Project[]> {
   const request: ApiRequest = { method: "GET", path: "/api/projects" };
   const { projects } = await requestFromPage<{ projects: Project[] }>(page, request, 200);

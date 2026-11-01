@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { Project, Task } from "@stt/shared";
+import type { ActiveSession, Project, Task } from "@stt/shared";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import ProjectDialog from "../components/ProjectDialog.vue";
+import RunningTimers from "../components/RunningTimers.vue";
 import TaskDialog from "../components/TaskDialog.vue";
 import TaskGroup from "../components/TaskGroup.vue";
 import AppButton from "../components/ui/AppButton.vue";
@@ -11,28 +12,45 @@ import AppEmptyState from "../components/ui/AppEmptyState.vue";
 import AppField from "../components/ui/AppField.vue";
 import AppIsland from "../components/ui/AppIsland.vue";
 import AppSkeleton from "../components/ui/AppSkeleton.vue";
+import { useServerNow } from "../server-clock.ts";
 import { groupTasks } from "../task-groups.ts";
+import { sessionsByTask } from "../timers.ts";
 
 type OpenDialog =
   { kind: "project"; project?: Project } | { kind: "task"; task?: Task; projectId?: string };
 
+const CONFLICT_STATUS = 409;
+
 const { t } = useI18n();
 const projects = ref<Project[]>([]);
 const tasks = ref<Task[]>([]);
+const activeSessions = ref<ActiveSession[]>([]);
 const loaded = ref(false);
 const search = ref("");
 const dialog = ref<OpenDialog | null>(null);
+const now = useServerNow();
 
 const groups = computed(() => groupTasks(projects.value, tasks.value, search.value));
+const runningByTask = computed(() => sessionsByTask(activeSessions.value));
 
 onMounted(reload);
 
 async function reload(): Promise<void> {
-  [projects.value, tasks.value] = await Promise.all([
+  [projects.value, tasks.value, activeSessions.value] = await Promise.all([
     api.fetchProjects("false"),
     api.fetchTasks("false"),
+    api.fetchActiveSessions(),
   ]);
   loaded.value = true;
+}
+
+async function changeTimer(change: () => Promise<unknown>): Promise<void> {
+  try {
+    await change();
+  } catch (error) {
+    if (!(error instanceof api.HttpError && error.status === CONFLICT_STATUS)) throw error;
+  }
+  await reload();
 }
 
 async function archiveProject(project: Project): Promise<void> {
@@ -66,16 +84,26 @@ async function onSaved(): Promise<void> {
     <AppSkeleton />
   </AppIsland>
   <template v-else>
+    <RunningTimers
+      v-if="activeSessions.length > 0"
+      :sessions="activeSessions"
+      :now
+      @stop="(taskId) => changeTimer(() => api.stopTimer(taskId))"
+    />
     <TaskGroup
       v-for="group in groups"
       :key="group.project?.id ?? 'none'"
       :project="group.project"
       :tasks="group.tasks"
+      :running="runningByTask"
+      :now
       @add-task="(project) => (dialog = { kind: 'task', projectId: project.id })"
       @edit-project="(project) => (dialog = { kind: 'project', project })"
       @archive-project="archiveProject"
       @edit-task="(task) => (dialog = { kind: 'task', task })"
       @archive-task="archiveTask"
+      @start-timer="(task) => changeTimer(() => api.startTimer(task.id))"
+      @stop-timer="(task) => changeTimer(() => api.stopTimer(task.id))"
     />
     <AppEmptyState v-if="tasks.length === 0" :title="t('home.empty')" />
   </template>

@@ -9,6 +9,8 @@ export type TestTask = {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+  totalSec: number;
+  runningSessionId: string | null;
 };
 
 export type TaskInput = { title: string; projectId?: string | null };
@@ -37,6 +39,14 @@ export async function updateTask(
   const path = taskPath(id);
   const response = await api.patch(path, changes, { ...opts, as: session });
   return requireStatus(response, 200, `PATCH ${path}`).body.task;
+}
+
+export function getTask(
+  session: TestSession,
+  id: string,
+  opts: SessionOpts = {},
+): Promise<TestResponse> {
+  return api.get(taskPath(id), { ...opts, as: session });
 }
 
 export function archiveTask(

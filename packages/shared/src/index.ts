@@ -1,4 +1,5 @@
 export type { ArchivedFilter } from "./archived-filter.ts";
+export { elapsedSec, formatClock, formatDuration } from "./duration.ts";
 export { isLocale, localeFromLanguage, locales, type Locale } from "./i18n/locale.ts";
 export { messages, type MessageKey, type Messages } from "./i18n/messages.ts";
 export { t, type MessageParams } from "./i18n/t.ts";
@@ -17,6 +18,18 @@ export {
   type UpdateProjectBody,
 } from "./project.ts";
 export { safeReturnTo } from "./return-to.ts";
+export {
+  activeSessionSchema,
+  activeSessionsResponse,
+  MAX_RUNNING_TIMERS,
+  sessionResponse,
+  sessionSchema,
+  sessionsResponse,
+  taskSessionsQuery,
+  type ActiveSession,
+  type Session,
+  type TaskSessionsQuery,
+} from "./session.ts";
 export {
   createTaskBody,
   NO_PROJECT,

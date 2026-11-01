@@ -1,14 +1,18 @@
 import {
+  activeSessionsResponse,
   projectResponse,
   projectsResponse,
+  sessionResponse,
   taskResponse,
   tasksResponse,
   userResponse,
+  type ActiveSession,
   type ArchivedFilter,
   type CreateProjectBody,
   type CreateTaskBody,
   type DevLoginBody,
   type Project,
+  type Session,
   type Task,
   type UpdateMeBody,
   type UpdateProjectBody,
@@ -16,6 +20,9 @@ import {
   type User,
 } from "@stt/shared";
 import { z } from "zod";
+import { rememberServerNow } from "./server-clock.ts";
+
+const SERVER_NOW_HEADER = "X-Server-Now";
 
 const healthResponse = z.object({ env: z.string() });
 
@@ -85,12 +92,25 @@ export async function updateTask(id: string, body: UpdateTaskBody): Promise<Task
   return taskResponse.parse(await request("PATCH", `/api/tasks/${id}`, body)).task;
 }
 
+export async function fetchActiveSessions(): Promise<ActiveSession[]> {
+  return activeSessionsResponse.parse(await request("GET", "/api/timers/active")).sessions;
+}
+
+export async function startTimer(taskId: string): Promise<Session> {
+  return sessionResponse.parse(await request("POST", `/api/tasks/${taskId}/start`)).session;
+}
+
+export async function stopTimer(taskId: string): Promise<Session> {
+  return sessionResponse.parse(await request("POST", `/api/tasks/${taskId}/stop`)).session;
+}
+
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
   const response = await fetch(path, {
     method,
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  rememberServerNow(response.headers.get(SERVER_NOW_HEADER), Date.now());
   if (!response.ok) throw new HttpError(response.status, await errorCode(response));
   return response.status === 204 ? null : response.json();
 }
