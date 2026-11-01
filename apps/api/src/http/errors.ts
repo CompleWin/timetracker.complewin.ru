@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 export type ErrorCode =
-  "validation_error" | "unauthorized" | "forbidden" | "not_found" | "internal_error";
+  "validation_error" | "unauthorized" | "forbidden" | "not_found" | "name_taken" | "internal_error";
 
 export type FieldErrors = Record<string, string>;
 
@@ -31,6 +31,9 @@ export const forbidden = () =>
   new ApiError(403, "forbidden", "Cross-origin request is not allowed");
 
 export const notFound = () => new ApiError(404, "not_found", "Resource not found");
+
+export const nameTaken = () =>
+  new ApiError(409, "name_taken", "A project with this name already exists");
 
 const internalError = () => new ApiError(500, "internal_error", "Internal server error");
 

@@ -1,12 +1,37 @@
-import { userResponse, type DevLoginBody, type UpdateMeBody, type User } from "@stt/shared";
+import {
+  projectResponse,
+  projectsResponse,
+  taskResponse,
+  tasksResponse,
+  userResponse,
+  type ArchivedFilter,
+  type CreateProjectBody,
+  type CreateTaskBody,
+  type DevLoginBody,
+  type Project,
+  type Task,
+  type UpdateMeBody,
+  type UpdateProjectBody,
+  type UpdateTaskBody,
+  type User,
+} from "@stt/shared";
 import { z } from "zod";
 
 const healthResponse = z.object({ env: z.string() });
 
+const errorResponse = z.object({ error: z.object({ code: z.string() }) });
+
 export class HttpError extends Error {
-  constructor(readonly status: number) {
+  constructor(
+    readonly status: number,
+    readonly code: string | undefined,
+  ) {
     super(`Request failed with status ${status}`);
   }
+}
+
+export function isApiError(error: unknown, code: string): boolean {
+  return error instanceof HttpError && error.code === code;
 }
 
 export async function fetchEnvironment(): Promise<string> {
@@ -34,12 +59,43 @@ export async function logout(): Promise<void> {
   await request("POST", "/auth/logout");
 }
 
+export async function fetchProjects(archived: ArchivedFilter): Promise<Project[]> {
+  const path = `/api/projects?${new URLSearchParams({ archived })}`;
+  return projectsResponse.parse(await request("GET", path)).projects;
+}
+
+export async function createProject(body: CreateProjectBody): Promise<Project> {
+  return projectResponse.parse(await request("POST", "/api/projects", body)).project;
+}
+
+export async function updateProject(id: string, body: UpdateProjectBody): Promise<Project> {
+  return projectResponse.parse(await request("PATCH", `/api/projects/${id}`, body)).project;
+}
+
+export async function fetchTasks(archived: ArchivedFilter): Promise<Task[]> {
+  const path = `/api/tasks?${new URLSearchParams({ archived })}`;
+  return tasksResponse.parse(await request("GET", path)).tasks;
+}
+
+export async function createTask(body: CreateTaskBody): Promise<Task> {
+  return taskResponse.parse(await request("POST", "/api/tasks", body)).task;
+}
+
+export async function updateTask(id: string, body: UpdateTaskBody): Promise<Task> {
+  return taskResponse.parse(await request("PATCH", `/api/tasks/${id}`, body)).task;
+}
+
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
   const response = await fetch(path, {
     method,
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!response.ok) throw new HttpError(response.status);
+  if (!response.ok) throw new HttpError(response.status, await errorCode(response));
   return response.status === 204 ? null : response.json();
+}
+
+async function errorCode(response: Response): Promise<string | undefined> {
+  const parsed = errorResponse.safeParse(await response.json().catch(() => undefined));
+  return parsed.success ? parsed.data.error.code : undefined;
 }

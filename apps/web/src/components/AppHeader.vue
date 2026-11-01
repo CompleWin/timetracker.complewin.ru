@@ -2,11 +2,16 @@
 import { locales, type Locale } from "@stt/shared";
 import { computed, useId } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { currentLocale } from "../i18n.ts";
 import { useSessionStore } from "../stores/session.ts";
+import AppButton from "./ui/AppButton.vue";
+import AppSectionLabel from "./ui/AppSectionLabel.vue";
+
+const ARCHIVE_PATH = "/archive";
 
 const { t } = useI18n();
+const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
 const localeSelectId = useId();
@@ -16,6 +21,8 @@ const locale = computed({
   set: (value: Locale) => session.changeLocale(value),
 });
 
+const isArchive = computed(() => route.path === ARCHIVE_PATH);
+
 async function signOut(): Promise<void> {
   await session.signOut();
   await router.push("/login");
@@ -23,17 +30,42 @@ async function signOut(): Promise<void> {
 </script>
 
 <template>
-  <header>
-    <h1>{{ t("app.name") }}</h1>
-    <div v-if="session.user">
-      <span>{{ session.user.name }}</span>
-      <label :for="localeSelectId">{{ t("language.label") }}</label>
-      <select :id="localeSelectId" v-model="locale">
-        <option v-for="option in locales" :key="option" :value="option">
-          {{ t(`language.${option}`) }}
-        </option>
-      </select>
-      <button type="button" @click="signOut">{{ t("header.signOut") }}</button>
-    </div>
+  <header
+    class="flex flex-wrap items-center gap-x-8 gap-y-3 bg-primary px-4 py-3.5 text-white md:px-8"
+  >
+    <h1 class="text-logo max-md:w-full">
+      <RouterLink to="/" class="text-white hover:text-white">{{ t("app.name") }}</RouterLink>
+    </h1>
+    <template v-if="session.user">
+      <nav>
+        <RouterLink
+          :to="ARCHIVE_PATH"
+          class="text-tab text-white uppercase decoration-2 underline-offset-4 hover:text-white"
+          :class="isArchive ? 'underline' : 'opacity-70 hover:opacity-100'"
+        >
+          {{ t("header.archive") }}
+        </RouterLink>
+      </nav>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 md:ml-auto">
+        <span class="text-small break-all">{{ session.user.name }}</span>
+        <div class="flex items-center gap-2">
+          <AppSectionLabel as="label" :for="localeSelectId" tone="inverse">
+            {{ t("language.label") }}
+          </AppSectionLabel>
+          <select
+            :id="localeSelectId"
+            v-model="locale"
+            class="h-[38px] cursor-pointer rounded-full border border-transparent bg-white/16 px-3 text-small text-white transition-colors duration-150 hover:bg-white/28 focus:border-white"
+          >
+            <option v-for="option in locales" :key="option" :value="option" class="text-fg">
+              {{ t(`language.${option}`) }}
+            </option>
+          </select>
+        </div>
+        <AppButton variant="outline-white" size="sm" @click="signOut">
+          {{ t("header.signOut") }}
+        </AppButton>
+      </div>
+    </template>
   </header>
 </template>
