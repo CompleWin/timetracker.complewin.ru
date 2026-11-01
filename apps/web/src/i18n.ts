@@ -8,7 +8,7 @@ export const i18n = createI18n({
   locale: initialLocale(),
   fallbackLocale: "en",
   flatJson: true,
-  messages,
+  messages: structuredClone(messages),
 });
 
 export function currentLocale(): Locale {

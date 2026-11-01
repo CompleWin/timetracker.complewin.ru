@@ -11,6 +11,8 @@ import { me } from "./routes/me.ts";
 import { projects } from "./routes/projects.ts";
 import { tasks } from "./routes/tasks.ts";
 import { testHooks } from "./routes/test-hooks.ts";
+import { timerSessions } from "./routes/timer-sessions.ts";
+import { timers } from "./routes/timers.ts";
 
 const WORKER_PREFIXES = ["/auth", "/notion", "/tg", "/__test"];
 
@@ -21,6 +23,8 @@ function apiRoutes() {
     .route("/me", me)
     .route("/projects", projects)
     .route("/tasks", tasks)
+    .route("/sessions", timerSessions)
+    .route("/timers", timers)
     .all("*", () => {
       throw notFound();
     });

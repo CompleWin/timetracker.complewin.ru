@@ -2,7 +2,12 @@
 import { computed } from "vue";
 
 type ButtonVariant =
-  "solid-primary" | "outline-primary" | "outline-gray" | "outline-white" | "ghost";
+  | "solid-primary"
+  | "outline-primary"
+  | "outline-black"
+  | "outline-gray"
+  | "outline-white"
+  | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
 type ButtonWidth = "auto" | "full" | "full-on-mobile";
 
@@ -28,6 +33,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     "bg-primary text-white hover:bg-primary-hover disabled:bg-surface-active disabled:text-fg-faint",
   "outline-primary":
     "border-2 border-primary text-primary hover:bg-primary-soft disabled:opacity-50",
+  "outline-black":
+    "border-2 border-fg text-fg hover:bg-fg hover:text-surface-page disabled:opacity-50",
   "outline-gray":
     "border-2 border-line-strong text-fg-muted hover:border-fg hover:text-fg disabled:opacity-50",
   "outline-white":

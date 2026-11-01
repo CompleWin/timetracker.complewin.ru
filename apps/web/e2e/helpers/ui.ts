@@ -10,6 +10,10 @@ export function heading(scope: Scope, name: string): Locator {
   return scope.getByRole("heading", { name, exact: true });
 }
 
+export function region(page: Page, name: string): Locator {
+  return page.getByRole("region", { name, exact: true });
+}
+
 export function dialog(page: Page, name: string): Locator {
   return page.getByRole("dialog", { name, exact: true });
 }

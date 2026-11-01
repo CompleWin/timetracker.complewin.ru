@@ -26,6 +26,7 @@ export const projectSchema = z.object({
   archived: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  totalSec: z.number(),
 });
 
 export type Project = z.infer<typeof projectSchema>;

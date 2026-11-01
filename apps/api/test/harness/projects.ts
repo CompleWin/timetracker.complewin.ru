@@ -24,6 +24,7 @@ export type TestProject = {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+  totalSec: number;
 };
 
 export type ProjectInput = { name: string; color?: ProjectColor };
@@ -52,6 +53,14 @@ export async function updateProject(
   const path = projectPath(id);
   const response = await api.patch(path, changes, { ...opts, as: session });
   return requireStatus(response, 200, `PATCH ${path}`).body.project;
+}
+
+export function getProject(
+  session: TestSession,
+  id: string,
+  opts: SessionOpts = {},
+): Promise<TestResponse> {
+  return api.get(projectPath(id), { ...opts, as: session });
 }
 
 export function archiveProject(

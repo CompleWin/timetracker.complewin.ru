@@ -1,5 +1,6 @@
 import { locales, projectColors } from "@stt/shared";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { isNull } from "drizzle-orm";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
 
@@ -69,5 +70,25 @@ export const tasks = sqliteTable(
   (table) => [
     index("tasks_user_id_idx").on(table.userId),
     index("tasks_project_id_idx").on(table.projectId),
+  ],
+);
+
+export const timeEntries = sqliteTable(
+  "time_entries",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id),
+    startedAt: timestamp("started_at").notNull(),
+    endedAt: timestamp("ended_at"),
+  },
+  (table) => [
+    index("time_entries_user_id_idx").on(table.userId),
+    index("time_entries_task_started_idx").on(table.taskId, table.startedAt),
+    uniqueIndex("time_entries_running_task_idx").on(table.taskId).where(isNull(table.endedAt)),
   ],
 );

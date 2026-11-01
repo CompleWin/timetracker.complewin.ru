@@ -13,6 +13,8 @@ export const taskSchema = z.object({
   archived: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  totalSec: z.number(),
+  runningSessionId: z.string().nullable(),
 });
 
 export type Task = z.infer<typeof taskSchema>;

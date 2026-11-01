@@ -1,6 +1,17 @@
 @import "../design/openkege/tailwind.css";
 
 @theme {
+  --color-primary: #125b3a;
+  --color-primary-hover: #004b2c;
+  --color-primary-soft: #e5f8ec;
+  --color-primary-soft-hover: #cbf0d9;
+  --color-primary-faint: #76cd9c;
+  --color-primary-ink: #003820;
+  --color-success: var(--color-primary);
+  --color-success-hover: var(--color-primary-hover);
+  --color-success-soft: var(--color-primary-soft);
+  --color-success-soft-hover: var(--color-primary-soft-hover);
+  --color-success-faint: var(--color-primary-faint);
   --color-project-gray: #787774;
   --color-project-brown: #9f6b53;
   --color-project-orange: #d9730d;

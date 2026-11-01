@@ -5,6 +5,7 @@ import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
 import { projects } from "../db/schema.ts";
 import { nameTaken, notFound } from "../http/errors.ts";
+import { projectTotals, stopProjectEntries } from "../timers/time-entries.ts";
 
 type ProjectRow = typeof projects.$inferSelect;
 
@@ -23,16 +24,25 @@ export async function listProjects(
   db: Database,
   userId: string,
   archived: ArchivedFilter,
+  now: Date,
 ): Promise<Project[]> {
-  const rows = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.userId, userId), archivedConditions[archived]));
-  return sortByName(rows, (row) => row.name).map(toProject);
+  const [rows, totals] = await Promise.all([
+    db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.userId, userId), archivedConditions[archived])),
+    projectTotals(db, userId, now),
+  ]);
+  return sortByName(rows, (row) => row.name).map((row) => toProject(row, totals.get(row.id) ?? 0));
 }
 
-export async function getProject(db: Database, userId: string, id: string): Promise<Project> {
-  return toProject(await requireProject(db, userId, id));
+export async function getProject(
+  db: Database,
+  userId: string,
+  id: string,
+  now: Date,
+): Promise<Project> {
+  return withTotal(db, await requireProject(db, userId, id), now);
 }
 
 export async function isActiveProject(db: Database, userId: string, id: string): Promise<boolean> {
@@ -52,7 +62,7 @@ export async function createProject(
     .values({ id: crypto.randomUUID(), userId, ...project, createdAt: now, updatedAt: now })
     .returning();
   if (row === undefined) throw new Error(`Project "${project.name}" was not created`);
-  return toProject(row);
+  return toProject(row, 0);
 }
 
 export async function updateProject(
@@ -66,13 +76,14 @@ export async function updateProject(
   const name = changes.name ?? current.name;
   const archivedAt = archivedAtAfter(current.archivedAt, changes.archived, now);
   if (archivedAt === null) await ensureNameFree(db, userId, name, id);
+  if (changes.archived === true) await stopProjectEntries(db, userId, id, now);
   const [row] = await db
     .update(projects)
     .set({ name, color: changes.color, archivedAt, updatedAt: now })
     .where(eq(projects.id, id))
     .returning();
   if (row === undefined) throw new Error(`Project ${id} was not updated`);
-  return toProject(row);
+  return withTotal(db, row, now);
 }
 
 async function findProject(
@@ -111,7 +122,12 @@ function nameKey(name: string): string {
   return name.toLowerCase();
 }
 
-function toProject(row: ProjectRow): Project {
+async function withTotal(db: Database, row: ProjectRow, now: Date): Promise<Project> {
+  const totals = await projectTotals(db, row.userId, now, row.id);
+  return toProject(row, totals.get(row.id) ?? 0);
+}
+
+function toProject(row: ProjectRow, totalSec: number): Project {
   return {
     id: row.id,
     name: row.name,
@@ -119,5 +135,6 @@ function toProject(row: ProjectRow): Project {
     archived: row.archivedAt !== null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    totalSec,
   };
 }

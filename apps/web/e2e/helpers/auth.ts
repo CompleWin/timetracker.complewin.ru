@@ -6,19 +6,26 @@ export type DevUser = {
   name: string;
 };
 
-type DevLoginBody = DevUser & { locale: "ru" | "en" };
+export type UserLocale = "ru" | "en";
+
+export type LoginOptions = Partial<DevUser> & { locale?: UserLocale };
+
+type DevLoginBody = DevUser & { locale: UserLocale };
 
 export function uniqueTelegramId(): number {
   return randomInt(1_000_000, 2 ** 47);
 }
 
-export async function loginAs(page: Page, user: Partial<DevUser> = {}): Promise<DevUser> {
+export async function loginAs(page: Page, options: LoginOptions = {}): Promise<DevUser> {
   const devUser = {
-    telegramId: user.telegramId ?? uniqueTelegramId(),
-    name: user.name ?? "Тестовый пользователь",
+    telegramId: options.telegramId ?? uniqueTelegramId(),
+    name: options.name ?? "Тестовый пользователь",
   };
   await page.goto("/login");
-  const status = await page.evaluate(postDevLogin, { ...devUser, locale: "ru" as const });
+  const status = await page.evaluate(postDevLogin, {
+    ...devUser,
+    locale: options.locale ?? "ru",
+  });
   expect(status, "POST /auth/dev-login").toBe(200);
   return devUser;
 }
