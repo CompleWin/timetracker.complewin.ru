@@ -1,0 +1,40 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "stt",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "ENV": "dev",
+    "APP_URL": "http://localhost:5173",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "stt-dev",
+      "database_id": "stt-dev",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true,
+  },
+  "triggers": {
+    "crons": ["* * * * *"],
+  },
+  "env": {
+    "staging": {
+      "vars": {
+        "ENV": "staging",
+      },
+    },
+    "production": {
+      "vars": {
+        "ENV": "production",
+      },
+    },
+  },
+}

@@ -1,0 +1,15 @@
+export const testEnv = {
+  ENV: "test",
+  APP_URL: "https://stt.test",
+  TG_CLIENT_ID: "test-telegram-client-id",
+  TG_CLIENT_SECRET: "test-telegram-client-secret",
+  TG_BOT_TOKEN: "1234567890:test-bot-token",
+  TG_BOT_USERNAME: "stt_test_bot",
+  TG_WEBHOOK_SECRET: "test-webhook-secret",
+  NOTION_CLIENT_ID: "test-notion-client-id",
+  NOTION_CLIENT_SECRET: "test-notion-client-secret",
+  TOKEN_ENC_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  TG_OAUTH_BASE: "https://oauth.telegram.org",
+  TG_API_BASE: "https://api.telegram.org",
+  NOTION_API_BASE: "https://api.notion.com",
+} as const satisfies Record<string, string>;
