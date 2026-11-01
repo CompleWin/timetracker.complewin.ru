@@ -1,0 +1,27 @@
+{
+  "name": "@stt/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run db:migrate:local && wrangler dev",
+    "build": "wrangler deploy --dry-run --env= --outdir dist",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run",
+    "e2e:serve": "wrangler d1 migrations apply DB --local --persist-to .wrangler/e2e && wrangler dev --persist-to .wrangler/e2e",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local"
+  },
+  "dependencies": {
+    "@stt/shared": "*",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.14",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.23.0",
+    "@cloudflare/workers-types": "^5.20261031.1",
+    "drizzle-kit": "^0.31.11",
+    "wrangler": "^4.156.0"
+  }
+}
