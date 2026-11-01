@@ -1,0 +1,48 @@
+import type { Locale, UpdateMeBody, User } from "@stt/shared";
+import { defineStore } from "pinia";
+import { ref } from "vue";
+import * as api from "../api.ts";
+import { applyLocale } from "../i18n.ts";
+
+export const useSessionStore = defineStore("session", () => {
+  const user = ref<User | null>(null);
+  let loading: Promise<void> | undefined;
+
+  function ensureLoaded(): Promise<void> {
+    loading ??= api.fetchCurrentUser().then(signedIn, () => signedIn(null));
+    return loading;
+  }
+
+  async function signInAsTestUser(): Promise<void> {
+    signedIn(await api.devLogin());
+  }
+
+  async function signOut(): Promise<void> {
+    await api.logout();
+    user.value = null;
+  }
+
+  async function changeLocale(locale: Locale): Promise<void> {
+    applyLocale(locale);
+    await saveProfile({ locale });
+  }
+
+  function signedIn(signedInUser: User | null): void {
+    user.value = signedInUser;
+    if (signedInUser === null) return;
+    applyLocale(signedInUser.locale);
+    syncTimezone(signedInUser).catch(() => undefined);
+  }
+
+  async function syncTimezone({ timezone }: User): Promise<void> {
+    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browserTimezone !== timezone) await saveProfile({ timezone: browserTimezone });
+  }
+
+  async function saveProfile(changes: UpdateMeBody): Promise<void> {
+    await api.updateMe(changes);
+    if (user.value !== null) user.value = { ...user.value, ...changes };
+  }
+
+  return { user, ensureLoaded, signInAsTestUser, signOut, changeLocale };
+});

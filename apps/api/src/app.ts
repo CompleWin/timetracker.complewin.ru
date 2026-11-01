@@ -1,20 +1,34 @@
 import { Hono } from "hono";
+import { requireSession } from "./auth/require-session.ts";
 import type { AppEnv } from "./env.ts";
 import { serverClock, testClock } from "./http/clock.ts";
 import { handleError, notFound } from "./http/errors.ts";
 import { sameOriginWrites } from "./http/origin.ts";
 import { serveAssets } from "./routes/assets.ts";
+import { auth } from "./routes/auth.ts";
 import { health } from "./routes/health.ts";
+import { me } from "./routes/me.ts";
 import { testHooks } from "./routes/test-hooks.ts";
 
-const WORKER_PREFIXES = ["/api", "/auth", "/notion", "/tg", "/__test"];
+const WORKER_PREFIXES = ["/auth", "/notion", "/tg", "/__test"];
+
+function apiRoutes() {
+  return new Hono<AppEnv>()
+    .route("/", health)
+    .use(requireSession)
+    .route("/me", me)
+    .all("*", () => {
+      throw notFound();
+    });
+}
 
 export function createApp() {
   const app = new Hono<AppEnv>();
 
   app.use(serverClock, testClock, sameOriginWrites);
 
-  app.route("/api", health);
+  app.route("/api", apiRoutes());
+  app.route("/auth", auth);
   app.route("/__test", testHooks);
 
   for (const prefix of WORKER_PREFIXES) {
