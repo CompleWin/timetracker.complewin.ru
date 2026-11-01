@@ -2,7 +2,8 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-export type ErrorCode = "validation_error" | "forbidden" | "not_found" | "internal_error";
+export type ErrorCode =
+  "validation_error" | "unauthorized" | "forbidden" | "not_found" | "internal_error";
 
 export type FieldErrors = Record<string, string>;
 
@@ -23,6 +24,8 @@ export class ApiError extends Error {
 
 export const validationError = (fields: FieldErrors) =>
   new ApiError(400, "validation_error", "Request validation failed", { fields });
+
+export const unauthorized = () => new ApiError(401, "unauthorized", "Authentication required");
 
 export const forbidden = () =>
   new ApiError(403, "forbidden", "Cross-origin request is not allowed");

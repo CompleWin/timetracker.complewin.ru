@@ -1,3 +1,5 @@
+import type { User } from "@stt/shared";
+
 export type Environment = "dev" | "test" | "staging" | "production";
 
 export type Bindings = {
@@ -5,11 +7,21 @@ export type Bindings = {
   APP_URL: string;
   DB: D1Database;
   ASSETS: Fetcher;
+  TG_CLIENT_ID: string;
+  TG_CLIENT_SECRET: string;
+  TG_OAUTH_BASE?: string;
 };
 
 export type AppEnv = {
   Bindings: Bindings;
   Variables: {
     now: Date;
+  };
+};
+
+export type AuthedEnv = {
+  Bindings: Bindings;
+  Variables: AppEnv["Variables"] & {
+    user: User;
   };
 };

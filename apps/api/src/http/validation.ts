@@ -10,6 +10,12 @@ export function jsonBody<Schema extends z.ZodType>(schema: Schema) {
   });
 }
 
+const WHOLE_BODY_FIELD = "body";
+
 function fieldErrors(error: z.ZodError): FieldErrors {
-  return Object.fromEntries(error.issues.map((issue) => [issue.path.join("."), issue.message]));
+  return Object.fromEntries(error.issues.map((issue) => [fieldName(issue), issue.message]));
+}
+
+function fieldName(issue: z.core.$ZodIssue): string {
+  return issue.path.join(".") || WHOLE_BODY_FIELD;
 }
