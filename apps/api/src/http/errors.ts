@@ -12,6 +12,7 @@ export type ErrorCode =
   | "not_running"
   | "task_archived"
   | "too_many_running"
+  | "overlap"
   | "internal_error";
 
 export type FieldErrors = Record<string, string>;
@@ -55,6 +56,9 @@ export const taskArchived = () =>
 
 export const tooManyRunning = () =>
   new ApiError(409, "too_many_running", "Too many timers are running");
+
+export const overlap = (sessionId: string) =>
+  new ApiError(409, "overlap", "The session overlaps another session of this task", { sessionId });
 
 const internalError = () => new ApiError(500, "internal_error", "Internal server error");
 

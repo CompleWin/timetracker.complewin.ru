@@ -4,6 +4,7 @@ import { useId } from "vue";
 import { useI18n } from "vue-i18n";
 import TimerButton from "./TimerButton.vue";
 import TimerClock from "./TimerClock.vue";
+import TimerNote from "./TimerNote.vue";
 import AppIsland from "./ui/AppIsland.vue";
 
 defineProps<{ sessions: ActiveSession[]; now: number }>();
@@ -20,13 +21,16 @@ const headingId = useId();
       <li
         v-for="session in sessions"
         :key="session.id"
-        class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line py-3.5 last:border-0"
+        class="flex flex-col gap-3 border-b border-line py-3.5 last:border-0"
       >
-        <span class="min-w-0 flex-1 basis-full text-body font-semibold break-words md:basis-0">
-          {{ session.task.title }}
-        </span>
-        <TimerClock :started-at="session.startedAt" :now class="text-title max-md:flex-1" />
-        <TimerButton :title="session.task.title" running @stop="emit('stop', session.taskId)" />
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span class="min-w-0 flex-1 basis-full text-body font-semibold break-words md:basis-0">
+            {{ session.task.title }}
+          </span>
+          <TimerClock :started-at="session.startedAt" :now class="text-title max-md:flex-1" />
+          <TimerButton :title="session.task.title" running @stop="emit('stop', session.taskId)" />
+        </div>
+        <TimerNote :session />
       </li>
     </ul>
   </AppIsland>

@@ -14,6 +14,10 @@ export function region(page: Page, name: string): Locator {
   return page.getByRole("region", { name, exact: true });
 }
 
+export function runningNow(page: Page): Locator {
+  return region(page, "Сейчас идёт");
+}
+
 export function dialog(page: Page, name: string): Locator {
   return page.getByRole("dialog", { name, exact: true });
 }

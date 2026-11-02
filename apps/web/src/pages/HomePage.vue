@@ -14,12 +14,10 @@ import AppIsland from "../components/ui/AppIsland.vue";
 import AppSkeleton from "../components/ui/AppSkeleton.vue";
 import { useServerNow } from "../server-clock.ts";
 import { groupTasks } from "../task-groups.ts";
-import { sessionsByTask } from "../timers.ts";
+import { changeTimer, sessionsByTask } from "../timers.ts";
 
 type OpenDialog =
   { kind: "project"; project?: Project } | { kind: "task"; task?: Task; projectId?: string };
-
-const CONFLICT_STATUS = 409;
 
 const { t } = useI18n();
 const projects = ref<Project[]>([]);
@@ -44,12 +42,8 @@ async function reload(): Promise<void> {
   loaded.value = true;
 }
 
-async function changeTimer(change: () => Promise<unknown>): Promise<void> {
-  try {
-    await change();
-  } catch (error) {
-    if (!(error instanceof api.HttpError && error.status === CONFLICT_STATUS)) throw error;
-  }
+async function changeTimerAndReload(change: () => Promise<unknown>): Promise<void> {
+  await changeTimer(change);
   await reload();
 }
 
@@ -88,7 +82,7 @@ async function onSaved(): Promise<void> {
       v-if="activeSessions.length > 0"
       :sessions="activeSessions"
       :now
-      @stop="(taskId) => changeTimer(() => api.stopTimer(taskId))"
+      @stop="(taskId) => changeTimerAndReload(() => api.stopTimer(taskId))"
     />
     <TaskGroup
       v-for="group in groups"
@@ -102,8 +96,8 @@ async function onSaved(): Promise<void> {
       @archive-project="archiveProject"
       @edit-task="(task) => (dialog = { kind: 'task', task })"
       @archive-task="archiveTask"
-      @start-timer="(task) => changeTimer(() => api.startTimer(task.id))"
-      @stop-timer="(task) => changeTimer(() => api.stopTimer(task.id))"
+      @start-timer="(task) => changeTimerAndReload(() => api.startTimer(task.id))"
+      @stop-timer="(task) => changeTimerAndReload(() => api.stopTimer(task.id))"
     />
     <AppEmptyState v-if="tasks.length === 0" :title="t('home.empty')" />
   </template>

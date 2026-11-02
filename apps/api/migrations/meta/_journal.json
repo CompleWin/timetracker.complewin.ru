@@ -22,6 +22,13 @@
       "when": 1793559959035,
       "tag": "0002_timers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793570854895,
+      "tag": "0003_sessions_notes",
+      "breakpoints": true
     }
   ]
 }

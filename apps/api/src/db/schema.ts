@@ -85,6 +85,8 @@ export const timeEntries = sqliteTable(
       .references(() => tasks.id),
     startedAt: timestamp("started_at").notNull(),
     endedAt: timestamp("ended_at"),
+    note: text("note").notNull().default(""),
+    deletedAt: timestamp("deleted_at"),
   },
   (table) => [
     index("time_entries_user_id_idx").on(table.userId),

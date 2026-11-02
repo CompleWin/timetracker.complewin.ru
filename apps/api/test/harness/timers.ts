@@ -10,6 +10,7 @@ export type TestTimerSession = {
   startedAt: string;
   endedAt: string | null;
   durationSec: number;
+  note: string;
 };
 
 export type UserWithTask = {

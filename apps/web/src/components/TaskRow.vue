@@ -3,6 +3,7 @@ import { Archive, Pencil } from "@lucide/vue";
 import { formatDuration, type ActiveSession, type Task } from "@stt/shared";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { RouterLink } from "vue-router";
 import { currentLocale } from "../i18n.ts";
 import { liveTotalSec } from "../timers.ts";
 import TimerButton from "./TimerButton.vue";
@@ -29,7 +30,11 @@ const total = computed(() => {
   <li
     class="flex flex-col gap-2 border-b border-line py-3.5 last:border-0 md:flex-row md:items-center md:gap-3"
   >
-    <span class="min-w-0 flex-1 text-body break-words text-fg">{{ task.title }}</span>
+    <span class="min-w-0 flex-1 text-body break-words">
+      <RouterLink :to="`/tasks/${task.id}`" class="text-fg no-underline hover:text-primary">
+        {{ task.title }}
+      </RouterLink>
+    </span>
     <div class="flex items-center gap-3">
       <span class="font-code text-meta text-fg-subtle max-md:flex-1">{{ total }}</span>
       <TimerClock v-if="running" :started-at="running.startedAt" :now />

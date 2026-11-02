@@ -17,8 +17,22 @@ export type Task = {
   archived: boolean;
 };
 
+export type Session = {
+  id: string;
+  taskId: string;
+  startedAt: string;
+  endedAt: string | null;
+  note: string;
+};
+
+export type ManualSessionInput = {
+  startedAt: string;
+  endedAt: string;
+  note?: string;
+};
+
 type ApiRequest = {
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PATCH";
   path: string;
   body?: unknown;
 };
@@ -46,9 +60,49 @@ export async function createTask(
   return task;
 }
 
-export async function startTimer(page: Page, taskId: string): Promise<void> {
+export async function archiveTask(page: Page, taskId: string): Promise<Task> {
+  const request: ApiRequest = {
+    method: "PATCH",
+    path: `/api/tasks/${taskId}`,
+    body: { archived: true },
+  };
+  const { task } = await requestFromPage<{ task: Task }>(page, request, 200);
+  return task;
+}
+
+export async function archiveProject(page: Page, projectId: string): Promise<Project> {
+  const request: ApiRequest = {
+    method: "PATCH",
+    path: `/api/projects/${projectId}`,
+    body: { archived: true },
+  };
+  const { project } = await requestFromPage<{ project: Project }>(page, request, 200);
+  return project;
+}
+
+export async function startTimer(page: Page, taskId: string): Promise<Session> {
   const request: ApiRequest = { method: "POST", path: `/api/tasks/${taskId}/start` };
-  await requestFromPage(page, request, 201);
+  const { session } = await requestFromPage<{ session: Session }>(page, request, 201);
+  return session;
+}
+
+export async function addSession(
+  page: Page,
+  taskId: string,
+  input: ManualSessionInput,
+): Promise<Session> {
+  const request: ApiRequest = {
+    method: "POST",
+    path: `/api/tasks/${taskId}/sessions`,
+    body: input,
+  };
+  const { session } = await requestFromPage<{ session: Session }>(page, request, 201);
+  return session;
+}
+
+export async function setTimeZone(page: Page, timezone: string): Promise<void> {
+  const request: ApiRequest = { method: "PATCH", path: "/api/me", body: { timezone } };
+  await requestFromPage(page, request, 200);
 }
 
 export async function listProjects(page: Page): Promise<Project[]> {
