@@ -1,4 +1,5 @@
 export type { ArchivedFilter } from "./archived-filter.ts";
+export { estimateClockOffset, type ClockSample } from "./clock-offset.ts";
 export {
   formatDate,
   formatDateTime,

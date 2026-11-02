@@ -86,6 +86,12 @@ export async function startTimer(page: Page, taskId: string): Promise<Session> {
   return session;
 }
 
+export async function getSession(page: Page, sessionId: string): Promise<Session> {
+  const request: ApiRequest = { method: "GET", path: `/api/sessions/${sessionId}` };
+  const { session } = await requestFromPage<{ session: Session }>(page, request, 200);
+  return session;
+}
+
 export async function addSession(
   page: Page,
   taskId: string,
