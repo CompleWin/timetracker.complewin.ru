@@ -1,21 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { createTask, startTimer } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
-import { clockIn, readClockSec } from "./helpers/clock.ts";
-import { button, region, textOf } from "./helpers/ui.ts";
+import { clockIn, expectClockTicks, readClockSec } from "./helpers/clock.ts";
+import { button, region, runningNow, textOf } from "./helpers/ui.ts";
 
-const CLOCK_TICK_TIMEOUT_MS = 2_000;
 const ELAPSED_BEFORE_RELOAD_SEC = 2;
-
-function runningNow(page: Page): Locator {
-  return region(page, "Сейчас идёт");
-}
-
-async function expectClockTicks(clock: Locator): Promise<void> {
-  await expect(clock).toBeVisible();
-  const shown = await clock.innerText();
-  await expect(clock).not.toHaveText(shown, { timeout: CLOCK_TICK_TIMEOUT_MS });
-}
 
 test.describe("таймеры на русском", () => {
   test.beforeEach(async ({ page }) => {

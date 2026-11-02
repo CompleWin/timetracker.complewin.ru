@@ -7,14 +7,16 @@ import {
 import { and, asc, count, desc, eq, isNull, lt } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { tasks, timeEntries } from "../db/schema.ts";
-import { alreadyRunning, notFound, notRunning, tooManyRunning } from "../http/errors.ts";
+import { alreadyRunning, notRunning, tooManyRunning } from "../http/errors.ts";
 import { requireActiveTask, requireTask } from "../tasks/tasks.ts";
 import {
   entryIdWhere,
+  liveEntries,
+  ownEntry,
+  requireEntry,
   stopRunningEntries,
   stopTaskEntries,
   toSession,
-  type TimeEntryRow,
 } from "./time-entries.ts";
 
 export async function startTimer(
@@ -99,6 +101,7 @@ export async function listTaskSessions(
     .where(
       and(
         eq(timeEntries.taskId, taskId),
+        liveEntries,
         before === undefined ? undefined : lt(timeEntries.startedAt, new Date(before)),
       ),
     )
@@ -114,14 +117,4 @@ async function ensureCanStart(db: Database, userId: string, taskId: string): Pro
     .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.endedAt)));
   if (running?.taskSessionId) throw alreadyRunning(running.taskSessionId);
   if ((running?.count ?? 0) >= MAX_RUNNING_TIMERS) throw tooManyRunning();
-}
-
-function ownEntry(userId: string, id: string) {
-  return and(eq(timeEntries.id, id), eq(timeEntries.userId, userId));
-}
-
-async function requireEntry(db: Database, userId: string, id: string): Promise<TimeEntryRow> {
-  const row = await db.query.timeEntries.findFirst({ where: ownEntry(userId, id) });
-  if (row === undefined) throw notFound();
-  return row;
 }

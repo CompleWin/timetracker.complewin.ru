@@ -1,19 +1,27 @@
 <script setup lang="ts">
 import { Play, Square } from "@lucide/vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
 
-defineProps<{ title: string; running: boolean }>();
+const props = withDefaults(
+  defineProps<{ title: string; running: boolean; prominent?: boolean }>(),
+  {
+    prominent: false,
+  },
+);
 const emit = defineEmits<{ start: []; stop: [] }>();
 
 const { t } = useI18n();
+
+const size = computed(() => (props.prominent ? "md" : "sm"));
 </script>
 
 <template>
   <AppButton
     v-if="running"
     variant="outline-black"
-    size="sm"
+    :size
     :aria-label="t('timers.stopTask', { title })"
     @click="emit('stop')"
   >
@@ -22,8 +30,8 @@ const { t } = useI18n();
   </AppButton>
   <AppButton
     v-else
-    variant="outline-primary"
-    size="sm"
+    :variant="prominent ? 'solid-primary' : 'outline-primary'"
+    :size
     :aria-label="t('timers.startTask', { title })"
     @click="emit('start')"
   >

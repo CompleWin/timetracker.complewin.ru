@@ -1,9 +1,16 @@
-import { createTaskBody, taskListQuery, taskSessionsQuery, updateTaskBody } from "@stt/shared";
+import {
+  createSessionBody,
+  createTaskBody,
+  taskListQuery,
+  taskSessionsQuery,
+  updateTaskBody,
+} from "@stt/shared";
 import { Hono } from "hono";
 import { database } from "../db/client.ts";
 import type { AuthedEnv } from "../env.ts";
 import { jsonBody, queryParams } from "../http/validation.ts";
 import { createTask, getTask, listTasks, updateTask } from "../tasks/tasks.ts";
+import { addSession } from "../timers/session-edits.ts";
 import { listTaskSessions, startTimer, stopTaskTimer } from "../timers/timers.ts";
 
 export const tasks = new Hono<AuthedEnv>()
@@ -51,4 +58,14 @@ export const tasks = new Hono<AuthedEnv>()
       c.var.now,
     );
     return c.json({ sessions });
+  })
+  .post("/:id/sessions", jsonBody(createSessionBody), async (c) => {
+    const session = await addSession(
+      database(c.env),
+      c.var.user.id,
+      c.req.param("id"),
+      c.req.valid("json"),
+      c.var.now,
+    );
+    return c.json({ session }, 201);
   });

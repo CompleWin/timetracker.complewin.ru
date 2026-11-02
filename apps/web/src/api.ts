@@ -3,12 +3,15 @@ import {
   projectResponse,
   projectsResponse,
   sessionResponse,
+  sessionsResponse,
+  TASK_SESSIONS_MAX_LIMIT,
   taskResponse,
   tasksResponse,
   userResponse,
   type ActiveSession,
   type ArchivedFilter,
   type CreateProjectBody,
+  type CreateSessionBody,
   type CreateTaskBody,
   type DevLoginBody,
   type Project,
@@ -16,6 +19,7 @@ import {
   type Task,
   type UpdateMeBody,
   type UpdateProjectBody,
+  type UpdateSessionBody,
   type UpdateTaskBody,
   type User,
 } from "@stt/shared";
@@ -26,12 +30,23 @@ const SERVER_NOW_HEADER = "X-Server-Now";
 
 const healthResponse = z.object({ env: z.string() });
 
-const errorResponse = z.object({ error: z.object({ code: z.string() }) });
+const errorResponse = z.object({
+  error: z.object({
+    code: z.string(),
+    details: z.object({ fields: z.record(z.string(), z.string()).optional() }).optional(),
+  }),
+});
+
+type ErrorBody = {
+  code: string | undefined;
+  fields: string[];
+};
 
 export class HttpError extends Error {
   constructor(
     readonly status: number,
     readonly code: string | undefined,
+    readonly fields: string[] = [],
   ) {
     super(`Request failed with status ${status}`);
   }
@@ -88,8 +103,35 @@ export async function createTask(body: CreateTaskBody): Promise<Task> {
   return taskResponse.parse(await request("POST", "/api/tasks", body)).task;
 }
 
+export async function fetchProject(id: string): Promise<Project> {
+  return projectResponse.parse(await request("GET", `/api/projects/${id}`)).project;
+}
+
+export async function fetchTask(id: string): Promise<Task> {
+  return taskResponse.parse(await request("GET", `/api/tasks/${id}`)).task;
+}
+
 export async function updateTask(id: string, body: UpdateTaskBody): Promise<Task> {
   return taskResponse.parse(await request("PATCH", `/api/tasks/${id}`, body)).task;
+}
+
+export async function fetchTaskSessions(taskId: string): Promise<Session[]> {
+  const limit = String(TASK_SESSIONS_MAX_LIMIT);
+  const path = `/api/tasks/${taskId}/sessions?${new URLSearchParams({ limit })}`;
+  return sessionsResponse.parse(await request("GET", path)).sessions;
+}
+
+export async function createSession(taskId: string, body: CreateSessionBody): Promise<Session> {
+  const path = `/api/tasks/${taskId}/sessions`;
+  return sessionResponse.parse(await request("POST", path, body)).session;
+}
+
+export async function updateSession(id: string, body: UpdateSessionBody): Promise<Session> {
+  return sessionResponse.parse(await request("PATCH", `/api/sessions/${id}`, body)).session;
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  await request("DELETE", `/api/sessions/${id}`);
 }
 
 export async function fetchActiveSessions(): Promise<ActiveSession[]> {
@@ -111,11 +153,16 @@ async function request(method: string, path: string, body?: unknown): Promise<un
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   rememberServerNow(response.headers.get(SERVER_NOW_HEADER), Date.now());
-  if (!response.ok) throw new HttpError(response.status, await errorCode(response));
+  if (!response.ok) {
+    const { code, fields } = await errorBody(response);
+    throw new HttpError(response.status, code, fields);
+  }
   return response.status === 204 ? null : response.json();
 }
 
-async function errorCode(response: Response): Promise<string | undefined> {
+async function errorBody(response: Response): Promise<ErrorBody> {
   const parsed = errorResponse.safeParse(await response.json().catch(() => undefined));
-  return parsed.success ? parsed.data.error.code : undefined;
+  if (!parsed.success) return { code: undefined, fields: [] };
+  const { code, details } = parsed.data.error;
+  return { code, fields: Object.keys(details?.fields ?? {}) };
 }

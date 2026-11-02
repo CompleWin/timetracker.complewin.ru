@@ -2,6 +2,7 @@ import { elapsedSec, type Session } from "@stt/shared";
 import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { tasks, timeEntries } from "../db/schema.ts";
+import { notFound } from "../http/errors.ts";
 
 export type TimeEntryRow = typeof timeEntries.$inferSelect;
 
@@ -12,6 +13,8 @@ export type TaskTimer = {
 
 export const IDLE_TIMER: TaskTimer = { totalSec: 0, runningSessionId: null };
 
+export const liveEntries = isNull(timeEntries.deletedAt);
+
 export function toSession(row: TimeEntryRow, now: Date): Session {
   return {
     id: row.id,
@@ -19,13 +22,32 @@ export function toSession(row: TimeEntryRow, now: Date): Session {
     startedAt: row.startedAt.toISOString(),
     endedAt: row.endedAt?.toISOString() ?? null,
     durationSec: elapsedSec(row.startedAt.toISOString(), (row.endedAt ?? now).getTime()),
+    note: row.note,
   };
+}
+
+export function ownEntry(userId: string, id: string): SQL | undefined {
+  return and(eq(timeEntries.id, id), eq(timeEntries.userId, userId), liveEntries);
+}
+
+export async function requireEntry(
+  db: Database,
+  userId: string,
+  id: string,
+): Promise<TimeEntryRow> {
+  const row = await db.query.timeEntries.findFirst({ where: ownEntry(userId, id) });
+  if (row === undefined) throw notFound();
+  return row;
+}
+
+export function stoppedAt(now: Date): SQL {
+  return sql`max(${timeEntries.startedAt}, ${now.getTime()})`;
 }
 
 export function stopRunningEntries(db: Database, condition: SQL | undefined, now: Date) {
   return db
     .update(timeEntries)
-    .set({ endedAt: sql`max(${timeEntries.startedAt}, ${now.getTime()})` })
+    .set({ endedAt: stoppedAt(now) })
     .where(and(condition, isNull(timeEntries.endedAt)))
     .returning();
 }
@@ -63,6 +85,7 @@ export async function taskTimers(
     .where(
       and(
         eq(timeEntries.userId, userId),
+        liveEntries,
         taskId === undefined ? undefined : eq(timeEntries.taskId, taskId),
       ),
     )
@@ -83,6 +106,7 @@ export async function projectTotals(
     .where(
       and(
         eq(timeEntries.userId, userId),
+        liveEntries,
         projectId === undefined ? undefined : eq(tasks.projectId, projectId),
       ),
     )

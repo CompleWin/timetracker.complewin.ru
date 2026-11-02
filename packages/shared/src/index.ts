@@ -1,4 +1,13 @@
 export type { ArchivedFilter } from "./archived-filter.ts";
+export {
+  formatDate,
+  formatDateTime,
+  formatSessionRange,
+  formatShortDate,
+  formatTime,
+  fromDateTimeLocal,
+  toDateTimeLocal,
+} from "./dates.ts";
 export { elapsedSec, formatClock, formatDuration } from "./duration.ts";
 export { isLocale, localeFromLanguage, locales, type Locale } from "./i18n/locale.ts";
 export { messages, type MessageKey, type Messages } from "./i18n/messages.ts";
@@ -21,14 +30,20 @@ export { safeReturnTo } from "./return-to.ts";
 export {
   activeSessionSchema,
   activeSessionsResponse,
+  createSessionBody,
   MAX_RUNNING_TIMERS,
+  SESSION_NOTE_MAX_LENGTH,
   sessionResponse,
   sessionSchema,
   sessionsResponse,
+  TASK_SESSIONS_MAX_LIMIT,
   taskSessionsQuery,
+  updateSessionBody,
   type ActiveSession,
+  type CreateSessionBody,
   type Session,
   type TaskSessionsQuery,
+  type UpdateSessionBody,
 } from "./session.ts";
 export {
   createTaskBody,
