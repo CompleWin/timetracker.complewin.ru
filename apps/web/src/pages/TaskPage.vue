@@ -5,6 +5,7 @@ import { computed, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import * as api from "../api.ts";
+import { useAutoRefresh } from "../auto-refresh.ts";
 import SessionDialog from "../components/SessionDialog.vue";
 import SessionRow from "../components/SessionRow.vue";
 import TimerButton from "../components/TimerButton.vue";
@@ -47,6 +48,7 @@ const total = computed(() => {
 });
 
 watch(() => props.id, load, { immediate: true });
+useAutoRefresh(load);
 
 async function load(): Promise<void> {
   try {

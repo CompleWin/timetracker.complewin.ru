@@ -3,6 +3,7 @@ import type { Project, Task } from "@stt/shared";
 import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
+import { useAutoRefresh } from "../auto-refresh.ts";
 import ArchiveList from "../components/ArchiveList.vue";
 import AppFormError from "../components/ui/AppFormError.vue";
 import ProjectMarker from "../components/ui/ProjectMarker.vue";
@@ -14,6 +15,7 @@ const loaded = ref(false);
 const nameTaken = ref(false);
 
 onMounted(reload);
+useAutoRefresh(reload);
 
 async function reload(): Promise<void> {
   const [archivedProjects, inactiveTasks] = await Promise.all([

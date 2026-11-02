@@ -3,6 +3,7 @@ import type { ActiveSession, Project, Task } from "@stt/shared";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
+import { useAutoRefresh } from "../auto-refresh.ts";
 import ProjectDialog from "../components/ProjectDialog.vue";
 import RunningTimers from "../components/RunningTimers.vue";
 import TaskDialog from "../components/TaskDialog.vue";
@@ -32,6 +33,7 @@ const groups = computed(() => groupTasks(projects.value, tasks.value, search.val
 const runningByTask = computed(() => sessionsByTask(activeSessions.value));
 
 onMounted(reload);
+useAutoRefresh(reload);
 
 async function reload(): Promise<void> {
   [projects.value, tasks.value, activeSessions.value] = await Promise.all([

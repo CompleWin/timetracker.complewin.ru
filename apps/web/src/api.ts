@@ -24,6 +24,7 @@ import {
   type User,
 } from "@stt/shared";
 import { z } from "zod";
+import { markOffline, markOnline } from "./connection.ts";
 import { rememberServerNow } from "./server-clock.ts";
 
 const SERVER_NOW_HEADER = "X-Server-Now";
@@ -49,6 +50,12 @@ export class HttpError extends Error {
     readonly fields: string[] = [],
   ) {
     super(`Request failed with status ${status}`);
+  }
+}
+
+export class NetworkError extends Error {
+  constructor(cause: unknown) {
+    super("Network request failed", { cause });
   }
 }
 
@@ -147,17 +154,29 @@ export async function stopTimer(taskId: string): Promise<Session> {
 }
 
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
-  const response = await fetch(path, {
-    method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  rememberServerNow(response.headers.get(SERVER_NOW_HEADER), Date.now());
+  const sentAtMs = Date.now();
+  const response = await send(method, path, body);
+  rememberServerNow(response.headers.get(SERVER_NOW_HEADER), sentAtMs, Date.now());
   if (!response.ok) {
     const { code, fields } = await errorBody(response);
     throw new HttpError(response.status, code, fields);
   }
   return response.status === 204 ? null : response.json();
+}
+
+async function send(method: string, path: string, body: unknown): Promise<Response> {
+  try {
+    const response = await fetch(path, {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    markOnline();
+    return response;
+  } catch (error) {
+    markOffline();
+    throw new NetworkError(error);
+  }
 }
 
 async function errorBody(response: Response): Promise<ErrorBody> {
