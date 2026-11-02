@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from "vue-router";
+import { onReconnect } from "./connection.ts";
 import ArchivePage from "./pages/ArchivePage.vue";
 import HomePage from "./pages/HomePage.vue";
 import LoginPage from "./pages/LoginPage.vue";
@@ -21,10 +22,18 @@ export const router = createRouter({
 router.beforeEach(async (to) => {
   const session = useSessionStore();
   await session.ensureLoaded();
-  if (to.path === LOGIN_PATH || session.user !== null) return true;
+  if (to.path === LOGIN_PATH || session.user !== null || session.unverified) return true;
   return loginRedirect(to);
 });
 
+onReconnect(recheckSession);
+
 function loginRedirect(to: RouteLocationNormalized) {
   return { path: LOGIN_PATH, query: { returnTo: to.fullPath } };
+}
+
+function recheckSession(): void {
+  if (!useSessionStore().unverified) return;
+  const { path, query, hash } = router.currentRoute.value;
+  void router.replace({ path, query, hash, force: true });
 }

@@ -6,11 +6,23 @@ import { applyLocale } from "../i18n.ts";
 
 export const useSessionStore = defineStore("session", () => {
   const user = ref<User | null>(null);
+  const unverified = ref(false);
   let loading: Promise<void> | undefined;
 
   function ensureLoaded(): Promise<void> {
-    loading ??= api.fetchCurrentUser().then(signedIn, () => signedIn(null));
+    loading ??= loadCurrentUser();
     return loading;
+  }
+
+  async function loadCurrentUser(): Promise<void> {
+    try {
+      signedIn(await api.fetchCurrentUser());
+      unverified.value = false;
+    } catch (error) {
+      if (!(error instanceof api.NetworkError)) return signedIn(null);
+      unverified.value = true;
+      loading = undefined;
+    }
   }
 
   async function signInAsTestUser(): Promise<void> {
@@ -44,5 +56,5 @@ export const useSessionStore = defineStore("session", () => {
     if (user.value !== null) user.value = { ...user.value, ...changes };
   }
 
-  return { user, ensureLoaded, signInAsTestUser, signOut, changeLocale };
+  return { user, unverified, ensureLoaded, signInAsTestUser, signOut, changeLocale };
 });

@@ -1,15 +1,36 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createTask, startTimer } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
-import { button, runningNow } from "./helpers/ui.ts";
+import {
+  isControlledByServiceWorker,
+  reloadOnceServiceWorkerIsActive,
+  SERVICE_WORKER_TEST_TIMEOUT_MS,
+} from "./helpers/service-worker.ts";
+import { button, runningNow, textOf } from "./helpers/ui.ts";
+import { urlMatching } from "./helpers/url.ts";
 
 type ButtonState = { enabled: boolean };
 
 const OFFLINE_TEXT = "Нет соединения. Данные обновятся, когда сеть вернётся.";
 const TITLES = ["Anki", "Беговая дорожка"];
+const RECONNECT_TIMEOUT_MS = 10_000;
 
 function offlineBanner(page: Page): Locator {
   return page.getByRole("status").filter({ hasText: OFFLINE_TEXT });
+}
+
+async function openHomeUnderServiceWorker(page: Page): Promise<void> {
+  await page.goto("/");
+  await reloadOnceServiceWorkerIsActive(page);
+  expect(await isControlledByServiceWorker(page)).toBe(true);
+}
+
+function countPageLoads(page: Page): () => number {
+  let loads = 0;
+  page.on("load", () => {
+    loads += 1;
+  });
+  return () => loads;
 }
 
 async function expectStartButtons(page: Page, state: ButtonState): Promise<void> {
@@ -58,4 +79,30 @@ test("8. без сети кнопка «Остановить таймер: …»
 
   await expect(offlineBanner(page)).toBeVisible();
   await expect(stop).toBeDisabled();
+});
+
+test("11. запуск без сети: перезагрузка главной оставляет адрес / с баннером «Нет соединения…», после setOffline(false) без перезагрузки за 10 секунд баннер исчезает, видны задача и «Выйти»", async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(SERVICE_WORKER_TEST_TIMEOUT_MS);
+  const task = await createTask(page, { title: "Anki" });
+  await openHomeUnderServiceWorker(page);
+  await expect(textOf(page, task.title)).toBeVisible();
+
+  await context.setOffline(true);
+  await page.reload();
+
+  await expect(offlineBanner(page)).toBeVisible();
+  await expect(page).toHaveURL(urlMatching("/"));
+
+  const pageLoads = countPageLoads(page);
+  await context.setOffline(false);
+
+  const withinReconnect = { timeout: RECONNECT_TIMEOUT_MS };
+  await expect(offlineBanner(page)).toBeHidden(withinReconnect);
+  await expect(textOf(page, task.title)).toBeVisible(withinReconnect);
+  await expect(button(page, "Выйти")).toBeVisible(withinReconnect);
+  await expect(page).toHaveURL(urlMatching("/"));
+  expect(pageLoads()).toBe(0);
 });
