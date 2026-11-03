@@ -3,6 +3,7 @@ import { onReconnect } from "./connection.ts";
 import ArchivePage from "./pages/ArchivePage.vue";
 import HomePage from "./pages/HomePage.vue";
 import LoginPage from "./pages/LoginPage.vue";
+import SettingsPage from "./pages/SettingsPage.vue";
 import TaskPage from "./pages/TaskPage.vue";
 import { useSessionStore } from "./stores/session.ts";
 
@@ -14,6 +15,7 @@ export const router = createRouter({
     { path: "/", component: HomePage },
     { path: "/archive", component: ArchivePage },
     { path: "/tasks/:id", component: TaskPage, props: true },
+    { path: "/settings", component: SettingsPage },
     { path: LOGIN_PATH, component: LoginPage },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],

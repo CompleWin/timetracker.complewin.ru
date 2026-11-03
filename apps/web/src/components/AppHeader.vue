@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { locales, type Locale } from "@stt/shared";
+import { locales, type Locale, type MessageKey } from "@stt/shared";
 import { computed, useId } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterLink, useRoute, useRouter } from "vue-router";
@@ -8,7 +8,12 @@ import { useSessionStore } from "../stores/session.ts";
 import AppButton from "./ui/AppButton.vue";
 import AppSectionLabel from "./ui/AppSectionLabel.vue";
 
-const ARCHIVE_PATH = "/archive";
+type HeaderSection = { path: string; label: MessageKey };
+
+const SECTIONS: HeaderSection[] = [
+  { path: "/archive", label: "header.archive" },
+  { path: "/settings", label: "header.settings" },
+];
 
 const { t } = useI18n();
 const route = useRoute();
@@ -20,8 +25,6 @@ const locale = computed({
   get: currentLocale,
   set: (value: Locale) => session.changeLocale(value),
 });
-
-const isArchive = computed(() => route.path === ARCHIVE_PATH);
 
 async function signOut(): Promise<void> {
   await session.signOut();
@@ -37,13 +40,15 @@ async function signOut(): Promise<void> {
       <RouterLink to="/" class="text-white hover:text-white">{{ t("app.name") }}</RouterLink>
     </h1>
     <template v-if="session.user">
-      <nav>
+      <nav class="flex flex-wrap gap-x-7 gap-y-2">
         <RouterLink
-          :to="ARCHIVE_PATH"
+          v-for="section in SECTIONS"
+          :key="section.path"
+          :to="section.path"
           class="text-tab text-white uppercase decoration-2 underline-offset-4 hover:text-white"
-          :class="isArchive ? 'underline' : 'opacity-70 hover:opacity-100'"
+          :class="route.path === section.path ? 'underline' : 'opacity-70 hover:opacity-100'"
         >
-          {{ t("header.archive") }}
+          {{ t(section.label) }}
         </RouterLink>
       </nav>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2 md:ml-auto">
