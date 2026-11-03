@@ -17,12 +17,14 @@ export type FakeDataSource = {
   id: string;
   databaseId: string;
   title: string[];
+  databaseTitle: string[];
   icon: NotionIcon | null;
   properties: FakeProperty[];
 };
 
 export type DataSourceInput = {
   title?: string[];
+  databaseTitle?: string[];
   icon?: NotionIcon | null;
   properties?: PropertySpec[];
 };
@@ -30,11 +32,13 @@ export type DataSourceInput = {
 export type FakeNotionWorkspace = {
   dataSource(input?: DataSourceInput): FakeDataSource;
   property(dataSource: FakeDataSource, name: string): FakeProperty;
+  hideDatabase(dataSource: FakeDataSource): void;
   splitSearch(...pages: FakeDataSource[][]): void;
   searchEndlessly(): void;
   templatePage(dataSource: FakeDataSource): string;
   pageWithoutDatabases(): string;
   searchRequests(): ExternalCall[];
+  databaseReads(): ExternalCall[];
   schemaUpdates(dataSource: FakeDataSource): ExternalCall[];
 };
 
@@ -51,12 +55,14 @@ type Block = {
 
 const NOTION_V1 = `${testEnv.NOTION_API_BASE}/v1`;
 const SEARCH_URL = `${NOTION_V1}/search`;
+const DATABASE_PATTERN = resourcePattern("databases");
 const CURSOR_PREFIX = "cursor-";
 const TITLE_PROPERTY: PropertySpec = { name: "Name", type: "title" };
 const OPTION_TYPES = new Set(["select", "multi_select"]);
 
 export function fakeNotionWorkspace(): FakeNotionWorkspace {
   const dataSources = new Map<string, FakeDataSource>();
+  const hiddenDatabaseIds = new Set<string>();
   const pages = new Map<string, Block[]>();
   let propertyCount = 0;
   let searchPageAt = (index: number): SearchPage => pageOf([[...dataSources.values()]], index);
@@ -79,8 +85,9 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
     return Response.json(dataSourceJson(found));
   });
 
-  external.on("GET", resourcePattern("databases"), (request) => {
+  external.on("GET", DATABASE_PATTERN, (request) => {
     const id = resourceId(request);
+    if (hiddenDatabaseIds.has(id)) return notFound();
     const sources = [...dataSources.values()].filter((source) => source.databaseId === id);
     return sources.length > 0 ? Response.json(databaseJson(id, sources)) : notFound();
   });
@@ -97,6 +104,7 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
 
   function dataSource({
     title = ["Задачи"],
+    databaseTitle = title,
     icon = null,
     properties = [],
   }: DataSourceInput = {}): FakeDataSource {
@@ -104,6 +112,7 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
       id: crypto.randomUUID(),
       databaseId: crypto.randomUUID(),
       title,
+      databaseTitle,
       icon,
       properties: [TITLE_PROPERTY, ...properties].map(newProperty),
     };
@@ -131,6 +140,9 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
   return {
     dataSource,
     property,
+    hideDatabase: (source) => {
+      hiddenDatabaseIds.add(source.databaseId);
+    },
     splitSearch: (...searchPages) => {
       searchPageAt = (index) => pageOf(searchPages, index);
     },
@@ -143,6 +155,7 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
     templatePage,
     pageWithoutDatabases: () => page([paragraphBlock()]),
     searchRequests: () => external.calls({ method: "POST", url: SEARCH_URL }),
+    databaseReads: () => external.calls({ method: "GET", url: DATABASE_PATTERN }),
     schemaUpdates: (source) =>
       external.calls({ method: "PATCH", url: `${NOTION_V1}/data_sources/${source.id}` }),
   };
@@ -192,7 +205,7 @@ function databaseJson(id: string, sources: FakeDataSource[]): Record<string, unk
   return {
     object: "database",
     id,
-    title: sources[0]?.title.map(richText) ?? [],
+    title: sources[0]?.databaseTitle.map(richText) ?? [],
     is_inline: true,
     data_sources: sources.map((source) => ({ id: source.id, name: source.title.join("") })),
   };

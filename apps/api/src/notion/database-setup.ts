@@ -16,6 +16,7 @@ import {
   projectPropertiesOf,
   retrieveDataSource,
   titlePropertyId,
+  withDatabaseTitle,
   type DataSource,
 } from "./data-sources.ts";
 import {
@@ -90,7 +91,10 @@ export async function addDatabase(
   const added = await findDatabaseOfDataSource(db, owner.id, settings.dataSourceId);
   if (added !== undefined) throw databaseAlreadyAdded(added.id);
   if ((await countNotionDatabases(db, owner.id)) >= MAX_NOTION_DATABASES) throw tooManyDatabases();
-  const source = await requireDataSource(client, settings.dataSourceId);
+  const source = await withDatabaseTitle(
+    client,
+    await requireDataSource(client, settings.dataSourceId),
+  );
   const projectProperty =
     settings.projectMode === "property"
       ? projectPropertyOf(source, settings.projectPropertyId)
