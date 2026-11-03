@@ -25,16 +25,39 @@
   "triggers": {
     "crons": ["* * * * *"],
   },
+  "observability": {
+    "enabled": true,
+  },
   "env": {
     "staging": {
       "vars": {
         "ENV": "staging",
+        "APP_URL": "https://stt-staging.complewin.workers.dev",
       },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "stt-staging",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "workers_dev": true,
     },
     "production": {
       "vars": {
         "ENV": "production",
+        "APP_URL": "https://timetracker.complewin.ru",
       },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "stt-production",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "routes": [{ "pattern": "timetracker.complewin.ru", "custom_domain": true }],
+      "workers_dev": false,
+      "preview_urls": false,
     },
   },
 }

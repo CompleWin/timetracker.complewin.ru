@@ -1,0 +1,13 @@
+name: Deploy staging
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+      app-url: https://stt-staging.complewin.workers.dev
+    secrets: inherit

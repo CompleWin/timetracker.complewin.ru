@@ -16,7 +16,12 @@
     "lint": "eslint . && prettier --check .",
     "format": "eslint . --fix && prettier --write .",
     "test": "npm run test -w @stt/shared && npm run test -w @stt/api",
-    "test:e2e": "npm run test:e2e -w @stt/web"
+    "test:e2e": "npm run test:e2e -w @stt/web",
+    "db:migrate:staging": "npm run db:migrate:staging -w @stt/api",
+    "db:migrate:production": "npm run db:migrate:production -w @stt/api",
+    "db:backup:production": "npm run db:backup:production -w @stt/api",
+    "deploy:staging": "npm run build && npm run deploy:staging -w @stt/api",
+    "deploy:production": "npm run build && npm run deploy:production -w @stt/api"
   },
   "overrides": {
     "vite": "$vite"
