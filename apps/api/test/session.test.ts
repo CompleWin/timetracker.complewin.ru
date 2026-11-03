@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { expectApiError } from "./harness/assertions.ts";
-import { api, db, type TestResponse, type TestSession } from "./harness/index.ts";
+import { api, type TestResponse, type TestSession } from "./harness/index.ts";
 import { expectSessionCookie, loginAs, sessionFrom, sessionSetCookie } from "./harness/session.ts";
+import { tablesContaining } from "./harness/storage.ts";
 import { fakeTelegram, telegramProfile } from "./harness/telegram.ts";
 
 const LOGGED_IN_AT = "2030-01-01T00:00:00.000Z";
@@ -23,18 +24,6 @@ function meOnDay(session: TestSession, day: number): Promise<TestResponse> {
 
 function logout(session?: TestSession): Promise<TestResponse> {
   return api.post("/auth/logout", undefined, { as: session });
-}
-
-async function tablesContaining(text: string): Promise<string[]> {
-  const tables = await db.all<{ name: string }>(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*'",
-  );
-  const matches: string[] = [];
-  for (const { name } of tables) {
-    const rows = await db.all(`SELECT * FROM "${name}"`);
-    if (JSON.stringify(rows).includes(text)) matches.push(name);
-  }
-  return matches;
 }
 
 describe("без сессии", () => {

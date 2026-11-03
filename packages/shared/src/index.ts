@@ -14,6 +14,13 @@ export { isLocale, localeFromLanguage, locales, type Locale } from "./i18n/local
 export { messages, type MessageKey, type Messages } from "./i18n/messages.ts";
 export { t, type MessageParams } from "./i18n/t.ts";
 export {
+  notionConnectionResponse,
+  notionConnectionSchema,
+  notionConnectionStatuses,
+  type NotionConnection,
+  type NotionConnectionStatus,
+} from "./notion.ts";
+export {
   createProjectBody,
   PROJECT_NAME_MAX_LENGTH,
   projectColors,

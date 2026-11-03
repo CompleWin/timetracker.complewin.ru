@@ -1,5 +1,6 @@
 import {
   activeSessionsResponse,
+  notionConnectionResponse,
   projectResponse,
   projectsResponse,
   sessionResponse,
@@ -14,6 +15,7 @@ import {
   type CreateSessionBody,
   type CreateTaskBody,
   type DevLoginBody,
+  type NotionConnection,
   type Project,
   type Session,
   type Task,
@@ -151,6 +153,19 @@ export async function startTimer(taskId: string): Promise<Session> {
 
 export async function stopTimer(taskId: string): Promise<Session> {
   return sessionResponse.parse(await request("POST", `/api/tasks/${taskId}/stop`)).session;
+}
+
+export async function fetchNotionConnection(): Promise<NotionConnection | null> {
+  return notionConnectionResponse.parse(await request("GET", "/api/notion/connection")).connection;
+}
+
+export async function checkNotionConnection(): Promise<NotionConnection | null> {
+  const path = "/api/notion/connection/check";
+  return notionConnectionResponse.parse(await request("POST", path)).connection;
+}
+
+export async function disconnectNotion(): Promise<void> {
+  await request("DELETE", "/api/notion/connection");
 }
 
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {

@@ -29,6 +29,13 @@
       "when": 1793570854895,
       "tag": "0003_sessions_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793713999447,
+      "tag": "0004_notion_oauth",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,7 @@ export type ErrorCode =
   | "task_archived"
   | "too_many_running"
   | "overlap"
+  | "notion_unavailable"
   | "internal_error";
 
 export type FieldErrors = Record<string, string>;
@@ -59,6 +60,9 @@ export const tooManyRunning = () =>
 
 export const overlap = (sessionId: string) =>
   new ApiError(409, "overlap", "The session overlaps another session of this task", { sessionId });
+
+export const notionUnavailable = () =>
+  new ApiError(502, "notion_unavailable", "Notion did not answer or answered with a server error");
 
 const internalError = () => new ApiError(500, "internal_error", "Internal server error");
 

@@ -1,4 +1,4 @@
-import { locales, projectColors } from "@stt/shared";
+import { locales, notionConnectionStatuses, projectColors } from "@stt/shared";
 import { isNull } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
@@ -36,6 +36,31 @@ export const oauthStates = sqliteTable("oauth_states", {
   nonce: text("nonce").notNull(),
   returnTo: text("return_to").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
+});
+
+export const notionOauthStates = sqliteTable("notion_oauth_states", {
+  state: text("state").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+export const notionConnections = sqliteTable("notion_connections", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id").notNull(),
+  workspaceName: text("workspace_name").notNull(),
+  workspaceIcon: text("workspace_icon"),
+  botId: text("bot_id"),
+  duplicatedTemplateId: text("duplicated_template_id"),
+  accessTokenEnc: text("access_token_enc"),
+  refreshTokenEnc: text("refresh_token_enc"),
+  status: text("status", { enum: notionConnectionStatuses }).notNull(),
+  createdAt: timestamp("created_at").notNull(),
 });
 
 export const projects = sqliteTable(

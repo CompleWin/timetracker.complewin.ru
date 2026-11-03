@@ -8,6 +8,8 @@ import { serveAssets } from "./routes/assets.ts";
 import { auth } from "./routes/auth.ts";
 import { health } from "./routes/health.ts";
 import { me } from "./routes/me.ts";
+import { notionConnection } from "./routes/notion-connection.ts";
+import { notionOauth } from "./routes/notion-oauth.ts";
 import { projects } from "./routes/projects.ts";
 import { tasks } from "./routes/tasks.ts";
 import { testHooks } from "./routes/test-hooks.ts";
@@ -25,6 +27,7 @@ function apiRoutes() {
     .route("/tasks", tasks)
     .route("/sessions", timerSessions)
     .route("/timers", timers)
+    .route("/notion/connection", notionConnection)
     .all("*", () => {
       throw notFound();
     });
@@ -37,6 +40,7 @@ export function createApp() {
 
   app.route("/api", apiRoutes());
   app.route("/auth", auth);
+  app.route("/notion", notionOauth);
   app.route("/__test", testHooks);
 
   for (const prefix of WORKER_PREFIXES) {

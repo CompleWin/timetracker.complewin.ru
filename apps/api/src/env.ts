@@ -10,6 +10,10 @@ export type Bindings = {
   TG_CLIENT_ID: string;
   TG_CLIENT_SECRET: string;
   TG_OAUTH_BASE?: string;
+  NOTION_CLIENT_ID: string;
+  NOTION_CLIENT_SECRET: string;
+  NOTION_API_BASE?: string;
+  TOKEN_ENC_KEY: string;
 };
 
 export type AppEnv = {
