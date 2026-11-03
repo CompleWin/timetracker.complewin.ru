@@ -1,0 +1,13 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      app-url: https://timetracker.complewin.ru
+    secrets: inherit
