@@ -13,6 +13,10 @@ export type ErrorCode =
   | "task_archived"
   | "too_many_running"
   | "overlap"
+  | "notion_reauth_required"
+  | "property_conflict"
+  | "database_already_added"
+  | "too_many_databases"
   | "notion_unavailable"
   | "internal_error";
 
@@ -21,6 +25,8 @@ export type FieldErrors = Record<string, string>;
 type ErrorDetails = {
   fields?: FieldErrors;
   sessionId?: string;
+  name?: string;
+  databaseId?: string;
 };
 
 export class ApiError extends Error {
@@ -60,6 +66,27 @@ export const tooManyRunning = () =>
 
 export const overlap = (sessionId: string) =>
   new ApiError(409, "overlap", "The session overlaps another session of this task", { sessionId });
+
+export const notionReauthRequired = () =>
+  new ApiError(409, "notion_reauth_required", "Notion needs to be reconnected");
+
+export const propertyConflict = (name: string) =>
+  new ApiError(
+    409,
+    "property_conflict",
+    "The database has a property of another type with our name",
+    {
+      name,
+    },
+  );
+
+export const databaseAlreadyAdded = (databaseId: string) =>
+  new ApiError(409, "database_already_added", "The database has already been added", {
+    databaseId,
+  });
+
+export const tooManyDatabases = () =>
+  new ApiError(409, "too_many_databases", "Too many Notion databases are added");
 
 export const notionUnavailable = () =>
   new ApiError(502, "notion_unavailable", "Notion did not answer or answered with a server error");

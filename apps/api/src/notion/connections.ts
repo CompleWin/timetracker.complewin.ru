@@ -2,7 +2,8 @@ import type { NotionConnection, NotionConnectionStatus } from "@stt/shared";
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { notionConnections } from "../db/schema.ts";
-import { notFound } from "../http/errors.ts";
+import { notFound, notionReauthRequired } from "../http/errors.ts";
+import { listNotionDatabases } from "./databases.ts";
 import type { NotionGrant, NotionTokens } from "./oauth.ts";
 import { decryptToken, encryptToken } from "./token-cipher.ts";
 
@@ -20,7 +21,7 @@ export async function saveConnection(
   userId: string,
   { tokens, workspace, botId, duplicatedTemplateId }: NotionGrant,
   now: Date,
-): Promise<void> {
+): Promise<ConnectedRow> {
   const fields = {
     workspaceId: workspace.id,
     workspaceName: workspace.name,
@@ -31,10 +32,21 @@ export async function saveConnection(
     status: "ok" as const,
     createdAt: now,
   };
-  await db
+  const [row] = await db
     .insert(notionConnections)
     .values({ id: crypto.randomUUID(), userId, ...fields })
-    .onConflictDoUpdate({ target: notionConnections.userId, set: fields });
+    .onConflictDoUpdate({ target: notionConnections.userId, set: fields })
+    .returning();
+  if (row === undefined || !isConnected(row)) throw new Error(`Notion connection was not saved`);
+  return row;
+}
+
+export async function findWorkspaceId(db: Database, userId: string): Promise<string | undefined> {
+  const row = await db.query.notionConnections.findFirst({
+    columns: { workspaceId: true },
+    where: eq(notionConnections.userId, userId),
+  });
+  return row?.workspaceId;
 }
 
 export async function findConnection(
@@ -50,6 +62,12 @@ export async function findConnection(
 export async function requireConnection(db: Database, userId: string): Promise<ConnectedRow> {
   const connection = await findConnection(db, userId);
   if (connection === undefined) throw notFound();
+  return connection;
+}
+
+export async function requireUsableConnection(db: Database, userId: string): Promise<ConnectedRow> {
+  const connection = await requireConnection(db, userId);
+  if (connection.status === "needs_reauth") throw notionReauthRequired();
   return connection;
 }
 
@@ -96,13 +114,16 @@ export async function storeTokens(
     .where(eq(notionConnections.id, id));
 }
 
-export function toNotionConnection(row: ConnectedRow): NotionConnection {
+export async function toNotionConnection(
+  db: Database,
+  row: ConnectedRow,
+): Promise<NotionConnection> {
   return {
     workspaceId: row.workspaceId,
     workspaceName: row.workspaceName,
     workspaceIcon: row.workspaceIcon,
     status: row.status,
-    databases: [],
+    databases: await listNotionDatabases(db, row.userId),
     createdAt: row.createdAt.toISOString(),
   };
 }

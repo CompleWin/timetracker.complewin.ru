@@ -8,7 +8,9 @@ import { serveAssets } from "./routes/assets.ts";
 import { auth } from "./routes/auth.ts";
 import { health } from "./routes/health.ts";
 import { me } from "./routes/me.ts";
+import { notionAvailableDatabases } from "./routes/notion-available-databases.ts";
 import { notionConnection } from "./routes/notion-connection.ts";
+import { notionDatabases } from "./routes/notion-databases.ts";
 import { notionOauth } from "./routes/notion-oauth.ts";
 import { projects } from "./routes/projects.ts";
 import { tasks } from "./routes/tasks.ts";
@@ -28,6 +30,8 @@ function apiRoutes() {
     .route("/sessions", timerSessions)
     .route("/timers", timers)
     .route("/notion/connection", notionConnection)
+    .route("/notion/available-databases", notionAvailableDatabases)
+    .route("/notion/databases", notionDatabases)
     .all("*", () => {
       throw notFound();
     });

@@ -4,7 +4,7 @@ import { onBeforeUnmount, onMounted, useId, useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
 import AppIconButton from "./AppIconButton.vue";
 
-defineProps<{ title: string }>();
+withDefaults(defineProps<{ title: string; wide?: boolean }>(), { wide: false });
 const emit = defineEmits<{ close: [] }>();
 
 const { t } = useI18n();
@@ -28,7 +28,8 @@ onBeforeUnmount(() => {
   <dialog
     ref="dialog"
     :aria-labelledby="titleId"
-    class="m-auto w-[460px] max-w-[calc(100vw-32px)] rounded-island border border-line bg-surface-island p-[18px] text-fg shadow-modal backdrop:bg-overlay md:p-7"
+    :class="wide ? 'w-[520px]' : 'w-[460px]'"
+    class="m-auto max-w-[calc(100vw-32px)] rounded-island border border-line bg-surface-island p-[18px] text-fg shadow-modal backdrop:bg-overlay md:p-7"
     @cancel.prevent="emit('close')"
   >
     <div class="mb-5 flex items-start justify-between gap-4">

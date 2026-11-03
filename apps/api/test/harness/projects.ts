@@ -25,11 +25,18 @@ export type TestProject = {
   createdAt: string;
   updatedAt: string;
   totalSec: number;
+  notionDatabaseId: string | null;
 };
 
-export type ProjectInput = { name: string; color?: ProjectColor };
+export type ProjectInput = {
+  name: string;
+  color?: ProjectColor;
+  notionDatabaseId?: string | null;
+};
 
-export type ProjectChanges = Partial<Pick<TestProject, "name" | "color" | "archived">>;
+export type ProjectChanges = Partial<
+  Pick<TestProject, "name" | "color" | "archived" | "notionDatabaseId">
+>;
 
 export function projectPath(id: string): string {
   return `/api/projects/${id}`;

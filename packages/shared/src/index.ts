@@ -14,11 +14,29 @@ export { isLocale, localeFromLanguage, locales, type Locale } from "./i18n/local
 export { messages, type MessageKey, type Messages } from "./i18n/messages.ts";
 export { t, type MessageParams } from "./i18n/t.ts";
 export {
+  addNotionDatabaseBody,
+  availableNotionDatabasesResponse,
+  MAX_NOTION_DATABASES,
+  notionBlockPositions,
   notionConnectionResponse,
   notionConnectionSchema,
   notionConnectionStatuses,
+  notionDatabaseResponse,
+  notionDatabaseSchema,
+  notionProjectModes,
+  notionProjectPropertyTypes,
+  notionPropertiesResponse,
+  updateNotionDatabaseBody,
+  type AddNotionDatabaseBody,
+  type AvailableNotionDatabase,
+  type NotionBlockPosition,
   type NotionConnection,
   type NotionConnectionStatus,
+  type NotionDatabase,
+  type NotionProjectMode,
+  type NotionProjectPropertyType,
+  type NotionProperty,
+  type UpdateNotionDatabaseBody,
 } from "./notion.ts";
 export {
   createProjectBody,

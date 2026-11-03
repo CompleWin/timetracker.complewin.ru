@@ -22,6 +22,7 @@ export type NotionGrant = {
 export type GrantReply = {
   workspace?: NotionWorkspace;
   errorStatus?: number;
+  duplicatedTemplateId?: string;
 };
 
 export type NotionAttempt = {
@@ -139,7 +140,7 @@ export function fakeNotion(): FakeNotion {
     const workspace = reply.workspace ?? notionWorkspace;
     const grant = activate({ ...freshTokens(), botId: crypto.randomUUID(), workspace });
     grantsByCode.set(code, grant);
-    return grantResponse(grant);
+    return grantResponse(grant, reply.duplicatedTemplateId ?? null);
   }
 
   function refreshGrant(refreshToken: string): Response {
@@ -312,7 +313,7 @@ function jsonFields(text: string): Record<string, unknown> {
   }
 }
 
-function grantResponse(grant: NotionGrant): Response {
+function grantResponse(grant: NotionGrant, duplicatedTemplateId: string | null = null): Response {
   return Response.json({
     access_token: grant.accessToken,
     token_type: "bearer",
@@ -321,7 +322,7 @@ function grantResponse(grant: NotionGrant): Response {
     workspace_id: grant.workspace.id,
     workspace_name: grant.workspace.name,
     workspace_icon: grant.workspace.icon,
-    duplicated_template_id: null,
+    duplicated_template_id: duplicatedTemplateId,
   });
 }
 

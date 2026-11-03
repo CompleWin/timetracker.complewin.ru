@@ -1,8 +1,11 @@
-import { database } from "../db/client.ts";
+import { database, type Database } from "../db/client.ts";
 import type { Bindings } from "../env.ts";
 import { consumeConnectState, createConnectState } from "./connect-states.ts";
-import { saveConnection } from "./connections.ts";
+import { findWorkspaceId, saveConnection } from "./connections.ts";
+import { databaseSetup, type DatabaseOwner } from "./database-setup.ts";
+import { removeAllNotionDatabases } from "./databases.ts";
 import { authorizationUrl, exchangeCode, type NotionGrant } from "./oauth.ts";
+import { addTemplateDatabase } from "./template.ts";
 
 export type ConnectError = "cancelled" | "state" | "token";
 
@@ -10,7 +13,7 @@ export type ConnectOutcome = "connected" | ConnectError;
 
 export type ConnectCallback = {
   query: { code?: string; state?: string; error?: string };
-  userId: string | undefined;
+  user: DatabaseOwner | undefined;
   now: Date;
 };
 
@@ -25,19 +28,35 @@ export async function beginNotionConnect(
 
 export async function completeNotionConnect(
   env: Bindings,
-  { query, userId, now }: ConnectCallback,
+  { query, user, now }: ConnectCallback,
 ): Promise<ConnectOutcome> {
   const db = database(env);
   const stateAccepted =
-    userId !== undefined &&
+    user !== undefined &&
     query.state !== undefined &&
-    (await consumeConnectState(db, query.state, userId, now));
+    (await consumeConnectState(db, query.state, user.id, now));
   if (query.error !== undefined) return "cancelled";
   if (!stateAccepted) return "state";
   const grant = query.code ? await requestGrant(env, query.code) : undefined;
   if (grant === undefined) return "token";
-  await saveConnection(db, env.TOKEN_ENC_KEY, userId, grant, now);
+  await forgetOtherWorkspace(db, user.id, grant);
+  const connection = await saveConnection(db, env.TOKEN_ENC_KEY, user.id, grant, now);
+  if (grant.duplicatedTemplateId !== null) {
+    const setup = databaseSetup(env, connection, user, now);
+    await addTemplateDatabase(setup, grant.duplicatedTemplateId);
+  }
   return "connected";
+}
+
+async function forgetOtherWorkspace(
+  db: Database,
+  userId: string,
+  grant: NotionGrant,
+): Promise<void> {
+  const previous = await findWorkspaceId(db, userId);
+  if (previous !== undefined && previous !== grant.workspace.id) {
+    await removeAllNotionDatabases(db, userId);
+  }
 }
 
 async function requestGrant(env: Bindings, code: string): Promise<NotionGrant | undefined> {
