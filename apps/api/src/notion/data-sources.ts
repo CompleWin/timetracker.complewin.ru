@@ -11,9 +11,11 @@ const SEARCH_PAGE_SIZE = 100;
 const EMOJI_ICON = "emoji";
 const TITLE_TYPE = "title";
 
+const richTextSchema = z.array(z.object({ plain_text: z.string() }));
+
 const dataSourceSchema = z.object({
   id: z.string(),
-  title: z.array(z.object({ plain_text: z.string() })),
+  title: richTextSchema,
   icon: z.object({ type: z.string(), emoji: z.string().optional() }).nullish(),
   parent: z.object({ database_id: z.string() }),
   properties: z.record(
@@ -21,6 +23,8 @@ const dataSourceSchema = z.object({
     z.object({ id: z.string(), name: z.string(), type: z.string() }),
   ),
 });
+
+const databaseSchema = z.object({ title: richTextSchema });
 
 const searchSchema = z.object({
   results: z.array(dataSourceSchema),
@@ -45,7 +49,20 @@ export async function searchDataSources(client: NotionClient): Promise<DataSourc
     cursor = result.next_cursor ?? undefined;
     if (cursor === undefined) break;
   }
-  return found;
+  return Promise.all(found.map((source) => withDatabaseTitle(client, source)));
+}
+
+export async function withDatabaseTitle(
+  client: NotionClient,
+  source: DataSource,
+): Promise<DataSource> {
+  if (source.title !== "") return source;
+  const request: NotionApiRequest = {
+    method: "GET",
+    path: `/v1/databases/${encodeURIComponent(source.databaseId)}`,
+  };
+  const found = await requestNotionJson(client, request, databaseSchema);
+  return found === undefined ? source : { ...source, title: plainText(found.title) };
 }
 
 export async function retrieveDataSource(
@@ -105,8 +122,12 @@ function toDataSource(source: z.infer<typeof dataSourceSchema>): DataSource {
   return {
     id: source.id,
     databaseId: source.parent.database_id,
-    title: source.title.map((part) => part.plain_text).join(""),
+    title: plainText(source.title),
     icon: source.icon?.type === EMOJI_ICON ? (source.icon.emoji ?? null) : null,
     properties: Object.values(source.properties),
   };
+}
+
+function plainText(parts: z.infer<typeof richTextSchema>): string {
+  return parts.map((part) => part.plain_text).join("");
 }
