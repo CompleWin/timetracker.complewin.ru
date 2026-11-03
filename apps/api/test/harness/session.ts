@@ -15,6 +15,7 @@ export type TestUser = {
 export type LoginAsInput = {
   telegramId?: number;
   name?: string;
+  locale?: TestUser["locale"];
 };
 
 export type LoggedIn = {

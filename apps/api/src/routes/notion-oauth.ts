@@ -19,7 +19,7 @@ export const notionOauth = new Hono<AppEnv>()
     const user = await resumeSession(c);
     const outcome = await completeNotionConnect(c.env, {
       query: c.req.query(),
-      userId: user?.id,
+      user,
       now: c.var.now,
     });
     return c.redirect(settingsPath(outcome), 302);

@@ -5,6 +5,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
+import NotionDatabases from "./NotionDatabases.vue";
 import AppButton from "./ui/AppButton.vue";
 import AppConfirmDialog from "./ui/AppConfirmDialog.vue";
 import AppFormError from "./ui/AppFormError.vue";
@@ -90,4 +91,9 @@ async function disconnect(): Promise<void> {
       @close="confirmingDisconnect = false"
     />
   </AppIsland>
+  <NotionDatabases
+    v-if="connection?.status === 'ok'"
+    :databases="connection.databases"
+    @changed="reload"
+  />
 </template>

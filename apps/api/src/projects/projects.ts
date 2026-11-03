@@ -4,7 +4,8 @@ import { archivedAtAfter } from "../db/archive.ts";
 import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
 import { projects } from "../db/schema.ts";
-import { nameTaken, notFound } from "../http/errors.ts";
+import { nameTaken, notFound, validationError } from "../http/errors.ts";
+import { findNotionDatabase } from "../notion/databases.ts";
 import { projectTotals, stopProjectEntries } from "../timers/time-entries.ts";
 
 type ProjectRow = typeof projects.$inferSelect;
@@ -12,6 +13,7 @@ type ProjectRow = typeof projects.$inferSelect;
 export type NewProject = {
   name: string;
   color: ProjectColor;
+  notionDatabaseId: string | null;
 };
 
 const archivedConditions: Record<ArchivedFilter, SQL | undefined> = {
@@ -57,6 +59,7 @@ export async function createProject(
   now: Date,
 ): Promise<Project> {
   await ensureNameFree(db, userId, project.name);
+  await ensureNotionDatabaseOwned(db, userId, project.notionDatabaseId);
   const [row] = await db
     .insert(projects)
     .values({ id: crypto.randomUUID(), userId, ...project, createdAt: now, updatedAt: now })
@@ -76,10 +79,17 @@ export async function updateProject(
   const name = changes.name ?? current.name;
   const archivedAt = archivedAtAfter(current.archivedAt, changes.archived, now);
   if (archivedAt === null) await ensureNameFree(db, userId, name, id);
+  await ensureNotionDatabaseOwned(db, userId, changes.notionDatabaseId);
   if (changes.archived === true) await stopProjectEntries(db, userId, id, now);
   const [row] = await db
     .update(projects)
-    .set({ name, color: changes.color, archivedAt, updatedAt: now })
+    .set({
+      name,
+      color: changes.color,
+      notionDatabaseId: changes.notionDatabaseId,
+      archivedAt,
+      updatedAt: now,
+    })
     .where(eq(projects.id, id))
     .returning();
   if (row === undefined) throw new Error(`Project ${id} was not updated`);
@@ -118,6 +128,17 @@ async function ensureNameFree(
   }
 }
 
+async function ensureNotionDatabaseOwned(
+  db: Database,
+  userId: string,
+  notionDatabaseId: string | null | undefined,
+): Promise<void> {
+  if (notionDatabaseId === null || notionDatabaseId === undefined) return;
+  if ((await findNotionDatabase(db, userId, notionDatabaseId)) === undefined) {
+    throw validationError({ notionDatabaseId: "Expected an own added Notion database" });
+  }
+}
+
 function nameKey(name: string): string {
   return name.toLowerCase();
 }
@@ -136,5 +157,6 @@ function toProject(row: ProjectRow, totalSec: number): Project {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     totalSec,
+    notionDatabaseId: row.notionDatabaseId,
   };
 }

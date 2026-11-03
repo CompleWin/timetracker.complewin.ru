@@ -12,7 +12,7 @@ export async function checkConnection(env: Bindings, userId: string): Promise<No
   const db = database(env);
   const connection = await requireConnection(db, userId);
   const status = await accessStatus(notionClient(env, connection));
-  return toNotionConnection(await setConnectionStatus(db, connection.id, status));
+  return toNotionConnection(db, await setConnectionStatus(db, connection.id, status));
 }
 
 async function accessStatus(client: NotionClient): Promise<NotionConnectionStatus> {

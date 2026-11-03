@@ -6,8 +6,11 @@ import { disconnect, findConnection, toNotionConnection } from "../notion/connec
 
 export const notionConnection = new Hono<AuthedEnv>()
   .get("/", async (c) => {
-    const connection = await findConnection(database(c.env), c.var.user.id);
-    return c.json({ connection: connection === undefined ? null : toNotionConnection(connection) });
+    const db = database(c.env);
+    const connection = await findConnection(db, c.var.user.id);
+    return c.json({
+      connection: connection === undefined ? null : await toNotionConnection(db, connection),
+    });
   })
   .delete("/", async (c) => {
     await disconnect(database(c.env), c.var.user.id);

@@ -1,6 +1,9 @@
 import {
   activeSessionsResponse,
+  availableNotionDatabasesResponse,
   notionConnectionResponse,
+  notionDatabaseResponse,
+  notionPropertiesResponse,
   projectResponse,
   projectsResponse,
   sessionResponse,
@@ -10,16 +13,21 @@ import {
   tasksResponse,
   userResponse,
   type ActiveSession,
+  type AddNotionDatabaseBody,
   type ArchivedFilter,
+  type AvailableNotionDatabase,
   type CreateProjectBody,
   type CreateSessionBody,
   type CreateTaskBody,
   type DevLoginBody,
   type NotionConnection,
+  type NotionDatabase,
+  type NotionProperty,
   type Project,
   type Session,
   type Task,
   type UpdateMeBody,
+  type UpdateNotionDatabaseBody,
   type UpdateProjectBody,
   type UpdateSessionBody,
   type UpdateTaskBody,
@@ -36,13 +44,16 @@ const healthResponse = z.object({ env: z.string() });
 const errorResponse = z.object({
   error: z.object({
     code: z.string(),
-    details: z.object({ fields: z.record(z.string(), z.string()).optional() }).optional(),
+    details: z
+      .object({ fields: z.record(z.string(), z.string()).optional(), name: z.string().optional() })
+      .optional(),
   }),
 });
 
 type ErrorBody = {
   code: string | undefined;
   fields: string[];
+  propertyName?: string;
 };
 
 export class HttpError extends Error {
@@ -50,6 +61,7 @@ export class HttpError extends Error {
     readonly status: number,
     readonly code: string | undefined,
     readonly fields: string[] = [],
+    readonly propertyName?: string,
   ) {
     super(`Request failed with status ${status}`);
   }
@@ -61,7 +73,7 @@ export class NetworkError extends Error {
   }
 }
 
-export function isApiError(error: unknown, code: string): boolean {
+export function isApiError(error: unknown, code: string): error is HttpError {
   return error instanceof HttpError && error.code === code;
 }
 
@@ -168,13 +180,42 @@ export async function disconnectNotion(): Promise<void> {
   await request("DELETE", "/api/notion/connection");
 }
 
+export async function fetchAvailableNotionDatabases(): Promise<AvailableNotionDatabase[]> {
+  const path = "/api/notion/available-databases";
+  return availableNotionDatabasesResponse.parse(await request("GET", path)).databases;
+}
+
+export async function fetchNotionDatabaseProperties(
+  dataSourceId: string,
+): Promise<NotionProperty[]> {
+  const path = `/api/notion/available-databases/${encodeURIComponent(dataSourceId)}/properties`;
+  return notionPropertiesResponse.parse(await request("GET", path)).properties;
+}
+
+export async function addNotionDatabase(body: AddNotionDatabaseBody): Promise<NotionDatabase> {
+  const path = "/api/notion/databases";
+  return notionDatabaseResponse.parse(await request("POST", path, body)).database;
+}
+
+export async function updateNotionDatabase(
+  id: string,
+  body: UpdateNotionDatabaseBody,
+): Promise<NotionDatabase> {
+  const path = `/api/notion/databases/${id}`;
+  return notionDatabaseResponse.parse(await request("PATCH", path, body)).database;
+}
+
+export async function removeNotionDatabase(id: string): Promise<void> {
+  await request("DELETE", `/api/notion/databases/${id}`);
+}
+
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
   const sentAtMs = Date.now();
   const response = await send(method, path, body);
   rememberServerNow(response.headers.get(SERVER_NOW_HEADER), sentAtMs, Date.now());
   if (!response.ok) {
-    const { code, fields } = await errorBody(response);
-    throw new HttpError(response.status, code, fields);
+    const { code, fields, propertyName } = await errorBody(response);
+    throw new HttpError(response.status, code, fields, propertyName);
   }
   return response.status === 204 ? null : response.json();
 }
@@ -198,5 +239,5 @@ async function errorBody(response: Response): Promise<ErrorBody> {
   const parsed = errorResponse.safeParse(await response.json().catch(() => undefined));
   if (!parsed.success) return { code: undefined, fields: [] };
   const { code, details } = parsed.data.error;
-  return { code, fields: Object.keys(details?.fields ?? {}) };
+  return { code, fields: Object.keys(details?.fields ?? {}), propertyName: details?.name };
 }
