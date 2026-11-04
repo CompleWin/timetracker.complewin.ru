@@ -7,7 +7,8 @@ import { notFound } from "../http/errors.ts";
 
 export type NotionDatabaseRow = typeof notionDatabases.$inferSelect;
 
-export type NewNotionDatabase = Omit<typeof notionDatabases.$inferInsert, "id" | "isDefault">;
+export type NewNotionDatabase = Omit<typeof notionDatabases.$inferInsert, "id" | "isDefault"> &
+  Pick<NotionDatabaseRow, "timeProperties">;
 
 export type NotionDatabaseChanges = Partial<
   Omit<NotionDatabaseRow, "id" | "userId" | "connectionId" | "createdAt">
@@ -146,6 +147,7 @@ export function toNotionDatabase(row: NotionDatabaseRow): NotionDatabase {
     projectMode: row.projectMode,
     projectProperty: storedProjectProperty(row),
     blockPosition: row.blockPosition,
+    timeProperties: row.timeProperties,
     isDefault: row.isDefault,
     createdAt: row.createdAt.toISOString(),
   };

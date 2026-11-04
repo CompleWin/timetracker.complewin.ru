@@ -1,15 +1,14 @@
 import { locales, t, type Locale, type MessageKey, type NotionProjectMode } from "@stt/shared";
 import { propertyConflict } from "../http/errors.ts";
 
-export const trackerProperties = [
-  "spentHours",
-  "spent",
-  "running",
-  "lastTracked",
-  "project",
-] as const;
+const timeTrackerProperties = ["spentHours", "spent", "running", "lastTracked"] as const;
 
-export type TrackerProperty = (typeof trackerProperties)[number];
+export type TrackerProperty = (typeof timeTrackerProperties)[number] | "project";
+
+export type TrackerPropertyChoice = {
+  projectMode: NotionProjectMode;
+  timeProperties: boolean;
+};
 
 export type TrackerPropertyIds = Partial<Record<TrackerProperty | "title", string>>;
 
@@ -46,8 +45,22 @@ const propertyNames: Record<TrackerProperty, MessageKey> = {
   project: "notion.property.project",
 };
 
-export function trackerPropertiesFor(mode: NotionProjectMode): TrackerProperty[] {
-  return trackerProperties.filter((property) => mode === "own" || property !== "project");
+export function trackerPropertiesFor({
+  projectMode,
+  timeProperties,
+}: TrackerPropertyChoice): TrackerProperty[] {
+  return [
+    ...(timeProperties ? timeTrackerProperties : []),
+    ...(projectMode === "own" ? (["project"] as const) : []),
+  ];
+}
+
+export function newlyNeededProperties(
+  current: TrackerPropertyChoice,
+  next: TrackerPropertyChoice,
+): TrackerProperty[] {
+  const needed = trackerPropertiesFor(current);
+  return trackerPropertiesFor(next).filter((property) => !needed.includes(property));
 }
 
 export function matchTrackerProperties(

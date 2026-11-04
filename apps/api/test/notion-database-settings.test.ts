@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectValidationError } from "./harness/assertions.ts";
 import {
+  ALL_TRACKER_FIELDS,
+  PROJECT_FIELD,
+  TIME_FIELDS,
   addDatabase,
+  callsFromNowOn,
   connectedDatabases,
   defaultDatabaseIds,
   deleteDatabase,
@@ -81,15 +85,14 @@ describe("PATCH /api/notion/databases/:id: режим проекта", () => {
     const { session } = await loginWithNotion(notion, { locale: "ru" });
     const tasks = workspace.dataSource();
     const database = await addDatabase(session, tasks, { projectMode: "none" });
-    const updatesBefore = workspace.schemaUpdates(tasks).length;
+    const schemaUpdates = callsFromNowOn(() => workspace.schemaUpdates(tasks));
     const response = await patchDatabase(session, database.id, { projectMode: "own" });
 
     expect(response).toMatchObject({
       status: 200,
       body: { database: { id: database.id, projectMode: "own", projectProperty: null } },
     });
-    const updatesAfter = workspace.schemaUpdates(tasks).slice(updatesBefore);
-    expectAddedFields(onlyCall(updatesAfter), "ru", ["project"]);
+    expectAddedFields(onlyCall(schemaUpdates()), "ru", PROJECT_FIELD);
   });
 
   it("5. переход в property с полем select сохраняет projectProperty", async () => {
@@ -120,6 +123,48 @@ describe("PATCH /api/notion/databases/:id: режим проекта", () => {
     expectValidationError(await patchDatabase(session, database.id, changes), [
       "projectPropertyId",
     ]);
+  });
+});
+
+describe("PATCH /api/notion/databases/:id: поля с временем", () => {
+  it("22. timeProperties: true у базы с false добавляет 4 поля с временем одним PATCH к Notion", async () => {
+    const { session } = await loginWithNotion(notion, { locale: "ru" });
+    const tasks = workspace.dataSource();
+    const database = await addDatabase(session, tasks, { projectMode: "own" });
+    const schemaUpdates = callsFromNowOn(() => workspace.schemaUpdates(tasks));
+    const response = await patchDatabase(session, database.id, { timeProperties: true });
+
+    expect(response).toMatchObject({
+      status: 200,
+      body: { database: { id: database.id, timeProperties: true } },
+    });
+    expectAddedFields(onlyCall(schemaUpdates()), "ru", TIME_FIELDS);
+  });
+
+  it("22. timeProperties: true вместе с переходом из none в own отправляет все 5 полей одним PATCH к Notion", async () => {
+    const { session } = await loginWithNotion(notion, { locale: "ru" });
+    const tasks = workspace.dataSource();
+    const database = await addDatabase(session, tasks, { projectMode: "none" });
+    const schemaUpdates = callsFromNowOn(() => workspace.schemaUpdates(tasks));
+    const changes = { projectMode: "own", timeProperties: true };
+
+    expect(await patchDatabase(session, database.id, changes)).toMatchObject({
+      status: 200,
+      body: { database: { id: database.id, projectMode: "own", timeProperties: true } },
+    });
+    expectAddedFields(onlyCall(schemaUpdates()), "ru", ALL_TRACKER_FIELDS);
+  });
+
+  it("23. timeProperties: false у базы с true к Notion не обращается, ответ содержит timeProperties = false", async () => {
+    const { session } = await loginWithNotion(notion, { locale: "ru" });
+    const database = await addDatabase(session, workspace.dataSource(), { timeProperties: true });
+    const notionRequests = callsFromNowOn(() => notion.requests());
+
+    expect(await patchDatabase(session, database.id, { timeProperties: false })).toMatchObject({
+      status: 200,
+      body: { database: { id: database.id, timeProperties: false } },
+    });
+    expect(notionRequests()).toEqual([]);
   });
 });
 

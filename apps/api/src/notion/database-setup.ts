@@ -30,12 +30,12 @@ import {
   storedProjectProperty,
   toNotionDatabase,
   updateNotionDatabase,
-  type NotionDatabaseChanges,
   type NotionDatabaseRow,
 } from "./databases.ts";
 import {
   addedPropertyIds,
   matchTrackerProperties,
+  newlyNeededProperties,
   trackerPropertiesFor,
   type TrackerProperty,
   type TrackerPropertyIds,
@@ -53,10 +53,7 @@ export type DatabaseSetup = {
 
 const dataSourceNotFound = () => validationError({ dataSourceId: "Notion data source not found" });
 
-type ProjectSetup = Pick<
-  NotionDatabaseChanges,
-  "projectMode" | "projectPropId" | "projectPropName" | "projectPropType" | "propertyIds"
->;
+type DataSourceLoader = () => Promise<DataSource>;
 
 export function databaseSetup(
   env: Bindings,
@@ -99,7 +96,8 @@ export async function addDatabase(
     settings.projectMode === "property"
       ? projectPropertyOf(source, settings.projectPropertyId)
       : null;
-  const wanted = trackerPropertiesFor(settings.projectMode);
+  const timeProperties = settings.timeProperties === true;
+  const wanted = trackerPropertiesFor({ projectMode: settings.projectMode, timeProperties });
   const propertyIds = await ensureTrackerProperties(client, source, wanted, owner);
   const isDefault = settings.isDefault === true || !(await hasDefaultDatabase(db, owner.id));
   const values = {
@@ -112,6 +110,7 @@ export async function addDatabase(
     projectMode: settings.projectMode,
     ...projectPropertyColumns(projectProperty),
     blockPosition: settings.blockPosition,
+    timeProperties,
     createdAt: now,
   };
   return insertNotionDatabase(db, values, isDefault);
@@ -127,8 +126,22 @@ export async function changeNotionDatabase(
   const connection = await requireUsableConnection(db, owner.id);
   const current = await requireNotionDatabase(db, owner.id, id);
   const client = notionClient(env, connection);
+  const dataSource = dataSourceLoader(client, current.dataSourceId);
+  const next = {
+    projectMode: changes.projectMode ?? current.projectMode,
+    timeProperties: changes.timeProperties ?? current.timeProperties,
+  };
+  const projectProperty = await changedProjectProperty(dataSource, current, changes);
+  const added = await addTrackerProperties(
+    client,
+    dataSource,
+    newlyNeededProperties(current, next),
+    owner,
+  );
   const updated = await updateNotionDatabase(db, current, {
-    ...(await changedProjectSetup(client, owner, current, changes)),
+    ...next,
+    ...projectPropertyColumns(projectProperty),
+    propertyIds: { ...current.propertyIds, ...added },
     blockPosition: changes.blockPosition,
     isDefault: changes.isDefault,
   });
@@ -146,31 +159,29 @@ export async function removeNotionDatabaseOf(
   await removeNotionDatabase(db, id);
 }
 
-async function changedProjectSetup(
-  client: NotionClient,
-  owner: DatabaseOwner,
+async function changedProjectProperty(
+  dataSource: DataSourceLoader,
   current: NotionDatabaseRow,
   changes: UpdateNotionDatabaseBody,
-): Promise<ProjectSetup> {
-  const projectMode = changes.projectMode ?? current.projectMode;
-  if (projectMode === "own" && current.projectMode !== "own") {
-    const source = await requireDataSource(client, current.dataSourceId);
-    const added = await ensureTrackerProperties(client, source, ["project"], owner);
-    return {
-      projectMode,
-      ...projectPropertyColumns(null),
-      propertyIds: { ...current.propertyIds, ...added },
-    };
-  }
-  if (projectMode === "property" && changes.projectPropertyId !== undefined) {
-    const source = await requireDataSource(client, current.dataSourceId);
-    return {
-      projectMode,
-      ...projectPropertyColumns(projectPropertyOf(source, changes.projectPropertyId)),
-    };
-  }
-  const kept = projectMode === "property" ? storedProjectProperty(current) : null;
-  return { projectMode, ...projectPropertyColumns(kept) };
+): Promise<NotionProperty | null> {
+  if ((changes.projectMode ?? current.projectMode) !== "property") return null;
+  if (changes.projectPropertyId === undefined) return storedProjectProperty(current);
+  return projectPropertyOf(await dataSource(), changes.projectPropertyId);
+}
+
+async function addTrackerProperties(
+  client: NotionClient,
+  dataSource: DataSourceLoader,
+  wanted: TrackerProperty[],
+  owner: DatabaseOwner,
+): Promise<TrackerPropertyIds> {
+  if (wanted.length === 0) return {};
+  return ensureTrackerProperties(client, await dataSource(), wanted, owner);
+}
+
+function dataSourceLoader(client: NotionClient, id: string): DataSourceLoader {
+  let loaded: Promise<DataSource> | undefined;
+  return () => (loaded ??= requireDataSource(client, id));
 }
 
 async function requireDataSource(client: NotionClient, id: string): Promise<DataSource> {

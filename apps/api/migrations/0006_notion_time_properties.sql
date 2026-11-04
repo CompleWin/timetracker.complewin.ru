@@ -1,0 +1,1 @@
+ALTER TABLE `notion_databases` ADD `time_properties` integer DEFAULT true NOT NULL;

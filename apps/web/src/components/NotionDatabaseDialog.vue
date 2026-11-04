@@ -30,6 +30,7 @@ const projectMode = ref<NotionProjectMode>(props.database?.projectMode ?? "own")
 const properties = ref<NotionProperty[]>([]);
 const projectPropertyId = ref(props.database?.projectProperty?.id ?? "");
 const blockPosition = ref<NotionBlockPosition>(props.database?.blockPosition ?? "start");
+const timeProperties = ref(props.database?.timeProperties ?? false);
 const isDefault = ref(props.database?.isDefault ?? !props.hasDefault);
 const formError = ref<string>();
 const saving = ref(false);
@@ -37,6 +38,9 @@ const saving = ref(false);
 const isNew = computed(() => props.database === undefined);
 const notAdded = computed(() => available.value.filter((source) => source.addedId === null));
 const takesProperty = computed(() => projectMode.value === "property");
+const keepsTimeProperties = computed(
+  () => props.database?.timeProperties === true && !timeProperties.value,
+);
 const canSave = computed(
   () =>
     dataSourceId.value !== "" &&
@@ -53,6 +57,12 @@ const blockPositionOptions = computed(() =>
     label: t(`notionDatabases.blockPosition.${value}`),
   })),
 );
+const timePropertyNames = computed(() => ({
+  spentHours: t("notion.property.spentHours"),
+  spent: t("notion.property.spent"),
+  running: t("notion.property.running"),
+  lastTracked: t("notion.property.lastTracked"),
+}));
 
 onMounted(async () => {
   if (isNew.value) await refreshAvailable();
@@ -60,7 +70,7 @@ onMounted(async () => {
 
 watch([dataSourceId, projectMode], loadPropertiesWhenNeeded, { immediate: true });
 
-watch([dataSourceId, projectMode, projectPropertyId], () => {
+watch([dataSourceId, projectMode, projectPropertyId, timeProperties], () => {
   formError.value = undefined;
 });
 
@@ -98,6 +108,7 @@ function saveDatabase(): Promise<NotionDatabase> {
     projectMode: projectMode.value,
     projectPropertyId: takesProperty.value ? projectPropertyId.value : undefined,
     blockPosition: blockPosition.value,
+    timeProperties: timeProperties.value,
     isDefault: isDefault.value,
   };
   return props.database === undefined
@@ -146,6 +157,7 @@ function errorText(error: unknown): string | undefined {
       <RadioChips
         v-model="projectMode"
         :legend="t('notionDatabases.projectMode')"
+        :hint="t('notionDatabases.hint.projectMode')"
         :options="projectModeOptions"
       />
       <AppField
@@ -153,6 +165,7 @@ function errorText(error: unknown): string | undefined {
         v-model="projectPropertyId"
         kind="select"
         :label="t('notionDatabases.projectProperty')"
+        :hint="t('notionDatabases.hint.projectProperty')"
       >
         <option v-for="property in properties" :key="property.id" :value="property.id">
           {{ property.name }}
@@ -161,9 +174,27 @@ function errorText(error: unknown): string | undefined {
       <RadioChips
         v-model="blockPosition"
         :legend="t('notionDatabases.blockPosition')"
+        :hint="t('notionDatabases.hint.blockPosition')"
         :options="blockPositionOptions"
       />
-      <AppCheckbox v-model="isDefault">{{ t("notionDatabases.isDefault") }}</AppCheckbox>
+      <div class="flex flex-col gap-1">
+        <AppCheckbox
+          v-model="timeProperties"
+          :label="t('notionDatabases.timeProperties')"
+          :hint="t('notionDatabases.hint.timeProperties')"
+        />
+        <p class="pl-7 text-meta text-fg-subtle">
+          {{ t("notionDatabases.timePropertiesNote", timePropertyNames) }}
+        </p>
+        <p v-if="keepsTimeProperties" class="pl-7 text-meta text-fg-subtle">
+          {{ t("notionDatabases.timePropertiesKept") }}
+        </p>
+      </div>
+      <AppCheckbox
+        v-model="isDefault"
+        :label="t('notionDatabases.isDefault')"
+        :hint="t('notionDatabases.hint.isDefault')"
+      />
       <AppFormError v-if="formError" placement="form">{{ formError }}</AppFormError>
     </form>
     <template #actions>

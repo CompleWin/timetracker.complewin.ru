@@ -14,6 +14,7 @@ export const ru = {
   "header.settings": "Настройки",
   "dialog.close": "Закрыть",
   "dialog.cancel": "Отмена",
+  "tooltip.more": "Подробнее: {subject}",
   "form.name": "Название",
   "form.create": "Создать",
   "form.save": "Сохранить",
@@ -86,7 +87,22 @@ export const ru = {
   "notionDatabases.blockPosition.start": "В начале страницы",
   "notionDatabases.blockPosition.end": "В конце страницы",
   "notionDatabases.blockPosition.none": "Не добавлять",
+  "notionDatabases.timeProperties": "Добавить в базу поля с временем",
+  "notionDatabases.timePropertiesNote":
+    "Трекер добавит в базу поля «{spentHours}», «{spent}», «{running}» и «{lastTracked}», если их там нет. Твои поля он не меняет.",
+  "notionDatabases.timePropertiesKept":
+    "Созданные поля останутся в Notion. Удалить их можно вручную.",
   "notionDatabases.isDefault": "База по умолчанию",
+  "notionDatabases.hint.projectMode":
+    "Куда трекер записывает проект задачи на её странице в Notion. «Отдельное поле ⏱ Проект» добавляет в базу своё поле. «Взять из поля базы» пишет в твоё поле с вариантами. «Не записывать проект» подходит для базы, где все задачи из одного проекта.",
+  "notionDatabases.hint.projectProperty":
+    "Твоё поле типа Select или Multi-select, куда трекер пишет название проекта. По нему же определяется проект, когда ты добавляешь задачу из Notion.",
+  "notionDatabases.hint.blockPosition":
+    "Блок «⏱ Всего: …» внутри страницы задачи: сводка времени и журнал сессий с заметками. Здесь выбирается, где он стоит и нужен ли он.",
+  "notionDatabases.hint.timeProperties":
+    "По этим полям можно сортировать задачи и считать сумму времени в представлениях базы. Без них время видно только в блоке на странице.",
+  "notionDatabases.hint.isDefault":
+    "Сюда попадают задачи без проекта и задачи проектов, для которых не выбрана база. Если базы по умолчанию нет, такие задачи в Notion не попадают.",
   "notionDatabases.submit": "Добавить",
   "notionDatabases.error.propertyConflict":
     "В базе уже есть поле «{name}» другого типа. Переименуй его в Notion и попробуй снова.",
