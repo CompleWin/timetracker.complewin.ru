@@ -16,6 +16,7 @@ export const en: Messages = {
   "header.settings": "Settings",
   "dialog.close": "Close",
   "dialog.cancel": "Cancel",
+  "tooltip.more": "Learn more: {subject}",
   "form.name": "Name",
   "form.create": "Create",
   "form.save": "Save",
@@ -88,7 +89,22 @@ export const en: Messages = {
   "notionDatabases.blockPosition.start": "At the top of the page",
   "notionDatabases.blockPosition.end": "At the bottom of the page",
   "notionDatabases.blockPosition.none": "Don't add",
+  "notionDatabases.timeProperties": "Add time fields to the database",
+  "notionDatabases.timePropertiesNote":
+    "The tracker will add the fields “{spentHours}”, “{spent}”, “{running}” and “{lastTracked}” to the database if they aren't there. It doesn't change your fields.",
+  "notionDatabases.timePropertiesKept":
+    "The created fields will stay in Notion. You can delete them manually.",
   "notionDatabases.isDefault": "Default database",
+  "notionDatabases.hint.projectMode":
+    "Where the tracker writes the task's project on its Notion page. “Separate field ⏱ Project” adds its own field to the database. “Take from a database field” writes to your field with options. “Don't write the project” suits a database where all tasks belong to one project.",
+  "notionDatabases.hint.projectProperty":
+    "Your Select or Multi-select field where the tracker writes the project name. It is also used to find the project when you add a task from Notion.",
+  "notionDatabases.hint.blockPosition":
+    "The “⏱ Total: …” block inside the task page: a time summary and a log of sessions with notes. Here you choose where it goes and whether you need it.",
+  "notionDatabases.hint.timeProperties":
+    "These fields let you sort tasks and sum up time in database views. Without them, time is shown only in the block on the page.",
+  "notionDatabases.hint.isDefault":
+    "Tasks without a project and tasks of projects with no database chosen go here. If there is no default database, such tasks don't reach Notion.",
   "notionDatabases.submit": "Add",
   "notionDatabases.error.propertyConflict":
     "The database already has a field “{name}” of another type. Rename it in Notion and try again.",

@@ -90,6 +90,7 @@ export const notionDatabases = sqliteTable(
     projectPropName: text("project_prop_name"),
     projectPropType: text("project_prop_type", { enum: notionProjectPropertyTypes }),
     blockPosition: text("block_position", { enum: notionBlockPositions }).notNull(),
+    timeProperties: integer("time_properties", { mode: "boolean" }).notNull().default(true),
     isDefault: integer("is_default", { mode: "boolean" }).notNull(),
     createdAt: timestamp("created_at").notNull(),
   },

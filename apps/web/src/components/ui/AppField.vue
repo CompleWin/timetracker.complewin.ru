@@ -3,6 +3,7 @@ import { Search } from "@lucide/vue";
 import { computed, useId, useTemplateRef } from "vue";
 import AppFormError from "./AppFormError.vue";
 import AppSectionLabel from "./AppSectionLabel.vue";
+import AppTooltip from "./AppTooltip.vue";
 
 type FieldKind = "text" | "search" | "select" | "datetime-local" | "textarea";
 
@@ -13,10 +14,11 @@ const props = withDefaults(
     label: string;
     kind?: FieldKind;
     error?: string;
+    hint?: string;
     maxlength?: number;
     rows?: TextareaRows;
   }>(),
-  { kind: "text", error: undefined, maxlength: undefined, rows: 3 },
+  { kind: "text", error: undefined, hint: undefined, maxlength: undefined, rows: 3 },
 );
 
 const model = defineModel<string>({ required: true });
@@ -51,8 +53,11 @@ defineExpose({ focus });
 
 <template>
   <div class="flex flex-col">
-    <div class="mb-2 flex items-center justify-between gap-3">
-      <AppSectionLabel as="label" :for="fieldId">{{ label }}</AppSectionLabel>
+    <div class="relative mb-2 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <AppSectionLabel as="label" :for="fieldId">{{ label }}</AppSectionLabel>
+        <AppTooltip v-if="hint !== undefined" :subject="label" :text="hint" />
+      </div>
       <slot name="status" />
     </div>
     <div v-if="kind === 'search'" class="relative">

@@ -26,6 +26,7 @@ export type TestNotionDatabase = {
   projectMode: ProjectMode;
   projectProperty: TestProjectProperty | null;
   blockPosition: BlockPosition;
+  timeProperties: boolean;
   isDefault: boolean;
   createdAt: string;
 };
@@ -42,6 +43,7 @@ export type DatabaseSettings = {
   projectMode?: ProjectMode;
   projectPropertyId?: string;
   blockPosition?: BlockPosition;
+  timeProperties?: boolean;
   isDefault?: boolean;
 };
 
@@ -53,13 +55,9 @@ export type TrackerField = "spentHours" | "spent" | "running" | "lastTracked" | 
 
 export const MAX_DATABASES = 50;
 export const STOPWATCH = "⏱";
-export const ALWAYS_NEEDED_FIELDS: TrackerField[] = [
-  "spentHours",
-  "spent",
-  "running",
-  "lastTracked",
-];
-export const OWN_MODE_FIELDS: TrackerField[] = [...ALWAYS_NEEDED_FIELDS, "project"];
+export const TIME_FIELDS: TrackerField[] = ["spentHours", "spent", "running", "lastTracked"];
+export const PROJECT_FIELD: TrackerField[] = ["project"];
+export const ALL_TRACKER_FIELDS: TrackerField[] = [...TIME_FIELDS, ...PROJECT_FIELD];
 
 const trackerFieldNames: Record<TrackerField, Record<Locale, string>> = {
   spentHours: { ru: `${STOPWATCH} Затрачено, ч`, en: `${STOPWATCH} Time spent, h` },
@@ -100,6 +98,11 @@ export function expectAddedFields(
     trackerFieldSpecs(locale, fields).map(({ name, type }) => [name, { [type]: {} }]),
   );
   expect(jsonBodyOf(call)).toEqual({ properties });
+}
+
+export function callsFromNowOn(calls: () => ExternalCall[]): () => ExternalCall[] {
+  const earlierCount = calls().length;
+  return () => calls().slice(earlierCount);
 }
 
 export function databasePath(id: string): string {

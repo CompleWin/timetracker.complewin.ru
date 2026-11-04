@@ -35,6 +35,7 @@ export const notionDatabaseSchema = z.object({
   projectMode: z.enum(notionProjectModes),
   projectProperty: notionPropertySchema.nullable(),
   blockPosition: z.enum(notionBlockPositions),
+  timeProperties: z.boolean(),
   isDefault: z.boolean(),
   createdAt: z.string(),
 });
@@ -82,6 +83,7 @@ const notionDatabaseSettings = z.object({
   projectMode: z.enum(notionProjectModes),
   projectPropertyId: z.string().trim().min(1).optional(),
   blockPosition: z.enum(notionBlockPositions),
+  timeProperties: z.boolean().optional(),
   isDefault: z.boolean().optional(),
 });
 

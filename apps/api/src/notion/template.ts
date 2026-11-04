@@ -17,7 +17,12 @@ export async function addTemplateDatabase(setup: DatabaseSetup, templateId: stri
   try {
     const dataSourceId = await templateDataSourceId(setup.client, templateId);
     if (dataSourceId === undefined) return;
-    await addDatabase(setup, { dataSourceId, projectMode: "own", blockPosition: "start" });
+    await addDatabase(setup, {
+      dataSourceId,
+      projectMode: "own",
+      blockPosition: "start",
+      timeProperties: true,
+    });
   } catch (error) {
     console.warn("Notion template setup failed:", String(error));
   }

@@ -1,12 +1,17 @@
 import { beforeEach, describe, it } from "vitest";
 import type { TestResponse, TestSession } from "./harness/index.ts";
-import { OWN_MODE_FIELDS, trackerFieldSpecs } from "./harness/notion-databases.ts";
+import {
+  ALL_TRACKER_FIELDS,
+  expectAddedFields,
+  trackerFieldSpecs,
+} from "./harness/notion-databases.ts";
 import { fakeNotionWorkspace, type FakeNotionWorkspace } from "./harness/notion-workspace.ts";
 import {
   expectConnected,
   expectConnection,
   fakeNotion,
   getNotionConnection,
+  onlyCall,
   type FakeNotion,
 } from "./harness/notion.ts";
 import { MISSING_ID } from "./harness/rest.ts";
@@ -36,11 +41,11 @@ async function connectWithTemplate(
 }
 
 describe("автонастройка из шаблона", () => {
-  it("16. callback с duplicated_template_id добавляет первую базу шаблона с own, start и isDefault = true", async () => {
+  it("16. callback с duplicated_template_id добавляет первую базу шаблона с own, start, timeProperties = true и isDefault = true", async () => {
     const { session } = await loginAs({ locale: "ru" });
     const tasks = workspace.dataSource({
       title: ["Задачи"],
-      properties: trackerFieldSpecs("ru", OWN_MODE_FIELDS),
+      properties: trackerFieldSpecs("ru", ALL_TRACKER_FIELDS),
     });
     const response = await connectWithTemplate(session, workspace.templatePage(tasks));
 
@@ -55,10 +60,19 @@ describe("автонастройка из шаблона", () => {
           projectMode: "own",
           projectProperty: null,
           blockPosition: "start",
+          timeProperties: true,
           isDefault: true,
         },
       ],
     });
+  });
+
+  it("16. базе шаблона без своих полей добавляются все 5 полей одним PATCH к Notion", async () => {
+    const { session } = await loginAs({ locale: "ru" });
+    const tasks = workspace.dataSource({ title: ["Задачи"] });
+    await connectWithTemplate(session, workspace.templatePage(tasks));
+
+    expectAddedFields(onlyCall(workspace.schemaUpdates(tasks)), "ru", ALL_TRACKER_FIELDS);
   });
 
   it.each(brokenTemplates)(
