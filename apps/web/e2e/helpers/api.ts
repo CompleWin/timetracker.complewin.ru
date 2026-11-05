@@ -29,6 +29,11 @@ export type Session = {
   note: string;
 };
 
+export type CurrentUser = {
+  botCanMessage: boolean;
+  reminderThresholdMin: number;
+};
+
 export type ManualSessionInput = {
   startedAt: string;
   endedAt: string;
@@ -137,6 +142,18 @@ export async function addSession(
 export async function setTimeZone(page: Page, timezone: string): Promise<void> {
   const request: ApiRequest = { method: "PATCH", path: "/api/me", body: { timezone } };
   await requestFromPage(page, request, 200);
+}
+
+export async function currentUser(page: Page): Promise<CurrentUser> {
+  const request: ApiRequest = { method: "GET", path: "/api/me" };
+  const { user } = await requestFromPage<{ user: CurrentUser }>(page, request, 200);
+  return user;
+}
+
+export async function botUsername(page: Page): Promise<string> {
+  const request: ApiRequest = { method: "GET", path: "/api/health" };
+  const health = await requestFromPage<{ botUsername: string }>(page, request, 200);
+  return health.botUsername;
 }
 
 export async function listProjects(page: Page): Promise<Project[]> {

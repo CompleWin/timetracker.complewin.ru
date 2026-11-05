@@ -10,6 +10,10 @@ export type Bindings = {
   TG_CLIENT_ID: string;
   TG_CLIENT_SECRET: string;
   TG_OAUTH_BASE?: string;
+  TG_BOT_TOKEN: string;
+  TG_BOT_USERNAME: string;
+  TG_WEBHOOK_SECRET: string;
+  TG_API_BASE?: string;
   NOTION_CLIENT_ID: string;
   NOTION_CLIENT_SECRET: string;
   NOTION_API_BASE?: string;

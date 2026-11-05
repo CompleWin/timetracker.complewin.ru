@@ -5,6 +5,7 @@ import {
   notionProjectModes,
   notionProjectPropertyTypes,
   projectColors,
+  REMINDER_THRESHOLD_DEFAULT_MIN,
 } from "@stt/shared";
 import { isNull, sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
@@ -21,6 +22,9 @@ export const users = sqliteTable("users", {
   username: text("username"),
   photoUrl: text("photo_url"),
   botCanMessage: integer("bot_can_message", { mode: "boolean" }).notNull().default(false),
+  reminderThresholdMin: integer("reminder_threshold_min")
+    .notNull()
+    .default(REMINDER_THRESHOLD_DEFAULT_MIN),
   timezone: text("timezone"),
   locale: text("locale", { enum: locales }).notNull(),
   createdAt: timestamp("created_at").notNull(),
@@ -170,6 +174,7 @@ export const timeEntries = sqliteTable(
     deletedAt: timestamp("deleted_at"),
     notionBlockId: text("notion_block_id"),
     notionLine: text("notion_line"),
+    remindedAt: timestamp("reminded_at"),
   },
   (table) => [
     index("time_entries_user_id_idx").on(table.userId),

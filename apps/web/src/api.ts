@@ -45,7 +45,7 @@ import { rememberServerNow } from "./server-clock.ts";
 
 const SERVER_NOW_HEADER = "X-Server-Now";
 
-const healthResponse = z.object({ env: z.string() });
+const healthResponse = z.object({ env: z.string(), botUsername: z.string() });
 
 const errorResponse = z.object({
   error: z.object({
@@ -85,6 +85,10 @@ export function isApiError(error: unknown, code: string): error is HttpError {
 
 export async function fetchEnvironment(): Promise<string> {
   return healthResponse.parse(await request("GET", "/api/health")).env;
+}
+
+export async function fetchBotUsername(): Promise<string> {
+  return healthResponse.parse(await request("GET", "/api/health")).botUsername;
 }
 
 export async function fetchCurrentUser(): Promise<User | null> {

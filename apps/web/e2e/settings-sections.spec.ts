@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("ширина окна 1280 px", () => {
   test.use({ viewport: SHORT_DESKTOP_VIEWPORT });
 
-  test("16. без Notion в навигации «Разделы настроек» ссылки «Notion» и «Язык», текущая «Notion»; нажатие на «Язык» делает текущей её и показывает раздел «Язык»", async ({
+  test("16. без Notion в навигации «Разделы настроек» ссылки «Notion», «Telegram-бот» и «Язык», текущая «Notion»; нажатие на «Язык» делает текущей её и показывает раздел «Язык»", async ({
     page,
   }) => {
     await page.goto("/settings");
@@ -24,7 +24,7 @@ test.describe("ширина окна 1280 px", () => {
     const notion = link(sections, "Notion");
     const language = link(sections, "Язык");
 
-    await expect(sections.getByRole("link")).toHaveText(["Notion", "Язык"]);
+    await expect(sections.getByRole("link")).toHaveText(["Notion", "Telegram-бот", "Язык"]);
     await expect(notion).toHaveAttribute("aria-current", "true");
 
     await language.click();

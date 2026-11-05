@@ -10,6 +10,7 @@ export type TestUser = {
   timezone: string | null;
   locale: "ru" | "en";
   botCanMessage: boolean;
+  reminderThresholdMin: number;
 };
 
 export type LoginAsInput = {

@@ -9,10 +9,12 @@ import NotionDatabases from "../components/NotionDatabases.vue";
 import NotionSettings from "../components/NotionSettings.vue";
 import NotionSync from "../components/NotionSync.vue";
 import SettingsNav, { type SettingsSection } from "../components/SettingsNav.vue";
+import TelegramBotSettings from "../components/TelegramBotSettings.vue";
 
 const NOTION_ID = "notion";
 const NOTION_DATABASES_ID = "notion-databases";
 const NOTION_SYNC_ID = "notion-sync";
+const TELEGRAM_BOT_ID = "telegram-bot";
 const LANGUAGE_ID = "language";
 
 const { t } = useI18n();
@@ -30,6 +32,7 @@ const sections = computed<SettingsSection[]>(() => [
     ? [{ id: NOTION_DATABASES_ID, title: t("notionDatabases.title") }]
     : []),
   ...(shownSync.value !== null ? [{ id: NOTION_SYNC_ID, title: t("notionSync.title") }] : []),
+  { id: TELEGRAM_BOT_ID, title: t("botSettings.title") },
   { id: LANGUAGE_ID, title: t("language.label") },
 ]);
 const currentId = computed(
@@ -93,6 +96,7 @@ function showSection(id: string): void {
         class="scroll-mt-4"
         @changed="reload"
       />
+      <TelegramBotSettings :id="TELEGRAM_BOT_ID" class="scroll-mt-4" />
       <LanguageSettings :id="LANGUAGE_ID" class="scroll-mt-4" />
     </div>
   </div>

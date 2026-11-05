@@ -1,4 +1,11 @@
 export type { ArchivedFilter } from "./archived-filter.ts";
+export {
+  BOT_COMMANDS,
+  BOT_UPDATE_TYPES,
+  botSetupCalls,
+  WEBHOOK_PATH,
+  type BotSetupCall,
+} from "./bot-setup.ts";
 export { estimateClockOffset, type ClockSample } from "./clock-offset.ts";
 export {
   formatDate,
@@ -119,6 +126,10 @@ export {
 } from "./timeline.ts";
 export {
   devLoginBody,
+  REMINDER_THRESHOLD_DEFAULT_MIN,
+  REMINDER_THRESHOLD_HIGHEST_MIN,
+  REMINDER_THRESHOLD_LOWEST_MIN,
+  REMINDER_THRESHOLD_OPTIONS_MIN,
   updateMeBody,
   userResponse,
   userSchema,

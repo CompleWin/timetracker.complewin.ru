@@ -16,6 +16,7 @@ import { notionPages } from "./routes/notion-pages.ts";
 import { notionSync } from "./routes/notion-sync.ts";
 import { projects } from "./routes/projects.ts";
 import { tasks } from "./routes/tasks.ts";
+import { telegramWebhook } from "./routes/telegram-webhook.ts";
 import { testHooks } from "./routes/test-hooks.ts";
 import { timerSessions } from "./routes/timer-sessions.ts";
 import { timers } from "./routes/timers.ts";
@@ -49,6 +50,7 @@ export function createApp() {
   app.route("/api", apiRoutes());
   app.route("/auth", auth);
   app.route("/notion", notionOauth);
+  app.route("/tg", telegramWebhook);
   app.route("/__test", testHooks);
 
   for (const prefix of WORKER_PREFIXES) {
