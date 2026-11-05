@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectValidationError } from "./harness/assertions.ts";
+import { runCron } from "./harness/cron.ts";
 import {
   ALL_TRACKER_FIELDS,
   PROJECT_FIELD,
@@ -12,10 +13,14 @@ import {
   expectAddedFields,
   patchDatabase,
   updateDatabase,
+  type DatabaseSettings,
 } from "./harness/notion-databases.ts";
+import { fakeNotionPages } from "./harness/notion-pages.ts";
+import { readTask } from "./harness/notion-sync.ts";
 import { fakeNotionWorkspace, type FakeNotionWorkspace } from "./harness/notion-workspace.ts";
 import { fakeNotion, loginWithNotion, onlyCall, type FakeNotion } from "./harness/notion.ts";
 import { createProject, getProject } from "./harness/projects.ts";
+import { createTask } from "./harness/tasks.ts";
 
 let notion: FakeNotion;
 let workspace: FakeNotionWorkspace;
@@ -196,5 +201,31 @@ describe("DELETE /api/notion/databases/:id", () => {
     });
   });
 
-  it.todo("14. у задач со страницами в удалённой базе сбрасываются страница, блоки и блоки сессий");
+  it("14. у задач со страницами в удалённой базе сбрасываются notionPageUrl и notionDatabaseId, задачи другой базы сохраняют связь", async () => {
+    const pages = fakeNotionPages(workspace);
+    const { session } = await loginWithNotion(notion);
+    const settings: DatabaseSettings = { blockPosition: "none", timeProperties: true };
+    const tasks = await addDatabase(session, workspace.dataSource({ title: ["Задачи"] }), settings);
+    const fun = await addDatabase(
+      session,
+      workspace.dataSource({ title: ["Развлечения"] }),
+      settings,
+    );
+    const games = await createProject(session, { name: "Игры", notionDatabaseId: fun.id });
+    const report = await createTask(session, { title: "Отчёт" });
+    const movie = await createTask(session, { title: "Кино", projectId: games.id });
+    await runCron();
+    const moviePageUrl = (await readTask(session, movie.id)).notionPageUrl;
+    await deleteDatabase(session, tasks.id);
+
+    expect(pages.list()).toHaveLength(2);
+    expect(await readTask(session, report.id)).toMatchObject({
+      notionPageUrl: null,
+      notionDatabaseId: null,
+    });
+    expect(await readTask(session, movie.id)).toMatchObject({
+      notionPageUrl: moviePageUrl,
+      notionDatabaseId: fun.id,
+    });
+  });
 });

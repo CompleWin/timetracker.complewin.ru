@@ -9,6 +9,7 @@ import {
 import { isNull, sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { TrackerPropertyIds } from "../notion/tracker-properties.ts";
+import type { SentPage } from "../sync/page-state.ts";
 
 const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
 
@@ -68,6 +69,8 @@ export const notionConnections = sqliteTable("notion_connections", {
   accessTokenEnc: text("access_token_enc"),
   refreshTokenEnc: text("refresh_token_enc"),
   status: text("status", { enum: notionConnectionStatuses }).notNull(),
+  syncPausedUntil: timestamp("sync_paused_until"),
+  lastSyncAt: timestamp("last_sync_at"),
   createdAt: timestamp("created_at").notNull(),
 });
 
@@ -129,6 +132,11 @@ export const tasks = sqliteTable(
     projectId: text("project_id").references(() => projects.id),
     title: text("title").notNull(),
     pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    notionDatabaseId: text("notion_database_id").references(() => notionDatabases.id),
+    notionPageId: text("notion_page_id"),
+    notionPageUrl: text("notion_page_url"),
+    notionSent: text("notion_sent", { mode: "json" }).$type<SentPage>(),
+    notionSyncedAt: timestamp("notion_synced_at"),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -159,4 +167,21 @@ export const timeEntries = sqliteTable(
     index("time_entries_task_started_idx").on(table.taskId, table.startedAt),
     uniqueIndex("time_entries_running_task_idx").on(table.taskId).where(isNull(table.endedAt)),
   ],
+);
+
+export const syncOutbox = sqliteTable(
+  "sync_outbox",
+  {
+    taskId: text("task_id")
+      .primaryKey()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    attempts: integer("attempts").notNull().default(0),
+    nextTryAt: timestamp("next_try_at").notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [index("sync_outbox_user_next_try_idx").on(table.userId, table.nextTryAt)],
 );

@@ -28,9 +28,12 @@ export {
   notionConnectionStatuses,
   notionDatabaseResponse,
   notionDatabaseSchema,
+  notionExportResponse,
   notionProjectModes,
   notionProjectPropertyTypes,
   notionPropertiesResponse,
+  syncFailureSchema,
+  syncStatusSchema,
   updateNotionDatabaseBody,
   type AddNotionDatabaseBody,
   type AvailableNotionDatabase,
@@ -41,6 +44,8 @@ export {
   type NotionProjectMode,
   type NotionProjectPropertyType,
   type NotionProperty,
+  type SyncFailure,
+  type SyncStatus,
   type UpdateNotionDatabaseBody,
 } from "./notion.ts";
 export {

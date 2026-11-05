@@ -2,12 +2,14 @@ import {
   availableNotionDatabasesResponse,
   notionConnectionResponse,
   notionDatabaseResponse,
+  notionExportResponse,
   notionPropertiesResponse,
   projectResponse,
   projectsResponse,
   sessionResponse,
   sessionsResponse,
   sessionsWithTaskResponse,
+  syncStatusSchema,
   TASK_SESSIONS_MAX_LIMIT,
   taskResponse,
   tasksResponse,
@@ -25,6 +27,7 @@ import {
   type Project,
   type Session,
   type SessionWithTask,
+  type SyncStatus,
   type Task,
   type UpdateMeBody,
   type UpdateNotionDatabaseBody,
@@ -221,6 +224,18 @@ export async function updateNotionDatabase(
 
 export async function removeNotionDatabase(id: string): Promise<void> {
   await request("DELETE", `/api/notion/databases/${id}`);
+}
+
+export async function fetchSyncStatus(): Promise<SyncStatus> {
+  return syncStatusSchema.parse(await request("GET", "/api/notion/sync"));
+}
+
+export async function retrySync(): Promise<void> {
+  await request("POST", "/api/notion/sync/retry");
+}
+
+export async function exportTasksToNotion(): Promise<number> {
+  return notionExportResponse.parse(await request("POST", "/api/notion/export")).queued;
 }
 
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {

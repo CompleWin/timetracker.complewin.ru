@@ -3,8 +3,10 @@ import { and, eq, gt, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { timeEntries } from "../db/schema.ts";
 import { notFound, overlap, validationError, type FieldErrors } from "../http/errors.ts";
+import { enqueueTasks } from "../sync/outbox.ts";
 import { requireActiveTask } from "../tasks/tasks.ts";
-import { liveEntries, ownEntry, requireEntry, stoppedAt, toSession } from "./time-entries.ts";
+import { sessionChanged } from "./timers.ts";
+import { liveEntries, ownEntry, requireEntry, stoppedAt } from "./time-entries.ts";
 
 export type ManualSession = {
   startedAt: string;
@@ -41,7 +43,7 @@ export async function addSession(
     .values({ id: crypto.randomUUID(), userId, taskId, ...times, note })
     .returning();
   if (row === undefined) throw new Error(`Session of task ${taskId} was not added`);
-  return toSession(row, now);
+  return sessionChanged(db, row, now);
 }
 
 export async function updateSession(
@@ -65,7 +67,7 @@ export async function updateSession(
     .where(ownEntry(userId, id))
     .returning();
   if (row === undefined) throw notFound();
-  return toSession(row, now);
+  return sessionChanged(db, row, now);
 }
 
 export async function deleteSession(
@@ -78,8 +80,9 @@ export async function deleteSession(
     .update(timeEntries)
     .set({ deletedAt: now, endedAt: sql`coalesce(${timeEntries.endedAt}, ${stoppedAt(now)})` })
     .where(ownEntry(userId, id))
-    .returning({ id: timeEntries.id });
+    .returning({ taskId: timeEntries.taskId });
   if (row === undefined) throw notFound();
+  await enqueueTasks(db, userId, [row.taskId], now);
 }
 
 function ensureValidTimes(times: SessionTimes, changes: TimeChanges, now: Date): void {

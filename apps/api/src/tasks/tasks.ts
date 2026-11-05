@@ -13,6 +13,7 @@ import { sortByName } from "../db/order.ts";
 import { projects, tasks } from "../db/schema.ts";
 import { notFound, taskArchived, validationError } from "../http/errors.ts";
 import { isActiveProject } from "../projects/projects.ts";
+import { enqueueTasks } from "../sync/outbox.ts";
 import { IDLE_TIMER, stopTaskEntries, taskTimers, type TaskTimer } from "../timers/time-entries.ts";
 
 type TaskRow = typeof tasks.$inferSelect;
@@ -67,6 +68,7 @@ export async function createTask(
     .values({ id: crypto.randomUUID(), userId, ...task, createdAt: now, updatedAt: now })
     .returning();
   if (row === undefined) throw new Error(`Task "${task.title}" was not created`);
+  await enqueueTasks(db, userId, [row.id], now);
   return toTask(row, IDLE_TIMER);
 }
 
@@ -79,7 +81,7 @@ export async function updateTask(
 ): Promise<Task> {
   const current = await requireTask(db, userId, id);
   await ensureProjectUsable(db, userId, changes.projectId);
-  if (changes.archived === true) await stopTaskEntries(db, userId, id, now);
+  const stopped = changes.archived === true ? await stopTaskEntries(db, userId, id, now) : [];
   const [row] = await db
     .update(tasks)
     .set({
@@ -92,6 +94,7 @@ export async function updateTask(
     .where(eq(tasks.id, id))
     .returning();
   if (row === undefined) throw new Error(`Task ${id} was not updated`);
+  if (changesNotionPage(changes) || stopped.length > 0) await enqueueTasks(db, userId, [id], now);
   return withTimer(db, row, now);
 }
 
@@ -111,6 +114,10 @@ export async function requireActiveTask(db: Database, userId: string, id: string
     .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
   if (row === undefined) throw notFound();
   if (row.archivedAt !== null || row.projectArchivedAt !== null) throw taskArchived();
+}
+
+function changesNotionPage({ title, projectId }: UpdateTaskBody): boolean {
+  return title !== undefined || projectId !== undefined;
 }
 
 function projectCondition(projectId: string | undefined): SQL | undefined {
@@ -142,6 +149,8 @@ function toTask(row: TaskRow, timer: TaskTimer): Task {
     archived: row.archivedAt !== null,
     archivedAt: row.archivedAt?.toISOString() ?? null,
     pinned: row.pinned,
+    notionPageUrl: row.notionPageUrl,
+    notionDatabaseId: row.notionDatabaseId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     ...timer,

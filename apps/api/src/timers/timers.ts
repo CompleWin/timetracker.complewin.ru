@@ -9,6 +9,7 @@ import { and, asc, count, desc, eq, gte, isNull, lt, type SQL } from "drizzle-or
 import type { Database } from "../db/client.ts";
 import { tasks, timeEntries } from "../db/schema.ts";
 import { alreadyRunning, notRunning, tooManyRunning } from "../http/errors.ts";
+import { enqueueTasks } from "../sync/outbox.ts";
 import { requireActiveTask, requireTask } from "../tasks/tasks.ts";
 import {
   entryIdWhere,
@@ -18,6 +19,7 @@ import {
   stopRunningEntries,
   stopTaskEntries,
   toSession,
+  type TimeEntryRow,
 } from "./time-entries.ts";
 
 export async function startTimer(
@@ -33,7 +35,7 @@ export async function startTimer(
     .values({ id: crypto.randomUUID(), userId, taskId, startedAt: now })
     .onConflictDoNothing()
     .returning();
-  if (row !== undefined) return toSession(row, now);
+  if (row !== undefined) return sessionChanged(db, row, now);
   await ensureCanStart(db, userId, taskId);
   throw new Error(`Timer of task ${taskId} was not started`);
 }
@@ -45,7 +47,7 @@ export async function stopTaskTimer(
   now: Date,
 ): Promise<Session> {
   const [row] = await stopTaskEntries(db, userId, taskId, now);
-  if (row !== undefined) return toSession(row, now);
+  if (row !== undefined) return sessionChanged(db, row, now);
   await requireTask(db, userId, taskId);
   throw notRunning();
 }
@@ -57,7 +59,7 @@ export async function stopSession(
   now: Date,
 ): Promise<Session> {
   const [row] = await stopRunningEntries(db, ownEntry(userId, id), now);
-  if (row !== undefined) return toSession(row, now);
+  if (row !== undefined) return sessionChanged(db, row, now);
   await requireEntry(db, userId, id);
   throw notRunning();
 }
@@ -137,6 +139,11 @@ async function listSessionsWithTask(
     .where(condition)
     .orderBy(asc(timeEntries.startedAt), asc(timeEntries.id));
   return rows.map(({ entry, task }) => ({ ...toSession(entry, now), task }));
+}
+
+export async function sessionChanged(db: Database, row: TimeEntryRow, now: Date): Promise<Session> {
+  await enqueueTasks(db, row.userId, [row.taskId], now);
+  return toSession(row, now);
 }
 
 async function ensureCanStart(db: Database, userId: string, taskId: string): Promise<void> {

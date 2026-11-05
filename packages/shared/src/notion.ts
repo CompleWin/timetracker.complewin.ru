@@ -113,3 +113,22 @@ export const updateNotionDatabaseBody = atLeastOneField(notionDatabaseSettings.p
 );
 
 export type UpdateNotionDatabaseBody = z.infer<typeof updateNotionDatabaseBody>;
+
+export const syncFailureSchema = z.object({
+  taskId: z.string(),
+  title: z.string(),
+  error: z.string(),
+  attempts: z.number(),
+});
+
+export type SyncFailure = z.infer<typeof syncFailureSchema>;
+
+export const syncStatusSchema = z.object({
+  pendingTasks: z.number(),
+  failed: z.array(syncFailureSchema),
+  lastRunAt: z.string().nullable(),
+});
+
+export type SyncStatus = z.infer<typeof syncStatusSchema>;
+
+export const notionExportResponse = z.object({ queued: z.number() });
