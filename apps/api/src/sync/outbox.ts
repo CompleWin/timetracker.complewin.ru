@@ -41,6 +41,20 @@ export function enqueueProjectTasks(
   return enqueueWhere(db, userId, eq(tasks.projectId, projectId), now, "event");
 }
 
+export function enqueueBlockInheritingTasks(
+  db: Database,
+  userId: string,
+  databaseId: string,
+  now: Date,
+): Promise<string[]> {
+  const inheriting = and(
+    eq(tasks.notionDatabaseId, databaseId),
+    isNotNull(tasks.notionPageId),
+    isNull(tasks.notionBlockPosition),
+  );
+  return enqueueWhere(db, userId, inheriting, now, "event");
+}
+
 export function enqueueUnlinkedActiveTasks(
   db: Database,
   userId: string,

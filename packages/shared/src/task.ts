@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { archivedFilter } from "./archived-filter.ts";
+import { notionBlockPositions } from "./notion.ts";
 import { atLeastOneField } from "./patch.ts";
 
 export const TASK_TITLE_MAX_LENGTH = 300;
@@ -15,6 +16,7 @@ export const taskSchema = z.object({
   pinned: z.boolean(),
   notionPageUrl: z.string().nullable(),
   notionDatabaseId: z.string().nullable(),
+  notionBlockPosition: z.enum(notionBlockPositions).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   totalSec: z.number(),
@@ -45,6 +47,7 @@ export const updateTaskBody = atLeastOneField(
     projectId: projectReference.optional(),
     archived: z.boolean().optional(),
     pinned: z.boolean().optional(),
+    notionBlockPosition: z.enum(notionBlockPositions).nullable().optional(),
   }),
 );
 

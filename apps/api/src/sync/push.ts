@@ -33,6 +33,7 @@ const MAX_BACKOFF_MINUTES = 60;
 type SyncUser = {
   connection: ConnectedRow;
   locale: (typeof users.$inferSelect)["locale"];
+  timeZone: string | null;
 };
 
 type QueueItem = {
@@ -49,7 +50,7 @@ export async function pushNotionChanges(env: Bindings, now: Date): Promise<void>
 
 async function syncUsers(db: Database, now: Date): Promise<SyncUser[]> {
   const rows = await db
-    .select({ connection: notionConnections, locale: users.locale })
+    .select({ connection: notionConnections, locale: users.locale, timeZone: users.timezone })
     .from(notionConnections)
     .innerJoin(users, eq(users.id, notionConnections.userId))
     .where(
@@ -65,15 +66,15 @@ async function syncUsers(db: Database, now: Date): Promise<SyncUser[]> {
         ),
       ),
     );
-  return rows.flatMap(({ connection, locale }) =>
-    isConnected(connection) ? [{ connection, locale }] : [],
+  return rows.flatMap(({ connection, locale, timeZone }) =>
+    isConnected(connection) ? [{ connection, locale, timeZone }] : [],
   );
 }
 
 async function pushUserChanges(
   env: Bindings,
   db: Database,
-  { connection, locale }: SyncUser,
+  { connection, locale, timeZone }: SyncUser,
   now: Date,
 ): Promise<void> {
   const userId = connection.userId;
@@ -87,7 +88,7 @@ async function pushUserChanges(
   const run: PushRun = {
     db,
     client: budgetedClient(notionClient(env, connection), budget, pauseMs),
-    owner: { id: userId, locale },
+    owner: { id: userId, locale, timeZone },
     databases: await listNotionDatabaseRows(db, userId),
     now,
   };

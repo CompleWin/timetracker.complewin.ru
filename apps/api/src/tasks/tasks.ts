@@ -88,6 +88,7 @@ export async function updateTask(
       title: changes.title,
       projectId: changes.projectId,
       pinned: changes.pinned,
+      notionBlockPosition: changes.notionBlockPosition,
       archivedAt: archivedAtAfter(current.archivedAt, changes.archived, now),
       updatedAt: now,
     })
@@ -116,8 +117,8 @@ export async function requireActiveTask(db: Database, userId: string, id: string
   if (row.archivedAt !== null || row.projectArchivedAt !== null) throw taskArchived();
 }
 
-function changesNotionPage({ title, projectId }: UpdateTaskBody): boolean {
-  return title !== undefined || projectId !== undefined;
+function changesNotionPage({ title, projectId, notionBlockPosition }: UpdateTaskBody): boolean {
+  return title !== undefined || projectId !== undefined || notionBlockPosition !== undefined;
 }
 
 function projectCondition(projectId: string | undefined): SQL | undefined {
@@ -151,6 +152,7 @@ function toTask(row: TaskRow, timer: TaskTimer): Task {
     pinned: row.pinned,
     notionPageUrl: row.notionPageUrl,
     notionDatabaseId: row.notionDatabaseId,
+    notionBlockPosition: row.notionBlockPosition,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     ...timer,

@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ChevronLeft } from "@lucide/vue";
-import { lastDays, type Project, type Session, type SessionWithTask, type Task } from "@stt/shared";
+import {
+  lastDays,
+  type NotionBlockPosition,
+  type Project,
+  type Session,
+  type SessionWithTask,
+  type Task,
+} from "@stt/shared";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterLink, useRouter } from "vue-router";
@@ -125,6 +132,10 @@ function setArchived(archived: boolean): Promise<void> {
   return changeAndReload(() => api.updateTask(props.id, { archived }));
 }
 
+function setBlockPosition(notionBlockPosition: NotionBlockPosition | null): Promise<void> {
+  return changeAndReload(() => api.updateTask(props.id, { notionBlockPosition }));
+}
+
 async function editTask(): Promise<void> {
   const projects = await api.fetchProjects("false");
   dialog.value = { kind: "task", projects };
@@ -191,7 +202,12 @@ async function onSaved(): Promise<void> {
       </div>
       <div class="flex max-w-full min-w-0 flex-[1_1_320px] flex-col gap-5">
         <TaskDays :sessions="periodSessions" :days :now :time-zone />
-        <TaskNotion v-if="task.notionPageUrl" :page-url="task.notionPageUrl" />
+        <TaskNotion
+          v-if="task.notionPageUrl"
+          :page-url="task.notionPageUrl"
+          :block-position="task.notionBlockPosition"
+          @change-position="setBlockPosition"
+        />
       </div>
     </div>
 
