@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { accountMenu, openAccountMenu } from "./helpers/account-menu.ts";
+import { button, textOf } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
 const signInErrors = [
@@ -25,16 +27,17 @@ test("20. открытие / без сессии ведёт на /login со с�
   );
 });
 
-test("21. «Войти как тестовый пользователь» открывает главную с «Dev User» и «Выйти», «Выйти» ведёт на /login", async ({
+test("21. «Войти как тестовый пользователь» открывает главную, в меню «Меню» видны «Dev User» и «Выйти», «Выйти» ведёт на /login", async ({
   page,
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Войти как тестовый пользователь" }).click();
 
   await expect(page).toHaveURL(urlMatching("/"));
-  await expect(page.getByText("Dev User", { exact: true }).first()).toBeVisible();
+  await openAccountMenu(page);
+  await expect(textOf(accountMenu(page), "Dev User")).toBeVisible();
 
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await button(accountMenu(page), "Выйти").click();
 
   await expect(page).toHaveURL(urlMatching("/login"));
   await page.goto("/");

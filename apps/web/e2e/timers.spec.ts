@@ -2,54 +2,61 @@ import { expect, test } from "@playwright/test";
 import { createTask, startTimer } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
 import { clockIn, expectClockTicks, readClockSec } from "./helpers/clock.ts";
+import {
+  expectPickerClosed,
+  openPicker,
+  startFromPicker,
+  startTimerButton,
+  stopTimerButton,
+} from "./helpers/picker.ts";
 import { button, region, runningNow, textOf } from "./helpers/ui.ts";
 
 const ELAPSED_BEFORE_RELOAD_SEC = 2;
+const ENGLISH_TRIGGER = "What are you doing? Pick a task and the timer starts right away";
 
 test.describe("таймеры на русском", () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page);
   });
 
-  test("18. «Запустить таймер: Anki» показывает «Anki» в панели «Сейчас идёт» с идущими часами, «Остановить таймер: Anki» убирает панель", async ({
+  test("18. «Запустить таймер: Anki» в панели выбора закрывает панель, в регионе «Сейчас идёт» видна «Anki» с идущими часами, «Остановить таймер: Anki» убирает регион", async ({
     page,
   }) => {
     await createTask(page, { title: "Anki" });
     await page.goto("/");
-    await expect(button(page, "Запустить таймер: Anki")).toBeVisible();
     await expect(runningNow(page)).toHaveCount(0);
+    await openPicker(page);
 
-    await button(page, "Запустить таймер: Anki").click();
+    await startTimerButton(page, "Anki").click();
 
-    const panel = runningNow(page);
-    await expect(textOf(panel, "Anki")).toBeVisible();
-    await expectClockTicks(clockIn(panel));
-    await expect(button(page, "Остановить таймер: Anki")).toHaveCount(2);
+    await expectPickerClosed(page);
+    const running = runningNow(page);
+    await expect(textOf(running, "Anki")).toBeVisible();
+    await expectClockTicks(clockIn(running));
 
-    await button(panel, "Остановить таймер: Anki").click();
+    await stopTimerButton(running, "Anki").click();
 
-    await expect(panel).toHaveCount(0);
-    await expect(button(page, "Запустить таймер: Anki")).toBeVisible();
+    await expect(running).toHaveCount(0);
   });
 
-  test("19. запущенные «Anki» и «Беговая дорожка» обе видны в панели «Сейчас идёт»", async ({
+  test("19. запущенные «Anki» и «Беговая дорожка» обе видны в регионе «Сейчас идут · 2»", async ({
     page,
   }) => {
     await createTask(page, { title: "Anki" });
     await createTask(page, { title: "Беговая дорожка" });
     await page.goto("/");
 
-    await button(page, "Запустить таймер: Anki").click();
-    await button(page, "Запустить таймер: Беговая дорожка").click();
+    await startFromPicker(page, "Anki");
+    await startFromPicker(page, "Беговая дорожка");
 
-    const panel = runningNow(page);
+    const running = region(page, "Сейчас идут · 2");
     for (const title of ["Anki", "Беговая дорожка"]) {
-      await expect(textOf(panel, title)).toBeVisible();
-      await expect(button(panel, `Остановить таймер: ${title}`)).toBeVisible();
+      await expect(textOf(running, title)).toBeVisible();
+      await expect(stopTimerButton(running, title)).toBeVisible();
     }
   });
 
-  test("20. после перезагрузки страницы идущий таймер остаётся в панели, часы показывают не меньше, чем до перезагрузки", async ({
+  test("20. после перезагрузки страницы идущий таймер остаётся в регионе «Сейчас идёт», часы показывают не меньше, чем до перезагрузки", async ({
     page,
   }) => {
     const task = await createTask(page, { title: "Anki" });
@@ -63,23 +70,24 @@ test.describe("таймеры на русском", () => {
 
     await page.reload();
 
-    const panel = runningNow(page);
-    await expect(textOf(panel, "Anki")).toBeVisible();
-    await expect(clockIn(panel)).toBeVisible();
-    expect(await readClockSec(clockIn(panel))).toBeGreaterThanOrEqual(shownBeforeReload);
+    const running = runningNow(page);
+    await expect(textOf(running, "Anki")).toBeVisible();
+    await expect(clockIn(running)).toBeVisible();
+    expect(await readClockSec(clockIn(running))).toBeGreaterThanOrEqual(shownBeforeReload);
   });
 });
 
-test("21. пользователь с locale en видит «Start timer: Anki», после запуска регион «Running now» и «Stop timer: Anki»", async ({
+test("21. пользователь с locale en видит в панели выбора «Start timer: Anki», после запуска регион «Running now» и «Stop timer: Anki»", async ({
   page,
 }) => {
   await loginAs(page, { locale: "en" });
   await createTask(page, { title: "Anki" });
   await page.goto("/");
+  await openPicker(page, ENGLISH_TRIGGER);
 
   await button(page, "Start timer: Anki").click();
 
-  const panel = region(page, "Running now");
-  await expect(panel).toBeVisible();
-  await expect(button(panel, "Stop timer: Anki")).toBeVisible();
+  const running = region(page, "Running now");
+  await expect(running).toBeVisible();
+  await expect(button(running, "Stop timer: Anki")).toBeVisible();
 });

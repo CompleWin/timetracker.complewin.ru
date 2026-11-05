@@ -3,20 +3,27 @@ import { createTask, getSession, startTimer, type Session } from "./helpers/api.
 import { loginAs } from "./helpers/auth.ts";
 import { button, runningNow, textOf } from "./helpers/ui.ts";
 
-type HorizontalBounds = {
-  left: number;
-  right: number;
+type CloseNote = {
+  way: string;
+  close: (page: Page) => Promise<void>;
 };
 
 const TITLE = "Anki";
 const NOTE = "повторил 50 карточек";
+const EMPTY_NOTE_TEXT = "Заметка";
+
+const keyboardClosingWays: CloseNote[] = [
+  { way: "Enter", close: (page) => page.keyboard.press("Enter") },
+  { way: "Esc", close: (page) => page.keyboard.press("Escape") },
+];
+
+const closingWays: CloseNote[] = [
+  ...keyboardClosingWays,
+  { way: "клик мимо поля", close: (page) => page.mouse.click(1, 1) },
+];
 
 function noteButton(page: Page): Locator {
   return button(runningNow(page), `Написать заметку: ${TITLE}`);
-}
-
-function stopButton(page: Page): Locator {
-  return button(runningNow(page), `Остановить таймер: ${TITLE}`);
 }
 
 function noteField(page: Page): Locator {
@@ -35,15 +42,14 @@ async function openHomeWithRunningTimer(page: Page): Promise<Session> {
   return session;
 }
 
-async function expectNoteHidden(page: Page): Promise<void> {
-  await expect(noteButton(page)).toHaveAttribute("aria-expanded", "false");
-  await expect(noteField(page)).toBeHidden();
-}
-
 async function openNote(page: Page): Promise<void> {
   await noteButton(page).click();
   await expect(noteField(page)).toBeVisible();
-  await expect(noteButton(page)).toHaveAttribute("aria-expanded", "true");
+}
+
+async function expectNoteClosed(page: Page, shown: string): Promise<void> {
+  await expect(noteField(page)).toBeHidden();
+  await expect(noteButton(page)).toHaveText(shown);
 }
 
 async function savedNoteOf(page: Page, session: Session): Promise<string> {
@@ -51,27 +57,11 @@ async function savedNoteOf(page: Page, session: Session): Promise<string> {
   return note;
 }
 
-async function horizontalBounds(element: Locator): Promise<HorizontalBounds> {
-  await expect(element).toBeVisible();
-  const box = await element.boundingBox();
-  if (box === null) throw new Error("element has no bounding box");
-  return { left: box.x, right: box.x + box.width };
-}
-
-test("16. кнопка «Написать заметку: <название>» стоит слева от «Стоп»", async ({ page }) => {
-  await openHomeWithRunningTimer(page);
-
-  const noteBounds = await horizontalBounds(noteButton(page));
-  const stopBounds = await horizontalBounds(stopButton(page));
-
-  expect(noteBounds.right).toBeLessThanOrEqual(stopBounds.left);
-});
-
-test("16. поле «Заметка: <название>» скрыто до нажатия «Написать заметку: <название>», после «Сохранено» и перезагрузки снова скрыто, а текст на месте", async ({
+test("16. поле «Заметка: Anki» скрыто, кнопка «Написать заметку: Anki» показывает «Заметка»; нажатие открывает поле в фокусе; после «Сохранено» и перезагрузки кнопка показывает текст, а поле получает его снова", async ({
   page,
 }) => {
   await openHomeWithRunningTimer(page);
-  await expectNoteHidden(page);
+  await expectNoteClosed(page, EMPTY_NOTE_TEXT);
 
   await openNote(page);
   await expect(noteField(page)).toBeFocused();
@@ -80,32 +70,53 @@ test("16. поле «Заметка: <название>» скрыто до на
   await expect(savedMark(page)).toBeVisible();
 
   await page.reload();
-  await expectNoteHidden(page);
+
+  await expectNoteClosed(page, NOTE);
   await openNote(page);
   await expect(noteField(page)).toHaveValue(NOTE);
 });
 
-test("23. повторное нажатие на «Написать заметку: <название>» скрывает поле", async ({ page }) => {
+for (const { way, close } of closingWays) {
+  test(`23. ${way} сразу после ввода закрывает поле «Заметка: Anki» и сохраняет текст, после перезагрузки заметка та же`, async ({
+    page,
+  }) => {
+    const session = await openHomeWithRunningTimer(page);
+    await openNote(page);
+    await noteField(page).fill(NOTE);
+
+    await close(page);
+
+    await expectNoteClosed(page, NOTE);
+    await expect.poll(() => savedNoteOf(page, session)).toBe(NOTE);
+    await page.reload();
+    await expectNoteClosed(page, NOTE);
+  });
+}
+
+for (const { way, close } of keyboardClosingWays) {
+  test(`23. после закрытия поля через ${way} фокус на кнопке «Написать заметку: Anki»`, async ({
+    page,
+  }) => {
+    await openHomeWithRunningTimer(page);
+    await openNote(page);
+    await noteField(page).fill(NOTE);
+
+    await close(page);
+
+    await expect(noteButton(page)).toBeFocused();
+  });
+}
+
+test("23. Shift+Enter переносит строку и оставляет поле «Заметка: Anki» открытым", async ({
+  page,
+}) => {
   await openHomeWithRunningTimer(page);
   await openNote(page);
 
-  await noteButton(page).click();
+  await noteField(page).pressSequentially("первая");
+  await page.keyboard.press("Shift+Enter");
+  await noteField(page).pressSequentially("вторая");
 
-  await expectNoteHidden(page);
-});
-
-test("23. текст, введённый и сразу скрытый без ожидания «Сохранено», сохраняется в заметке сессии и виден после перезагрузки", async ({
-  page,
-}) => {
-  const session = await openHomeWithRunningTimer(page);
-  await openNote(page);
-
-  await noteField(page).fill(NOTE);
-  await noteButton(page).click();
-
-  await expectNoteHidden(page);
-  await expect.poll(() => savedNoteOf(page, session)).toBe(NOTE);
-  await page.reload();
-  await openNote(page);
-  await expect(noteField(page)).toHaveValue(NOTE);
+  await expect(noteField(page)).toBeVisible();
+  await expect(noteField(page)).toHaveValue("первая\nвторая");
 });

@@ -6,6 +6,7 @@
   --color-primary-soft: #e5f8ec;
   --color-primary-soft-hover: #cbf0d9;
   --color-primary-faint: #76cd9c;
+  --color-primary-muted: #9cc7ae;
   --color-primary-ink: #003820;
   --color-success: var(--color-primary);
   --color-success-hover: var(--color-primary-hover);
@@ -21,6 +22,17 @@
   --color-project-purple: #9065b0;
   --color-project-pink: #c14c8a;
   --color-project-red: #d44c47;
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
+
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.28;
+    }
+  }
 }
 
 @layer base {

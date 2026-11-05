@@ -21,7 +21,7 @@ export const sessionSchema = z.object({
 
 export type Session = z.infer<typeof sessionSchema>;
 
-export const activeSessionSchema = sessionSchema.extend({
+export const sessionWithTaskSchema = sessionSchema.extend({
   task: z.object({
     id: z.string(),
     title: z.string(),
@@ -29,13 +29,13 @@ export const activeSessionSchema = sessionSchema.extend({
   }),
 });
 
-export type ActiveSession = z.infer<typeof activeSessionSchema>;
+export type SessionWithTask = z.infer<typeof sessionWithTaskSchema>;
 
 export const sessionResponse = z.object({ session: sessionSchema });
 
 export const sessionsResponse = z.object({ sessions: z.array(sessionSchema) });
 
-export const activeSessionsResponse = z.object({ sessions: z.array(activeSessionSchema) });
+export const sessionsWithTaskResponse = z.object({ sessions: z.array(sessionWithTaskSchema) });
 
 const sessionNote = z.string().max(SESSION_NOTE_MAX_LENGTH);
 
@@ -68,3 +68,24 @@ export const taskSessionsQuery = z.object({
 });
 
 export type TaskSessionsQuery = z.infer<typeof taskSessionsQuery>;
+
+export const SESSION_PERIOD_MAX_SEC = 31 * 24 * 60 * 60;
+
+const MS_PER_SECOND = 1000;
+
+export const sessionPeriodQuery = z
+  .object({
+    from: isoDateTime,
+    to: isoDateTime,
+    taskId: z.string().optional(),
+  })
+  .refine(({ from, to }) => isValidPeriod(Date.parse(from), Date.parse(to)), {
+    path: ["to"],
+    message: "Must be later than from and at most 31 days after it",
+  });
+
+export type SessionPeriodQuery = z.infer<typeof sessionPeriodQuery>;
+
+function isValidPeriod(fromMs: number, toMs: number): boolean {
+  return toMs > fromMs && toMs - fromMs <= SESSION_PERIOD_MAX_SEC * MS_PER_SECOND;
+}

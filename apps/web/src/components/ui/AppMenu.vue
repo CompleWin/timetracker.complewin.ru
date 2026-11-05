@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Ellipsis, type LucideIcon } from "@lucide/vue";
-import { nextTick, ref, useId, useTemplateRef } from "vue";
-import AppIconButton from "./AppIconButton.vue";
+import { nextTick, onBeforeUnmount, ref, useId, useTemplateRef, watch } from "vue";
+import AppIconButton, { type IconButtonSize, type IconButtonTone } from "./AppIconButton.vue";
 
 export type MenuItem = {
   label: string;
@@ -9,22 +9,45 @@ export type MenuItem = {
   select: () => void;
 };
 
-defineProps<{ label: string; items: MenuItem[] }>();
+type MenuPosition = { top: number; right: number };
+
+const MENU_OFFSET_PX = 8;
+
+withDefaults(
+  defineProps<{
+    label: string;
+    items: MenuItem[];
+    icon?: LucideIcon;
+    size?: IconButtonSize;
+    tone?: IconButtonTone;
+  }>(),
+  { icon: undefined, size: "md", tone: "calm" },
+);
 
 const isOpen = ref(false);
+const position = ref<MenuPosition>({ top: 0, right: 0 });
 const menuId = useId();
 const root = useTemplateRef("root");
 
+watch(isOpen, (open) => (open ? listenForMoves() : stopListening()));
+
+onBeforeUnmount(stopListening);
+
 async function toggle(): Promise<void> {
   if (isOpen.value) return close();
+  position.value = placeUnder(trigger());
   isOpen.value = true;
   await nextTick();
-  menuItems()[0]?.focus();
+  menuItems()[0]?.focus({ preventScroll: true });
 }
 
 function close(): void {
   isOpen.value = false;
-  root.value?.querySelector<HTMLElement>("[aria-haspopup]")?.focus();
+  trigger()?.focus();
+}
+
+function dismiss(): void {
+  isOpen.value = false;
 }
 
 function choose(item: MenuItem): void {
@@ -42,6 +65,7 @@ function onKeydown(event: KeyboardEvent): void {
   if (!isOpen.value) return;
   if (event.key === "Escape") {
     event.preventDefault();
+    event.stopPropagation();
     close();
   } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
@@ -55,8 +79,31 @@ function moveFocus(step: number): void {
   items[(current + step + items.length) % items.length]?.focus();
 }
 
+function placeUnder(element: HTMLElement | null | undefined): MenuPosition {
+  const rect = element?.getBoundingClientRect();
+  if (rect === undefined) return { top: 0, right: 0 };
+  return {
+    top: rect.bottom + MENU_OFFSET_PX,
+    right: document.documentElement.clientWidth - rect.right,
+  };
+}
+
+function trigger(): HTMLElement | null | undefined {
+  return root.value?.querySelector<HTMLElement>("[aria-haspopup]");
+}
+
 function menuItems(): HTMLElement[] {
   return Array.from(root.value?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []);
+}
+
+function listenForMoves(): void {
+  window.addEventListener("scroll", dismiss, true);
+  window.addEventListener("resize", dismiss);
+}
+
+function stopListening(): void {
+  window.removeEventListener("scroll", dismiss, true);
+  window.removeEventListener("resize", dismiss);
 }
 </script>
 
@@ -64,12 +111,14 @@ function menuItems(): HTMLElement[] {
   <div ref="root" class="relative" @keydown="onKeydown" @focusout="closeWhenFocusLeaves">
     <AppIconButton
       :label
+      :size
+      :tone
       aria-haspopup="menu"
       :aria-expanded="isOpen"
       :aria-controls="isOpen ? menuId : undefined"
       @click="toggle"
     >
-      <Ellipsis :size="17" aria-hidden="true" />
+      <component :is="icon ?? Ellipsis" :size="17" aria-hidden="true" />
     </AppIconButton>
     <div
       v-if="isOpen"
@@ -77,7 +126,8 @@ function menuItems(): HTMLElement[] {
       role="menu"
       :aria-label="label"
       tabindex="-1"
-      class="absolute top-full right-0 z-50 mt-2 flex min-w-44 flex-col rounded-panel border border-line bg-surface-island px-2 py-2 shadow-popover"
+      class="fixed z-50 flex min-w-44 flex-col rounded-panel border border-line bg-surface-island px-2 py-2 shadow-popover"
+      :style="{ top: `${position.top}px`, right: `${position.right}px` }"
     >
       <button
         v-for="item in items"

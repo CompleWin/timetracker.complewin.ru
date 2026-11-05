@@ -1,19 +1,24 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ as?: string; compact?: boolean; accent?: boolean }>(), {
+type IslandPadding = "default" | "compact" | "none";
+
+withDefaults(defineProps<{ as?: string; padding?: IslandPadding; accent?: boolean }>(), {
   as: "div",
-  compact: false,
+  padding: "default",
   accent: false,
 });
+
+const paddingClasses: Record<IslandPadding, string> = {
+  default: "p-[18px] md:p-7",
+  compact: "p-4 md:p-5",
+  none: "",
+};
 </script>
 
 <template>
   <component
     :is="as"
     class="rounded-island bg-surface-island"
-    :class="[
-      compact ? 'p-4 md:p-5' : 'p-[18px] md:p-7',
-      accent ? 'border-2 border-primary' : 'border border-line',
-    ]"
+    :class="[paddingClasses[padding], accent ? 'border-2 border-primary' : 'border border-line']"
   >
     <slot />
   </component>

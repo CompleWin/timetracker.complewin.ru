@@ -1,41 +1,68 @@
 <script setup lang="ts">
-import { PenLine } from "@lucide/vue";
-import type { ActiveSession } from "@stt/shared";
-import { ref } from "vue";
+import { Square } from "@lucide/vue";
+import { formatTime, type Project, type SessionWithTask } from "@stt/shared";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useNoteAutosave } from "../note-autosave.ts";
-import TimerButton from "./TimerButton.vue";
+import { RouterLink } from "vue-router";
+import { isOnline } from "../connection.ts";
+import MetaSeparator from "./MetaSeparator.vue";
+import RunningNote from "./RunningNote.vue";
 import TimerClock from "./TimerClock.vue";
-import TimerNote from "./TimerNote.vue";
 import AppIconButton from "./ui/AppIconButton.vue";
+import AppPulseDot from "./ui/AppPulseDot.vue";
+import ProjectMarker from "./ui/ProjectMarker.vue";
 
-const props = defineProps<{ session: ActiveSession; now: number }>();
+const props = defineProps<{
+  session: SessionWithTask;
+  project: Project | null;
+  now: number;
+  timeZone: string | null;
+}>();
 const emit = defineEmits<{ stop: [] }>();
 
 const { t } = useI18n();
-const noteOpen = ref(false);
-const { note, saved } = useNoteAutosave(props.session);
+
+const since = computed(() =>
+  t("timers.since", { time: formatTime(props.session.startedAt, props.timeZone) }),
+);
 </script>
 
 <template>
-  <li class="flex flex-col gap-3 border-b border-line py-3.5 last:border-0">
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <span class="min-w-0 flex-1 basis-full text-body font-semibold break-words md:basis-0">
+  <li
+    class="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-2.5 border-b border-line pt-2 pr-3.5 pb-3 pl-5 md:gap-x-4"
+  >
+    <AppPulseDot :size="10" />
+    <div class="min-w-0">
+      <RouterLink
+        :to="`/tasks/${session.task.id}`"
+        class="text-task leading-snug font-semibold break-words text-fg no-underline hover:text-primary"
+      >
         {{ session.task.title }}
-      </span>
-      <TimerClock :started-at="session.startedAt" :now class="text-title max-md:flex-1" />
-      <div class="flex items-center gap-3">
-        <AppIconButton
-          :label="t('timers.writeNote', { title: session.task.title })"
-          :pressed="noteOpen"
-          :aria-expanded="noteOpen"
-          @click="noteOpen = !noteOpen"
-        >
-          <PenLine :size="17" aria-hidden="true" />
-        </AppIconButton>
-        <TimerButton :title="session.task.title" running @stop="emit('stop')" />
+      </RouterLink>
+      <div class="flex flex-wrap items-center gap-x-1.5 text-meta text-fg-subtle">
+        <span class="inline-flex min-w-0 items-center gap-1.5">
+          <ProjectMarker v-if="project" :color="project.color" :size="8" />
+          <span class="break-words">{{ project?.name ?? t("home.noProject") }}</span>
+        </span>
+        <MetaSeparator />
+        <span>{{ since }}</span>
+        <MetaSeparator />
+        <RunningNote :session-id="session.id" :note="session.note" :title="session.task.title" />
       </div>
     </div>
-    <TimerNote v-if="noteOpen" v-model="note" :title="session.task.title" :saved />
+    <TimerClock
+      :started-at="session.startedAt"
+      :now
+      class="text-[clamp(22px,4.4vw,32px)] leading-none tracking-[-0.02em] tabular-nums"
+    />
+    <AppIconButton
+      :label="t('timers.stopTask', { title: session.task.title })"
+      size="lg"
+      tone="stop"
+      :disabled="!isOnline"
+      @click="emit('stop')"
+    >
+      <Square :size="15" aria-hidden="true" class="fill-current" />
+    </AppIconButton>
   </li>
 </template>

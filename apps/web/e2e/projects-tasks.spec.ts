@@ -1,31 +1,43 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { createProject, createTask, listProjects } from "./helpers/api.ts";
+import { goToSection } from "./helpers/account-menu.ts";
+import { createProject, createTask, listProjects, type Task } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
+import {
+  expectStartRows,
+  foundTasks,
+  openPicker,
+  projectTree,
+  searchTasks,
+  startTimerButton,
+} from "./helpers/picker.ts";
 import {
   button,
   chooseRadio,
   dialog,
   expectInSection,
+  field,
+  group,
   heading,
   menuItem,
   textOf,
 } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
-async function submitNewProject(page: Page, name: string, color?: string): Promise<Locator> {
-  await button(page, "Новый проект").click();
-  const form = dialog(page, "Новый проект");
-  await form.getByLabel("Название", { exact: true }).fill(name);
-  if (color !== undefined) await chooseRadio(form, color);
-  await button(form, "Создать").click();
+async function openFromCreateMenu(page: Page, item: string): Promise<Locator> {
+  await openPicker(page);
+  await button(page, "Создать").click();
+  await menuItem(page, item).click();
+  const form = dialog(page, item);
+  await expect(form).toBeVisible();
   return form;
 }
 
-async function fillTask(form: Locator, title: string, project?: string): Promise<void> {
-  await form.getByLabel("Название", { exact: true }).fill(title);
-  if (project !== undefined) {
-    await form.getByLabel("Проект", { exact: true }).selectOption({ label: project });
-  }
+async function submitNewProject(page: Page, name: string, color?: string): Promise<Locator> {
+  const form = await openFromCreateMenu(page, "Новый проект");
+  await field(form, "Название").fill(name);
+  if (color !== undefined) await chooseRadio(form, color);
+  await button(form, "Создать").click();
+  return form;
 }
 
 async function submit(form: Locator, action: string): Promise<void> {
@@ -34,62 +46,40 @@ async function submit(form: Locator, action: string): Promise<void> {
 }
 
 async function createTaskWithDialog(page: Page, title: string, project: string): Promise<void> {
-  await button(page, "Новая задача").click();
-  const form = dialog(page, "Новая задача");
-  await fillTask(form, title, project);
+  const form = await openFromCreateMenu(page, "Новая задача");
+  await field(form, "Название").fill(title);
+  await field(form, "Проект").selectOption({ label: project });
   await submit(form, "Создать");
 }
 
-async function openMenu(page: Page, trigger: string, item: string): Promise<void> {
-  await button(page, trigger).click();
-  await menuItem(page, item).click();
-}
-
-async function sportWithTreadmillAndAnki(page: Page): Promise<void> {
+async function sportWithTreadmillAndAnki(page: Page): Promise<Task> {
   const sport = await createProject(page, { name: "Спорт", color: "green" });
   await createTask(page, { title: "Беговая дорожка", projectId: sport.id });
-  await createTask(page, { title: "Anki" });
+  return createTask(page, { title: "Anki" });
 }
 
 test.beforeEach(async ({ page }) => {
   await loginAs(page);
 });
 
-test("12. проект «Спорт» с цветом «Зелёный», задачи «Беговая дорожка» в нём и «Anki» без проекта видны в своих группах", async ({
+test("12. через «Создать» в панели выбора: проект «Спорт» с цветом «Зелёный», «Беговая дорожка» видна в группе «Спорт», «Anki» после раскрытия в группе «Без проекта»", async ({
   page,
 }) => {
   await page.goto("/");
 
   const projectForm = await submitNewProject(page, "Спорт", "Зелёный");
   await expect(projectForm).toBeHidden();
-  await expect(heading(page, "Спорт")).toBeVisible();
   await createTaskWithDialog(page, "Беговая дорожка", "Спорт");
   await createTaskWithDialog(page, "Anki", "Без проекта");
 
-  await expectInSection(page, "Спорт", textOf(page, "Беговая дорожка"));
-  await expectInSection(page, "Без проекта", textOf(page, "Anki"));
+  await openPicker(page);
+  await expect(startTimerButton(group(page, "Спорт"), "Беговая дорожка")).toBeVisible();
+  await button(projectTree(page), "Без проекта").click();
+  await expect(startTimerButton(group(page, "Без проекта"), "Anki")).toBeVisible();
   expect(await listProjects(page)).toMatchObject([{ name: "Спорт", color: "green" }]);
 });
 
-test("12. «Добавить задачу» в группе «Спорт» создаёт задачу в этом проекте", async ({ page }) => {
-  await createProject(page, { name: "Спорт" });
-  await page.goto("/");
-
-  await button(page, "Добавить задачу").click();
-  const form = dialog(page, "Новая задача");
-  await fillTask(form, "Беговая дорожка");
-  await submit(form, "Создать");
-
-  await expectInSection(page, "Спорт", textOf(page, "Беговая дорожка"));
-});
-
-test("12. без задач на главной виден текст «Пока нет задач»", async ({ page }) => {
-  await page.goto("/");
-
-  await expect(textOf(page, "Пока нет задач")).toBeVisible();
-});
-
-test("13. повторное создание проекта «спорт» показывает «Проект с таким названием уже есть»", async ({
+test("13. повторное создание проекта «спорт» через «Создать» и «Новый проект» показывает «Проект с таким названием уже есть»", async ({
   page,
 }) => {
   await createProject(page, { name: "Спорт" });
@@ -100,34 +90,40 @@ test("13. повторное создание проекта «спорт» по
   await expect(textOf(form, "Проект с таким названием уже есть")).toBeVisible();
 });
 
-test("14. «Изменить» у задачи «Anki» с переносом в «Спорт» переносит её в группу «Спорт»", async ({
+test("14. «Изменить задачу» на странице «Anki» с переносом в «Спорт» ставит «Anki» в группу «Спорт» в дереве панели", async ({
   page,
 }) => {
-  await sportWithTreadmillAndAnki(page);
-  await page.goto("/");
-  await expectInSection(page, "Без проекта", textOf(page, "Anki"));
+  const anki = await sportWithTreadmillAndAnki(page);
+  await page.goto(`/tasks/${anki.id}`);
 
-  await openMenu(page, "Действия с задачей Anki", "Изменить");
+  await button(page, "Изменить задачу").click();
   const form = dialog(page, "Изменить задачу");
-  await form.getByLabel("Проект", { exact: true }).selectOption({ label: "Спорт" });
+  await field(form, "Проект").selectOption({ label: "Спорт" });
   await submit(form, "Сохранить");
 
-  await expectInSection(page, "Спорт", textOf(page, "Anki"));
-  await expect(heading(page, "Без проекта")).toHaveCount(0);
+  await page.goto("/");
+  await openPicker(page);
+  await expect(startTimerButton(group(page, "Спорт"), "Anki")).toBeVisible();
+  await expect(button(projectTree(page), "Без проекта")).toHaveCount(0);
 });
 
-test("15. «В архив» у проекта «Спорт» убирает группу с главной, «Вернуть Спорт» на /archive возвращает её", async ({
+test("15. «В архив» в меню «Действия с проектом Спорт» убирает «Спорт» из дерева, на /archive из меню «Меню» «Вернуть Спорт» возвращает его", async ({
   page,
 }) => {
   await sportWithTreadmillAndAnki(page);
   await page.goto("/");
+  await openPicker(page);
 
-  await openMenu(page, "Действия с проектом Спорт", "В архив");
+  await button(projectTree(page), "Действия с проектом Спорт").click();
+  await menuItem(page, "В архив").click();
 
-  await expect(heading(page, "Спорт")).toHaveCount(0);
-  await expect(textOf(page, "Беговая дорожка")).toBeHidden();
+  await expect(button(projectTree(page), "Спорт")).toHaveCount(0);
+  await page.reload();
+  await openPicker(page);
+  await expect(button(projectTree(page), "Без проекта")).toBeVisible();
+  await expect(button(projectTree(page), "Спорт")).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Архив", exact: true }).click();
+  await goToSection(page, "Архив");
 
   await expect(page).toHaveURL(urlMatching("/archive"));
   await expect(heading(page, "Задачи в архиве")).toBeVisible();
@@ -137,18 +133,18 @@ test("15. «В архив» у проекта «Спорт» убирает гр
 
   await expect(button(page, "Вернуть Спорт")).toHaveCount(0);
   await page.goto("/");
-  await expectInSection(page, "Спорт", textOf(page, "Беговая дорожка"));
+  await openPicker(page);
+  await expect(startTimerButton(group(page, "Спорт"), "Беговая дорожка")).toBeVisible();
 });
 
-test("16. поиск «бег» оставляет на экране только «Беговая дорожка»", async ({ page }) => {
+test("16. поиск «бег» в панели оставляет в группе «Найдено» одну задачу «Беговая дорожка»", async ({
+  page,
+}) => {
   await sportWithTreadmillAndAnki(page);
   await createTask(page, { title: "Отжимания" });
   await page.goto("/");
-  await expect(textOf(page, "Anki")).toBeVisible();
 
-  await page.getByLabel("Поиск задач", { exact: true }).fill("бег");
+  await searchTasks(page, "бег");
 
-  await expect(textOf(page, "Беговая дорожка")).toBeVisible();
-  await expect(textOf(page, "Anki")).toBeHidden();
-  await expect(textOf(page, "Отжимания")).toBeHidden();
+  await expectStartRows(foundTasks(page), ["Беговая дорожка"]);
 });

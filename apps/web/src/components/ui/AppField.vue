@@ -15,15 +15,26 @@ const props = withDefaults(
     kind?: FieldKind;
     error?: string;
     hint?: string;
+    note?: string;
+    placeholder?: string;
     maxlength?: number;
     rows?: TextareaRows;
   }>(),
-  { kind: "text", error: undefined, hint: undefined, maxlength: undefined, rows: 3 },
+  {
+    kind: "text",
+    error: undefined,
+    hint: undefined,
+    note: undefined,
+    placeholder: undefined,
+    maxlength: undefined,
+    rows: 3,
+  },
 );
 
 const model = defineModel<string>({ required: true });
 const fieldId = useId();
 const errorId = useId();
+const noteId = useId();
 const control = useTemplateRef<HTMLElement>("control");
 
 const CONTROL =
@@ -42,7 +53,10 @@ const textareaRowsClasses: Record<TextareaRows, string> = {
 
 const state = computed(() => (props.error === undefined ? CALM : INVALID));
 const invalid = computed(() => (props.error === undefined ? undefined : true));
-const describedBy = computed(() => (props.error === undefined ? undefined : errorId));
+const describedBy = computed(() => {
+  const ids = [props.error === undefined ? "" : errorId, props.note === undefined ? "" : noteId];
+  return ids.filter((id) => id !== "").join(" ") || undefined;
+});
 
 function focus(): void {
   control.value?.focus();
@@ -92,6 +106,7 @@ defineExpose({ focus });
       v-model="model"
       :rows
       :maxlength
+      :placeholder
       :aria-invalid="invalid"
       :aria-describedby="describedBy"
       :class="[CONTROL, state, textareaRowsClasses[rows]]"
@@ -104,11 +119,13 @@ defineExpose({ focus });
       v-model="model"
       :type="kind"
       :maxlength
+      :placeholder
       :aria-invalid="invalid"
       :aria-describedby="describedBy"
       :class="[CONTROL, SINGLE_LINE, state]"
       class="min-w-0 rounded-field px-4"
     />
     <AppFormError v-if="error !== undefined" :id="errorId">{{ error }}</AppFormError>
+    <p v-if="note !== undefined" :id="noteId" class="mt-2 text-meta text-fg-subtle">{{ note }}</p>
   </div>
 </template>

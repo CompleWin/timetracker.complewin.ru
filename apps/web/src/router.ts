@@ -12,8 +12,8 @@ const LOGIN_PATH = "/login";
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/", component: HomePage },
-    { path: "/archive", component: ArchivePage },
+    { path: "/", component: HomePage, meta: { narrow: true } },
+    { path: "/archive", component: ArchivePage, meta: { narrow: true } },
     { path: "/tasks/:id", component: TaskPage, props: true },
     { path: "/settings", component: SettingsPage },
     { path: LOGIN_PATH, component: LoginPage },

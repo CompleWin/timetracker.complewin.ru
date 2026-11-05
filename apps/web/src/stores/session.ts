@@ -52,8 +52,8 @@ export const useSessionStore = defineStore("session", () => {
   }
 
   async function saveProfile(changes: UpdateMeBody): Promise<void> {
-    await api.updateMe(changes);
     if (user.value !== null) user.value = { ...user.value, ...changes };
+    await api.updateMe(changes);
   }
 
   return { user, unverified, ensureLoaded, signInAsTestUser, signOut, changeLocale };

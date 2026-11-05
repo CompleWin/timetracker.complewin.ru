@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { goToSection } from "./helpers/account-menu.ts";
 import { loginAs } from "./helpers/auth.ts";
 import { expectInSection, heading, textOf } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
@@ -17,10 +18,12 @@ function connectNotion(page: Page): Locator {
     .or(page.getByRole("link", { name, exact: true }));
 }
 
-test("10. ссылка «Настройки» в шапке ведёт на /settings с разделом «Notion»", async ({ page }) => {
+test("10. пункт «Настройки» в меню «Меню» ведёт на /settings с разделом «Notion»", async ({
+  page,
+}) => {
   await loginAs(page);
   await page.goto("/");
-  await page.getByRole("link", { name: "Настройки", exact: true }).click();
+  await goToSection(page, "Настройки");
 
   await expect(page).toHaveURL(urlMatching("/settings"));
   await expect(heading(page, "Notion")).toBeVisible();

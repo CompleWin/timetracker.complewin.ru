@@ -154,6 +154,7 @@ function toProject(row: ProjectRow, totalSec: number): Project {
     name: row.name,
     color: row.color,
     archived: row.archivedAt !== null,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     totalSec,

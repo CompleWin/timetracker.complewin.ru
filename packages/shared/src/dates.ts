@@ -2,6 +2,11 @@ import type { Locale } from "./i18n/locale.ts";
 import type { MessageKey } from "./i18n/messages.ts";
 import { t } from "./i18n/t.ts";
 
+export type DayRange = {
+  from: string;
+  to: string;
+};
+
 type WallClock = {
   year: number;
   month: number;
@@ -12,6 +17,7 @@ type WallClock = {
 
 const UTC = "UTC";
 const MS_PER_MINUTE = 60_000;
+const DAYS_PER_WEEK = 7;
 
 const MONTH_KEYS = [
   "date.month.1",
@@ -26,6 +32,41 @@ const MONTH_KEYS = [
   "date.month.10",
   "date.month.11",
   "date.month.12",
+] as const satisfies readonly MessageKey[];
+
+const MONTH_LONG_KEYS = [
+  "date.monthLong.1",
+  "date.monthLong.2",
+  "date.monthLong.3",
+  "date.monthLong.4",
+  "date.monthLong.5",
+  "date.monthLong.6",
+  "date.monthLong.7",
+  "date.monthLong.8",
+  "date.monthLong.9",
+  "date.monthLong.10",
+  "date.monthLong.11",
+  "date.monthLong.12",
+] as const satisfies readonly MessageKey[];
+
+const WEEKDAY_KEYS = [
+  "date.weekday.1",
+  "date.weekday.2",
+  "date.weekday.3",
+  "date.weekday.4",
+  "date.weekday.5",
+  "date.weekday.6",
+  "date.weekday.7",
+] as const satisfies readonly MessageKey[];
+
+const WEEKDAY_SHORT_KEYS = [
+  "date.weekdayShort.1",
+  "date.weekdayShort.2",
+  "date.weekdayShort.3",
+  "date.weekdayShort.4",
+  "date.weekdayShort.5",
+  "date.weekdayShort.6",
+  "date.weekdayShort.7",
 ] as const satisfies readonly MessageKey[];
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
@@ -46,6 +87,19 @@ export function formatDateTime(iso: string, timeZone: string | null, locale: Loc
   return `${formatDate(iso, timeZone, locale)} ${formatTime(iso, timeZone)}`;
 }
 
+export function formatWeekdayDate(iso: string, timeZone: string | null, locale: Locale): string {
+  const clock = wallClock(Date.parse(iso), timeZone);
+  return t(locale, "date.weekdayDate", {
+    weekday: t(locale, keyAt(WEEKDAY_KEYS, isoWeekday(clock))),
+    dayNumber: clock.day,
+    monthLong: t(locale, keyAt(MONTH_LONG_KEYS, clock.month)),
+  });
+}
+
+export function formatWeekdayShort(iso: string, timeZone: string | null, locale: Locale): string {
+  return t(locale, keyAt(WEEKDAY_SHORT_KEYS, isoWeekday(wallClock(Date.parse(iso), timeZone))));
+}
+
 export function formatSessionRange(
   startedAt: string,
   endedAt: string,
@@ -58,15 +112,37 @@ export function formatSessionRange(
   return `${start}–${formatShortDate(endedAt, timeZone, locale)} ${end}`;
 }
 
+export function hourOf(iso: string, timeZone: string | null): number {
+  return wallClock(Date.parse(iso), timeZone).hour;
+}
+
+export function lastDays(iso: string, timeZone: string | null, count: number): DayRange[] {
+  const { year, month, day } = wallClock(Date.parse(iso), timeZone);
+  return Array.from({ length: count }, (_, index) => {
+    const dayNumber = day - (count - 1 - index);
+    return {
+      from: zonedMidnight(year, month, dayNumber, timeZone),
+      to: zonedMidnight(year, month, dayNumber + 1, timeZone),
+    };
+  });
+}
+
 export function toDateTimeLocal(iso: string, timeZone: string | null): string {
   const clock = wallClock(Date.parse(iso), timeZone);
   return `${clock.year}-${twoDigits(clock.month)}-${twoDigits(clock.day)}T${clockText(clock)}`;
 }
 
 export function fromDateTimeLocal(value: string, timeZone: string | null): string {
-  const wallMs = Date.parse(`${value}Z`);
+  return new Date(zonedEpochMs(Date.parse(`${value}Z`), timeZone)).toISOString();
+}
+
+function zonedMidnight(year: number, month: number, day: number, timeZone: string | null): string {
+  return new Date(zonedEpochMs(Date.UTC(year, month - 1, day), timeZone)).toISOString();
+}
+
+function zonedEpochMs(wallMs: number, timeZone: string | null): number {
   const firstGuessMs = wallMs - offsetMs(wallMs, timeZone);
-  return new Date(wallMs - offsetMs(firstGuessMs, timeZone)).toISOString();
+  return wallMs - offsetMs(firstGuessMs, timeZone);
 }
 
 function isSameDay(first: string, second: string, timeZone: string | null): boolean {
@@ -75,20 +151,24 @@ function isSameDay(first: string, second: string, timeZone: string | null): bool
   return a.year === b.year && a.month === b.month && a.day === b.day;
 }
 
+function isoWeekday({ year, month, day }: WallClock): number {
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay() || DAYS_PER_WEEK;
+}
+
 function dateParams({ year, month, day }: WallClock, locale: Locale) {
   return {
     year,
     month: twoDigits(month),
     day: twoDigits(day),
     dayNumber: day,
-    monthName: monthName(month, locale),
+    monthName: t(locale, keyAt(MONTH_KEYS, month)),
   };
 }
 
-function monthName(month: number, locale: Locale): string {
-  const key = MONTH_KEYS[month - 1];
-  if (key === undefined) throw new RangeError(`Expected a month from 1 to 12, got ${month}`);
-  return t(locale, key);
+function keyAt<Key extends MessageKey>(keys: readonly Key[], position: number): Key {
+  const key = keys[position - 1];
+  if (key === undefined) throw new RangeError(`No message key at position ${position}`);
+  return key;
 }
 
 function offsetMs(epochMs: number, timeZone: string | null): number {

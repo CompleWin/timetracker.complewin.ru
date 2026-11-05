@@ -10,6 +10,27 @@ export function heading(scope: Scope, name: string): Locator {
   return scope.getByRole("heading", { name, exact: true });
 }
 
+export function link(scope: Scope, name: string): Locator {
+  return scope.getByRole("link", { name, exact: true });
+}
+
+export function group(scope: Scope, name: string): Locator {
+  return scope.getByRole("group", { name, exact: true });
+}
+
+export function field(scope: Scope, label: string): Locator {
+  return scope.getByLabel(label, { exact: true });
+}
+
+export function island(page: Page, title: string): Locator {
+  const otherHeadings = page.getByRole("heading").filter({ hasNotText: title });
+  return page
+    .locator("*")
+    .filter({ has: heading(page, title) })
+    .filter({ hasNot: otherHeadings })
+    .first();
+}
+
 export function region(page: Page, name: string): Locator {
   return page.getByRole("region", { name, exact: true });
 }

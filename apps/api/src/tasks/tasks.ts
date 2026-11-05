@@ -85,6 +85,7 @@ export async function updateTask(
     .set({
       title: changes.title,
       projectId: changes.projectId,
+      pinned: changes.pinned,
       archivedAt: archivedAtAfter(current.archivedAt, changes.archived, now),
       updatedAt: now,
     })
@@ -139,9 +140,10 @@ function toTask(row: TaskRow, timer: TaskTimer): Task {
     projectId: row.projectId,
     title: row.title,
     archived: row.archivedAt !== null,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    pinned: row.pinned,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    totalSec: timer.totalSec,
-    runningSessionId: timer.runningSessionId,
+    ...timer,
   };
 }

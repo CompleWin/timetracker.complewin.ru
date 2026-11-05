@@ -15,6 +15,8 @@ export type Task = {
   projectId: string | null;
   title: string;
   archived: boolean;
+  pinned: boolean;
+  runningSessionId: string | null;
 };
 
 export type Session = {
@@ -30,6 +32,8 @@ export type ManualSessionInput = {
   endedAt: string;
   note?: string;
 };
+
+type TaskChanges = Partial<Pick<Task, "title" | "projectId" | "archived" | "pinned">>;
 
 type ApiRequest = {
   method: "GET" | "POST" | "PATCH";
@@ -60,14 +64,24 @@ export async function createTask(
   return task;
 }
 
-export async function archiveTask(page: Page, taskId: string): Promise<Task> {
-  const request: ApiRequest = {
-    method: "PATCH",
-    path: `/api/tasks/${taskId}`,
-    body: { archived: true },
-  };
+export async function getTask(page: Page, taskId: string): Promise<Task> {
+  const request: ApiRequest = { method: "GET", path: `/api/tasks/${taskId}` };
   const { task } = await requestFromPage<{ task: Task }>(page, request, 200);
   return task;
+}
+
+export async function listTasks(page: Page): Promise<Task[]> {
+  const request: ApiRequest = { method: "GET", path: "/api/tasks" };
+  const { tasks } = await requestFromPage<{ tasks: Task[] }>(page, request, 200);
+  return tasks;
+}
+
+export function archiveTask(page: Page, taskId: string): Promise<Task> {
+  return updateTask(page, taskId, { archived: true });
+}
+
+export function pinTask(page: Page, taskId: string): Promise<Task> {
+  return updateTask(page, taskId, { pinned: true });
 }
 
 export async function archiveProject(page: Page, projectId: string): Promise<Project> {
@@ -90,6 +104,18 @@ export async function getSession(page: Page, sessionId: string): Promise<Session
   const request: ApiRequest = { method: "GET", path: `/api/sessions/${sessionId}` };
   const { session } = await requestFromPage<{ session: Session }>(page, request, 200);
   return session;
+}
+
+export async function activeTimers(page: Page): Promise<Session[]> {
+  const request: ApiRequest = { method: "GET", path: "/api/timers/active" };
+  const { sessions } = await requestFromPage<{ sessions: Session[] }>(page, request, 200);
+  return sessions;
+}
+
+export async function taskSessions(page: Page, taskId: string): Promise<Session[]> {
+  const request: ApiRequest = { method: "GET", path: `/api/tasks/${taskId}/sessions` };
+  const { sessions } = await requestFromPage<{ sessions: Session[] }>(page, request, 200);
+  return sessions;
 }
 
 export async function addSession(
@@ -115,6 +141,12 @@ export async function listProjects(page: Page): Promise<Project[]> {
   const request: ApiRequest = { method: "GET", path: "/api/projects" };
   const { projects } = await requestFromPage<{ projects: Project[] }>(page, request, 200);
   return projects;
+}
+
+async function updateTask(page: Page, taskId: string, changes: TaskChanges): Promise<Task> {
+  const request: ApiRequest = { method: "PATCH", path: `/api/tasks/${taskId}`, body: changes };
+  const { task } = await requestFromPage<{ task: Task }>(page, request, 200);
+  return task;
 }
 
 async function requestFromPage<Body>(

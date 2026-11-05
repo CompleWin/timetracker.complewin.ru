@@ -11,10 +11,13 @@ export const taskSchema = z.object({
   projectId: z.string().nullable(),
   title: z.string(),
   archived: z.boolean(),
+  archivedAt: z.string().nullable(),
+  pinned: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
   totalSec: z.number(),
   runningSessionId: z.string().nullable(),
+  lastStartedAt: z.string().nullable(),
 });
 
 export type Task = z.infer<typeof taskSchema>;
@@ -39,6 +42,7 @@ export const updateTaskBody = atLeastOneField(
     title: taskTitle.optional(),
     projectId: projectReference.optional(),
     archived: z.boolean().optional(),
+    pinned: z.boolean().optional(),
   }),
 );
 
