@@ -21,6 +21,7 @@ const titleId = useId();
         v-for="option in locales"
         :key="option"
         :active="option === currentLocale()"
+        class="min-h-10"
         @click="session.changeLocale(option)"
       >
         {{ t(`language.${option}`) }}

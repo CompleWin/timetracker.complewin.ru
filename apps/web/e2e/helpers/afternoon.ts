@@ -16,6 +16,8 @@ const WEEKDAYS_RU = [
   "суббота",
 ];
 
+const WEEKDAYS_SHORT_RU = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+
 const MONTHS_RU = [
   "января",
   "февраля",
@@ -40,6 +42,7 @@ export type LocalInterval = {
   start: string;
   end: string;
   daysAgo?: number;
+  note?: string;
 };
 
 export function afternoonZone(nowMs: number = Date.now()): AfternoonZone {
@@ -60,11 +63,12 @@ export function addLocalSession(
   page: Page,
   zone: AfternoonZone,
   taskId: string,
-  { start, end, daysAgo = 0 }: LocalInterval,
+  { start, end, daysAgo = 0, note }: LocalInterval,
 ): Promise<Session> {
   return addSession(page, taskId, {
     startedAt: localIso(zone, start, daysAgo),
     endedAt: localIso(zone, end, daysAgo),
+    note,
   });
 }
 
@@ -86,15 +90,27 @@ export function localDateRu(zone: AfternoonZone, iso: string): string {
   return `${dayAndMonth(local)}.${local.getUTCFullYear()}`;
 }
 
+export function localDateTimeRu(zone: AfternoonZone, iso: string): string {
+  return `${localDateRu(zone, iso)} ${localTime(zone, iso)}`;
+}
+
 export function shortDateRu(zone: AfternoonZone, daysAgo = 0): string {
   return dayAndMonth(localDay(zone, daysAgo));
 }
 
 export function weekdayDateRu(zone: AfternoonZone): string {
-  const today = localDay(zone, 0);
-  const weekday = WEEKDAYS_RU[today.getUTCDay()] ?? "";
-  const month = MONTHS_RU[today.getUTCMonth()] ?? "";
-  return `${weekday}, ${today.getUTCDate()} ${month}`;
+  const weekday = WEEKDAYS_RU[localDay(zone, 0).getUTCDay()] ?? "";
+  return `${weekday}, ${dayMonthRu(zone)}`;
+}
+
+export function dayMonthRu(zone: AfternoonZone, daysAgo = 0): string {
+  const day = localDay(zone, daysAgo);
+  const month = MONTHS_RU[day.getUTCMonth()] ?? "";
+  return `${day.getUTCDate()} ${month}`;
+}
+
+export function weekdayShortRu(zone: AfternoonZone, daysAgo = 0): string {
+  return WEEKDAYS_SHORT_RU[localDay(zone, daysAgo).getUTCDay()] ?? "";
 }
 
 function localDate(zone: AfternoonZone, daysAgo = 0): string {

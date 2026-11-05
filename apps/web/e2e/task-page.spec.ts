@@ -124,7 +124,7 @@ test.beforeEach(async ({ page }) => {
   await setTimeZone(page, MOSCOW_TIME_ZONE);
 });
 
-test("13. «Открыть задачу: Anki» в панели выбора ведёт на её страницу: заголовок, «Без проекта», «Всего», «Старт» и список «Сессии»", async ({
+test("13. «Открыть задачу: Anki» в панели выбора ведёт на её страницу: заголовок, «Без проекта», «Всего», кнопка-иконка «Запустить таймер: Anki» и список «Сессии»", async ({
   page,
 }) => {
   const task = await createTask(page, { title: "Anki" });
@@ -138,6 +138,7 @@ test("13. «Открыть задачу: Anki» в панели выбора в�
   await expect(textOf(page, "Без проекта")).toBeVisible();
   await expect(textOf(page, "Всего: 0 мин")).toBeVisible();
   await expect(button(page, "Запустить таймер: Anki")).toBeVisible();
+  await expect(button(page, "Запустить таймер: Anki")).not.toContainText("Старт");
   await expect(heading(page, "Сессии")).toBeVisible();
 });
 
@@ -260,7 +261,7 @@ test("22. страница чужой задачи переходит на гл�
 });
 
 for (const [kind, deactivate] of deactivations) {
-  test(`22. на странице задачи ${kind} нет «Старт» и «Добавить сессию», а «Изменить сессию» есть`, async ({
+  test(`22. на странице задачи ${kind} нет «Запустить таймер: Беговая дорожка» и «Добавить сессию», а «Изменить сессию» есть`, async ({
     page,
   }) => {
     const project = await createProject(page, { name: "Спорт" });

@@ -91,9 +91,12 @@ export function formatWeekdayDate(iso: string, timeZone: string | null, locale: 
   const clock = wallClock(Date.parse(iso), timeZone);
   return t(locale, "date.weekdayDate", {
     weekday: t(locale, keyAt(WEEKDAY_KEYS, isoWeekday(clock))),
-    dayNumber: clock.day,
-    monthLong: t(locale, keyAt(MONTH_LONG_KEYS, clock.month)),
+    dayMonth: dayMonthText(clock, locale),
   });
+}
+
+export function formatDayMonth(iso: string, timeZone: string | null, locale: Locale): string {
+  return dayMonthText(wallClock(Date.parse(iso), timeZone), locale);
 }
 
 export function formatWeekdayShort(iso: string, timeZone: string | null, locale: Locale): string {
@@ -153,6 +156,13 @@ function isSameDay(first: string, second: string, timeZone: string | null): bool
 
 function isoWeekday({ year, month, day }: WallClock): number {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay() || DAYS_PER_WEEK;
+}
+
+function dayMonthText({ month, day }: WallClock, locale: Locale): string {
+  return t(locale, "date.dayMonth", {
+    dayNumber: day,
+    monthLong: t(locale, keyAt(MONTH_LONG_KEYS, month)),
+  });
 }
 
 function dateParams({ year, month, day }: WallClock, locale: Locale) {

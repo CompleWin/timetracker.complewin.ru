@@ -3,6 +3,7 @@ export { estimateClockOffset, type ClockSample } from "./clock-offset.ts";
 export {
   formatDate,
   formatDateTime,
+  formatDayMonth,
   formatSessionRange,
   formatShortDate,
   formatTime,

@@ -10,6 +10,10 @@ export function heading(scope: Scope, name: string): Locator {
   return scope.getByRole("heading", { name, exact: true });
 }
 
+export function pageTitle(page: Page, name: string): Locator {
+  return page.getByRole("heading", { level: 1, name, exact: true });
+}
+
 export function link(scope: Scope, name: string): Locator {
   return scope.getByRole("link", { name, exact: true });
 }

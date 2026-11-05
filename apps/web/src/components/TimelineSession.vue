@@ -3,14 +3,13 @@ import {
   elapsedSec,
   formatClock,
   formatDuration,
-  formatSessionRange,
-  formatTime,
   type Project,
   type SessionWithTask,
 } from "@stt/shared";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { currentLocale } from "../i18n.ts";
+import { sessionRange } from "../session-range.ts";
 import AppPulseDot from "./ui/AppPulseDot.vue";
 import ProjectMarker from "./ui/ProjectMarker.vue";
 
@@ -30,13 +29,7 @@ const { t } = useI18n();
 
 const isRunning = computed(() => props.session.endedAt === null);
 
-const range = computed(() => {
-  const { startedAt, endedAt } = props.session;
-  if (endedAt === null) {
-    return t("sessions.runningRange", { start: formatTime(startedAt, props.timeZone) });
-  }
-  return formatSessionRange(startedAt, endedAt, props.timeZone, currentLocale());
-});
+const range = computed(() => sessionRange(props.session, props.timeZone, currentLocale()));
 
 const label = computed(() =>
   t("timeline.editSession", { title: props.session.task.title, range: range.value }),
