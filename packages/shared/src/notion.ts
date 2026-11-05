@@ -132,3 +132,26 @@ export const syncStatusSchema = z.object({
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 
 export const notionExportResponse = z.object({ queued: z.number() });
+
+export const notionPageSchema = z.object({
+  pageId: z.string(),
+  title: z.string(),
+  url: z.string(),
+  linkedTaskId: z.string().nullable(),
+});
+
+export type NotionPage = z.infer<typeof notionPageSchema>;
+
+export const notionPagesResponse = z.object({ pages: z.array(notionPageSchema) });
+
+export const notionPageQuery = z.object({
+  databaseId: z.string().optional(),
+  q: z.string().optional(),
+  includeCompleted: z.enum(["true", "false"]).optional(),
+});
+
+export type NotionPageQuery = z.infer<typeof notionPageQuery>;
+
+export const linkNotionPageBody = z.object({ projectId: z.string().optional() });
+
+export type LinkNotionPageBody = z.infer<typeof linkNotionPageBody>;

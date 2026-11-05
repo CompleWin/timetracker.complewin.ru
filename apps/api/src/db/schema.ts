@@ -96,6 +96,8 @@ export const notionDatabases = sqliteTable(
     blockPosition: text("block_position", { enum: notionBlockPositions }).notNull(),
     timeProperties: integer("time_properties", { mode: "boolean" }).notNull().default(true),
     isDefault: integer("is_default", { mode: "boolean" }).notNull(),
+    pullCursor: timestamp("pull_cursor"),
+    pulledAt: timestamp("pulled_at"),
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
@@ -140,6 +142,8 @@ export const tasks = sqliteTable(
     notionSyncedAt: timestamp("notion_synced_at"),
     notionBlockPosition: text("notion_block_position", { enum: notionBlockPositions }),
     notionBlock: text("notion_block", { mode: "json" }).$type<TimeBlockLink>(),
+    titleChangedAt: timestamp("title_changed_at"),
+    projectChangedAt: timestamp("project_changed_at"),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),

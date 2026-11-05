@@ -70,12 +70,12 @@ function pagesIn(dataSourceId: string): number {
 }
 
 describe("лимиты Notion", () => {
-  it("12. 429 с Retry-After: 30: cron в течение 30 секунд не отправляет запросов этого пользователя", async () => {
+  it("12. 429 с Retry-After: 30: cron в течение 30 секунд не отправляет запросов этого пользователя, кроме query pull", async () => {
     await rateLimitedTask();
 
     expect(fake.pages.creations()).toHaveLength(1);
     expect(
-      await fake.requestsDuring(() => cronAt(atSecond(RATE_LIMIT_RETRY_AFTER_SEC - 1))),
+      await fake.requestsExceptPullDuring(() => cronAt(atSecond(RATE_LIMIT_RETRY_AFTER_SEC - 1))),
     ).toEqual([]);
   });
 
@@ -92,7 +92,7 @@ describe("лимиты Notion", () => {
   });
 
   it(
-    "18. 150 задач в очереди в двух базах: первый cron отправляет не больше 100 запросов, следующий отправляет остальные",
+    "18. 150 задач в очереди в двух базах: первый cron отправляет не больше 100 запросов вместе с query pull, следующий отправляет остальные",
     { timeout: BULK_TIMEOUT_MS },
     async () => {
       const session = await loginForSync();

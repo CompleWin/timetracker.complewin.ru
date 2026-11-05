@@ -1,40 +1,17 @@
-import { and, asc, eq, exists, isNotNull, isNull, lte, or } from "drizzle-orm";
-import { database, type Database } from "../db/client.ts";
-import {
-  notionConnections,
-  notionDatabases,
-  syncOutbox,
-  tasks,
-  timeEntries,
-  users,
-} from "../db/schema.ts";
-import type { Bindings } from "../env.ts";
+import { and, asc, eq, exists, isNull, lte, or } from "drizzle-orm";
+import type { Database } from "../db/client.ts";
+import { notionConnections, syncOutbox, tasks, timeEntries } from "../db/schema.ts";
 import { ApiError } from "../http/errors.ts";
-import { notionClient, NotionReauthRequired } from "../notion/client.ts";
-import { isConnected, type ConnectedRow } from "../notion/connections.ts";
-import { listNotionDatabaseRows } from "../notion/databases.ts";
+import { NotionReauthRequired } from "../notion/client.ts";
 import { enqueueStaleTasks, FAILED_ATTEMPTS, pendingItems } from "./outbox.ts";
-import {
-  BudgetExhausted,
-  budgetedClient,
-  PageRejected,
-  RateLimited,
-  ServerFailure,
-} from "./page-requests.ts";
-import { pushTask, type PushRun } from "./task-pages.ts";
+import { BudgetExhausted, PageRejected, RateLimited, ServerFailure } from "./page-requests.ts";
+import { pushTask, type SyncRun } from "./task-pages.ts";
 
-const MAX_REQUESTS_PER_RUN = 100;
-const REQUEST_PAUSE_MS = 350;
 const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60_000;
 const RUNNING_RESYNC_MS = 10 * MS_PER_MINUTE;
 const MAX_BACKOFF_MINUTES = 60;
-
-type SyncUser = {
-  connection: ConnectedRow;
-  locale: (typeof users.$inferSelect)["locale"];
-  timeZone: string | null;
-};
+const MAX_ITEMS_PER_RUN = 100;
 
 type QueueItem = {
   taskId: string;
@@ -43,57 +20,10 @@ type QueueItem = {
 
 type ItemOutcome = "next" | "stop";
 
-export async function pushNotionChanges(env: Bindings, now: Date): Promise<void> {
-  const db = database(env);
-  for (const user of await syncUsers(db, now)) await pushUserChanges(env, db, user, now);
-}
-
-async function syncUsers(db: Database, now: Date): Promise<SyncUser[]> {
-  const rows = await db
-    .select({ connection: notionConnections, locale: users.locale, timeZone: users.timezone })
-    .from(notionConnections)
-    .innerJoin(users, eq(users.id, notionConnections.userId))
-    .where(
-      and(
-        eq(notionConnections.status, "ok"),
-        isNotNull(notionConnections.accessTokenEnc),
-        or(isNull(notionConnections.syncPausedUntil), lte(notionConnections.syncPausedUntil, now)),
-        exists(
-          db
-            .select({ id: notionDatabases.id })
-            .from(notionDatabases)
-            .where(eq(notionDatabases.userId, notionConnections.userId)),
-        ),
-      ),
-    );
-  return rows.flatMap(({ connection, locale, timeZone }) =>
-    isConnected(connection) ? [{ connection, locale, timeZone }] : [],
-  );
-}
-
-async function pushUserChanges(
-  env: Bindings,
-  db: Database,
-  { connection, locale, timeZone }: SyncUser,
-  now: Date,
-): Promise<void> {
-  const userId = connection.userId;
-  await queueRunningTasks(db, userId, now);
-  await db
-    .update(notionConnections)
-    .set({ lastSyncAt: now })
-    .where(eq(notionConnections.id, connection.id));
-  const budget = { remaining: MAX_REQUESTS_PER_RUN };
-  const pauseMs = env.ENV === "test" ? 0 : REQUEST_PAUSE_MS;
-  const run: PushRun = {
-    db,
-    client: budgetedClient(notionClient(env, connection), budget, pauseMs),
-    owner: { id: userId, locale, timeZone },
-    databases: await listNotionDatabaseRows(db, userId),
-    now,
-  };
-  for (const item of await dueItems(db, userId, now)) {
-    const outcome = await pushQueuedTask(run, connection.id, item);
+export async function pushUserChanges(run: SyncRun, connectionId: string): Promise<void> {
+  await queueRunningTasks(run.db, run.owner.id, run.now);
+  for (const item of await dueItems(run.db, run.owner.id, run.now)) {
+    const outcome = await pushQueuedTask(run, connectionId, item);
     if (outcome === "stop") break;
   }
 }
@@ -124,11 +54,11 @@ function dueItems(db: Database, userId: string, now: Date): Promise<QueueItem[]>
     .from(syncOutbox)
     .where(and(eq(syncOutbox.userId, userId), pendingItems, lte(syncOutbox.nextTryAt, now)))
     .orderBy(asc(syncOutbox.nextTryAt), asc(syncOutbox.createdAt))
-    .limit(MAX_REQUESTS_PER_RUN);
+    .limit(MAX_ITEMS_PER_RUN);
 }
 
 async function pushQueuedTask(
-  run: PushRun,
+  run: SyncRun,
   connectionId: string,
   item: QueueItem,
 ): Promise<ItemOutcome> {
@@ -142,7 +72,7 @@ async function pushQueuedTask(
 }
 
 async function handleFailure(
-  run: PushRun,
+  run: SyncRun,
   connectionId: string,
   item: QueueItem,
   error: unknown,
@@ -175,7 +105,7 @@ function isRejectedByApi(error: unknown): boolean {
 }
 
 async function postpone(
-  run: PushRun,
+  run: SyncRun,
   connectionId: string,
   item: QueueItem,
   retryAfterSec: number,
@@ -190,7 +120,7 @@ async function postpone(
   ]);
 }
 
-async function backOff(run: PushRun, item: QueueItem, lastError: string): Promise<void> {
+async function backOff(run: SyncRun, item: QueueItem, lastError: string): Promise<void> {
   const attempts = item.attempts + 1;
   const delayMinutes = Math.min(2 ** (attempts - 1), MAX_BACKOFF_MINUTES);
   const nextTryAt = new Date(run.now.getTime() + delayMinutes * MS_PER_MINUTE);

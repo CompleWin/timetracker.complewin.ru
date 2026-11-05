@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { lastDays, type Project, type SessionWithTask, type Task } from "@stt/shared";
+import {
+  lastDays,
+  type NotionDatabase,
+  type Project,
+  type SessionWithTask,
+  type Task,
+} from "@stt/shared";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
 import LaunchIsland from "../components/LaunchIsland.vue";
+import NotionPagesDialog from "../components/NotionPagesDialog.vue";
 import ProjectDialog from "../components/ProjectDialog.vue";
 import SessionDialog, {
   type SessionRange,
@@ -27,7 +34,8 @@ type OpenDialog =
   | { kind: "newSession"; range?: SessionRange }
   | { kind: "session"; session: SessionWithTask }
   | { kind: "project"; project?: Project }
-  | { kind: "task" };
+  | { kind: "task" }
+  | { kind: "notionPages" };
 
 const WEEK_DAYS = 7;
 const MS_PER_MINUTE = 60_000;
@@ -38,6 +46,7 @@ const projects = ref<Project[]>([]);
 const tasks = ref<Task[]>([]);
 const running = ref<SessionWithTask[]>([]);
 const weekSessions = ref<SessionWithTask[]>([]);
+const notionDatabases = ref<NotionDatabase[]>([]);
 const loaded = ref(false);
 const dialog = ref<OpenDialog | null>(null);
 const now = useServerNow();
@@ -71,6 +80,7 @@ const taskChoices = computed<TaskChoice[]>(() =>
 const lastStartedTaskId = computed(() => recentTasks(tasks.value)[0]?.id ?? null);
 
 onMounted(reload);
+onMounted(loadNotionDatabases);
 useAutoRefresh(reload);
 watch(timeZone, reload);
 
@@ -92,6 +102,10 @@ async function reload(): Promise<void> {
   if (reloadNumber !== latestReload) return;
   [projects.value, tasks.value, running.value, weekSessions.value] = loadedData;
   loaded.value = true;
+}
+
+async function loadNotionDatabases(): Promise<void> {
+  notionDatabases.value = (await api.fetchNotionConnection())?.databases ?? [];
 }
 
 async function changeAndReload(change: () => Promise<unknown>): Promise<void> {
@@ -162,6 +176,7 @@ async function onSaved(): Promise<void> {
       :today-sec="todaySecByTask"
       :now
       :time-zone
+      :can-add-from-notion="notionDatabases.length > 0"
       @start="startTask"
       @create="createAndStart"
       @pin="togglePin"
@@ -172,6 +187,7 @@ async function onSaved(): Promise<void> {
       @new-project="openDialog({ kind: 'project' })"
       @edit-project="(project) => openDialog({ kind: 'project', project })"
       @archive-project="archiveProject"
+      @add-from-notion="openDialog({ kind: 'notionPages' })"
     />
     <TimelineIsland
       v-if="today"
@@ -210,6 +226,13 @@ async function onSaved(): Promise<void> {
     :project="dialog.project"
     @close="dialog = null"
     @saved="onSaved"
+  />
+  <NotionPagesDialog
+    v-if="dialog?.kind === 'notionPages'"
+    :databases="notionDatabases"
+    :projects="activeProjects"
+    @close="dialog = null"
+    @linked="reload"
   />
   <TaskDialog
     v-if="dialog?.kind === 'task'"

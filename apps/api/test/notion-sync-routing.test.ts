@@ -84,7 +84,7 @@ describe("в какую базу попадает новая страница", 
     });
   });
 
-  it("3. без базы по умолчанию и без базы у проекта события по задаче не попадают в очередь, cron ничего не отправляет", async () => {
+  it("3. без базы по умолчанию и без базы у проекта события по задаче не попадают в очередь, cron ничего не отправляет, кроме query pull", async () => {
     const session = await loginForSync();
     await fake.connectNotion(session, {
       databases: { tasks: { ...TASKS_DATABASE, isDefault: false } },
@@ -100,7 +100,7 @@ describe("в какую базу попадает новая страница", 
     await stopTimer(session, task.id, atMinute(2));
 
     expect(await syncStatus(session, atMinute(2))).toMatchObject({ pendingTasks: 0 });
-    expect(await fake.requestsDuring(() => cronAt(atMinute(3)))).toEqual([]);
+    expect(await fake.requestsExceptPullDuring(() => cronAt(atMinute(3)))).toEqual([]);
   });
 
   it("4. задача со страницей в «Задачах» перенесена в проект «Развлечений»: cron отправляет PATCH той же страницы и не создаёт новых", async () => {
@@ -150,7 +150,7 @@ describe("POST /api/notion/export", () => {
 });
 
 describe("удаление базы", () => {
-  it("20. у задач со страницами удалённой базы notionPageUrl и notionDatabaseId равны null, их элементы пропали из очереди", async () => {
+  it("20. у задач со страницами удалённой базы notionPageUrl и notionDatabaseId равны null, их элементы пропали из очереди, cron не отправляет запросов, кроме query pull", async () => {
     const session = await loginForSync();
     const { tasks, fun } = await fake.connectNotion(session, {
       databases: { tasks: TASKS_DATABASE, fun: { ...FUN_DATABASE, isDefault: true } },
@@ -176,6 +176,6 @@ describe("удаление базы", () => {
       notionDatabaseId: fun.database.id,
     });
     expect(await syncStatus(session, atMinute(2))).toMatchObject({ pendingTasks: 0 });
-    expect(await fake.requestsDuring(() => cronAt(atMinute(3)))).toEqual([]);
+    expect(await fake.requestsExceptPullDuring(() => cronAt(atMinute(3)))).toEqual([]);
   });
 });

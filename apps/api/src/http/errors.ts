@@ -17,6 +17,7 @@ export type ErrorCode =
   | "property_conflict"
   | "database_already_added"
   | "too_many_databases"
+  | "already_linked"
   | "notion_unavailable"
   | "internal_error";
 
@@ -27,6 +28,7 @@ type ErrorDetails = {
   sessionId?: string;
   name?: string;
   databaseId?: string;
+  taskId?: string;
 };
 
 export class ApiError extends Error {
@@ -87,6 +89,9 @@ export const databaseAlreadyAdded = (databaseId: string) =>
 
 export const tooManyDatabases = () =>
   new ApiError(409, "too_many_databases", "Too many Notion databases are added");
+
+export const alreadyLinked = (taskId: string) =>
+  new ApiError(409, "already_linked", "The Notion page is already linked to a task", { taskId });
 
 export const notionUnavailable = () =>
   new ApiError(502, "notion_unavailable", "Notion did not answer or answered with a server error");

@@ -38,7 +38,7 @@ import {
   type TaskSnapshot,
 } from "./page-state.ts";
 
-export type PushRun = {
+export type SyncRun = {
   db: Database;
   client: NotionClient;
   owner: { id: string; locale: Locale; timeZone: string | null };
@@ -59,7 +59,7 @@ type LinkedTask = LoadedTask & { notionPageId: string; notionSent: SentPage };
 
 type PageSender = (target: NotionDatabaseRow) => Promise<PageReply>;
 
-export async function pushTask(run: PushRun, taskId: string): Promise<void> {
+export async function pushTask(run: SyncRun, taskId: string): Promise<void> {
   const task = await loadTask(run, taskId);
   const target = task === undefined ? undefined : targetDatabase(run, task);
   if (task === undefined || target === undefined) return;
@@ -69,7 +69,7 @@ export async function pushTask(run: PushRun, taskId: string): Promise<void> {
   if (pageAlive) await syncTimeBlock(run, taskId);
 }
 
-async function loadTask(run: PushRun, taskId: string): Promise<LoadedTask | undefined> {
+async function loadTask(run: SyncRun, taskId: string): Promise<LoadedTask | undefined> {
   const [row] = await run.db
     .select({
       task: tasks,
@@ -98,7 +98,7 @@ async function loadTask(run: PushRun, taskId: string): Promise<LoadedTask | unde
   };
 }
 
-function targetDatabase(run: PushRun, task: LoadedTask): NotionDatabaseRow | undefined {
+function targetDatabase(run: SyncRun, task: LoadedTask): NotionDatabaseRow | undefined {
   const byId = (id: string | null) => run.databases.find((database) => database.id === id);
   return (
     byId(task.notionDatabaseId) ??
@@ -112,7 +112,7 @@ function isLinked(task: LoadedTask): task is LinkedTask {
 }
 
 async function createTaskPage(
-  run: PushRun,
+  run: SyncRun,
   task: LoadedTask,
   target: NotionDatabaseRow,
 ): Promise<boolean> {
@@ -127,7 +127,7 @@ async function createTaskPage(
 }
 
 async function updateTaskPage(
-  run: PushRun,
+  run: SyncRun,
   task: LinkedTask,
   target: NotionDatabaseRow,
 ): Promise<boolean> {
@@ -139,7 +139,7 @@ async function updateTaskPage(
   }
 }
 
-async function recreateTaskPage(run: PushRun, task: LinkedTask): Promise<boolean> {
+async function recreateTaskPage(run: SyncRun, task: LinkedTask): Promise<boolean> {
   await unlinkTask(run.db, task.id);
   const unlinked = { ...task, notionDatabaseId: null, notionPageId: null, notionSent: null };
   const target = targetDatabase(run, unlinked);
@@ -147,7 +147,7 @@ async function recreateTaskPage(run: PushRun, task: LinkedTask): Promise<boolean
 }
 
 async function patchTaskPage(
-  run: PushRun,
+  run: SyncRun,
   task: LinkedTask,
   target: NotionDatabaseRow,
 ): Promise<boolean> {
@@ -179,7 +179,7 @@ async function patchTaskPage(
 }
 
 async function currentMultiSelect(
-  run: PushRun,
+  run: SyncRun,
   task: LinkedTask,
   target: NotionDatabaseRow,
   desired: SentPage,
@@ -190,13 +190,13 @@ async function currentMultiSelect(
   return multiSelectNames(page, target.projectPropId);
 }
 
-async function isTrashed(run: PushRun, pageId: string): Promise<boolean> {
+async function isTrashed(run: SyncRun, pageId: string): Promise<boolean> {
   const page = await retrievePage(run.client, pageId);
   return page.in_trash === true;
 }
 
 async function sendWithFreshProperties(
-  run: PushRun,
+  run: SyncRun,
   target: NotionDatabaseRow,
   send: PageSender,
 ): Promise<{ reply: PageReply; target: NotionDatabaseRow }> {
@@ -207,7 +207,7 @@ async function sendWithFreshProperties(
 }
 
 async function refreshProperties(
-  run: PushRun,
+  run: SyncRun,
   target: NotionDatabaseRow,
 ): Promise<NotionDatabaseRow> {
   const source = await retrieveDataSource(run.client, target.dataSourceId);

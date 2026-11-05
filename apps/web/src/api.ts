@@ -3,6 +3,7 @@ import {
   notionConnectionResponse,
   notionDatabaseResponse,
   notionExportResponse,
+  notionPagesResponse,
   notionPropertiesResponse,
   projectResponse,
   projectsResponse,
@@ -20,9 +21,11 @@ import {
   type CreateProjectBody,
   type CreateSessionBody,
   type CreateTaskBody,
+  type LinkNotionPageBody,
   type DevLoginBody,
   type NotionConnection,
   type NotionDatabase,
+  type NotionPage,
   type NotionProperty,
   type Project,
   type Session,
@@ -236,6 +239,27 @@ export async function retrySync(): Promise<void> {
 
 export async function exportTasksToNotion(): Promise<number> {
   return notionExportResponse.parse(await request("POST", "/api/notion/export")).queued;
+}
+
+export type NotionPageSearch = {
+  databaseId: string;
+  q: string;
+  includeCompleted: boolean;
+};
+
+export async function fetchNotionPages(search: NotionPageSearch): Promise<NotionPage[]> {
+  const params = new URLSearchParams({
+    databaseId: search.databaseId,
+    q: search.q,
+    includeCompleted: String(search.includeCompleted),
+  });
+  const path = `/api/notion/pages?${params.toString()}`;
+  return notionPagesResponse.parse(await request("GET", path)).pages;
+}
+
+export async function linkNotionPage(pageId: string, body: LinkNotionPageBody): Promise<Task> {
+  const path = `/api/notion/pages/${encodeURIComponent(pageId)}/link`;
+  return taskResponse.parse(await request("POST", path, body)).task;
 }
 
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
