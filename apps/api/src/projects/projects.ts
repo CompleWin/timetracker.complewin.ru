@@ -6,6 +6,7 @@ import { sortByName } from "../db/order.ts";
 import { projects } from "../db/schema.ts";
 import { nameTaken, notFound, validationError } from "../http/errors.ts";
 import { findNotionDatabase } from "../notion/databases.ts";
+import { enqueueProjectTasks, enqueueTasks } from "../sync/outbox.ts";
 import { projectTotals, stopProjectEntries } from "../timers/time-entries.ts";
 
 type ProjectRow = typeof projects.$inferSelect;
@@ -80,7 +81,7 @@ export async function updateProject(
   const archivedAt = archivedAtAfter(current.archivedAt, changes.archived, now);
   if (archivedAt === null) await ensureNameFree(db, userId, name, id);
   await ensureNotionDatabaseOwned(db, userId, changes.notionDatabaseId);
-  if (changes.archived === true) await stopProjectEntries(db, userId, id, now);
+  const stopped = changes.archived === true ? await stopProjectEntries(db, userId, id, now) : [];
   const [row] = await db
     .update(projects)
     .set({
@@ -93,6 +94,13 @@ export async function updateProject(
     .where(eq(projects.id, id))
     .returning();
   if (row === undefined) throw new Error(`Project ${id} was not updated`);
+  await enqueueTasks(
+    db,
+    userId,
+    stopped.map(({ taskId }) => taskId),
+    now,
+  );
+  if (name !== current.name) await enqueueProjectTasks(db, userId, id, now);
   return withTotal(db, row, now);
 }
 

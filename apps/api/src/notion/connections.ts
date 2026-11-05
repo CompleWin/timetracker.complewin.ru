@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { notionConnections } from "../db/schema.ts";
 import { notFound, notionReauthRequired } from "../http/errors.ts";
+import { clearQueue } from "../sync/outbox.ts";
 import { listNotionDatabases } from "./databases.ts";
 import type { NotionGrant, NotionTokens } from "./oauth.ts";
 import { decryptToken, encryptToken } from "./token-cipher.ts";
@@ -72,7 +73,10 @@ export async function requireUsableConnection(db: Database, userId: string): Pro
 }
 
 export async function disconnect(db: Database, userId: string): Promise<void> {
-  await db.update(notionConnections).set(NO_TOKENS).where(eq(notionConnections.userId, userId));
+  await db.batch([
+    db.update(notionConnections).set(NO_TOKENS).where(eq(notionConnections.userId, userId)),
+    clearQueue(db, userId),
+  ]);
 }
 
 export async function setConnectionStatus(
@@ -128,7 +132,7 @@ export async function toNotionConnection(
   };
 }
 
-function isConnected(row: ConnectionRow): row is ConnectedRow {
+export function isConnected(row: ConnectionRow): row is ConnectedRow {
   return row.accessTokenEnc !== null;
 }
 

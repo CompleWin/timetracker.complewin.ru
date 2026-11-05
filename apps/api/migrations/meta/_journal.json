@@ -57,6 +57,13 @@
       "when": 1793829223173,
       "tag": "0007_task_pinned",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793871266614,
+      "tag": "0008_notion_push",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import { useAutoRefresh } from "../auto-refresh.ts";
 import SessionDialog from "../components/SessionDialog.vue";
 import TaskDays from "../components/TaskDays.vue";
 import TaskDialog from "../components/TaskDialog.vue";
+import TaskNotion from "../components/TaskNotion.vue";
 import TaskOverview from "../components/TaskOverview.vue";
 import TaskSessions from "../components/TaskSessions.vue";
 import AppButton from "../components/ui/AppButton.vue";
@@ -190,6 +191,7 @@ async function onSaved(): Promise<void> {
       </div>
       <div class="flex max-w-full min-w-0 flex-[1_1_320px] flex-col gap-5">
         <TaskDays :sessions="periodSessions" :days :now :time-zone />
+        <TaskNotion v-if="task.notionPageUrl" :page-url="task.notionPageUrl" />
       </div>
     </div>
 

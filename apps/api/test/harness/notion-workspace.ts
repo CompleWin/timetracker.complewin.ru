@@ -31,6 +31,7 @@ export type DataSourceInput = {
 
 export type FakeNotionWorkspace = {
   dataSource(input?: DataSourceInput): FakeDataSource;
+  dataSourceById(id: string): FakeDataSource | undefined;
   property(dataSource: FakeDataSource, name: string): FakeProperty;
   hideDatabase(dataSource: FakeDataSource): void;
   splitSearch(...pages: FakeDataSource[][]): void;
@@ -53,7 +54,7 @@ type Block = {
   content: Record<string, unknown>;
 };
 
-const NOTION_V1 = `${testEnv.NOTION_API_BASE}/v1`;
+export const NOTION_V1 = `${testEnv.NOTION_API_BASE}/v1`;
 const SEARCH_URL = `${NOTION_V1}/search`;
 const DATABASE_PATTERN = resourcePattern("databases");
 const CURSOR_PREFIX = "cursor-";
@@ -139,6 +140,7 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
 
   return {
     dataSource,
+    dataSourceById: (id) => dataSources.get(id),
     property,
     hideDatabase: (source) => {
       hiddenDatabaseIds.add(source.databaseId);
@@ -239,11 +241,11 @@ function propertySpecsOf(properties: unknown): PropertySpec[] {
   }));
 }
 
-function resourcePattern(collection: string, suffix = ""): RegExp {
+export function resourcePattern(collection: string, suffix = ""): RegExp {
   return new RegExp(`^${escapeRegExp(NOTION_V1)}/${collection}/[^/?]+${suffix}(\\?.*)?$`);
 }
 
-function resourceId(request: Request): string {
+export function resourceId(request: Request): string {
   return new URL(request.url).pathname.split("/")[3] ?? "";
 }
 
@@ -251,16 +253,16 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function readJson(request: Request): Promise<Record<string, unknown>> {
+export async function readJson(request: Request): Promise<Record<string, unknown>> {
   const parsed: unknown = await request.json();
   return isRecord(parsed) ? parsed : {};
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function notFound(): Response {
+export function notFound(): Response {
   return Response.json(
     { object: "error", status: 404, code: "object_not_found", message: "Could not find object" },
     { status: 404 },

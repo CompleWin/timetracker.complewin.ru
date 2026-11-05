@@ -13,7 +13,14 @@ export type NotionRequest = NotionApiRequest & {
   authorization: string;
 };
 
-export class NotionUnavailable extends Error {}
+export class NotionUnavailable extends Error {
+  constructor(
+    message: string,
+    readonly response?: Response,
+  ) {
+    super(message);
+  }
+}
 
 export function notionUrl(env: Bindings, path: string): string {
   return `${env.NOTION_API_BASE ?? DEFAULT_API_BASE}${path}`;
@@ -25,7 +32,9 @@ export function clientAuthorization(env: Bindings): string {
 
 export async function callNotion(env: Bindings, request: NotionRequest): Promise<Response> {
   const response = await send(env, request);
-  if (response.status >= 500) throw new NotionUnavailable(`Notion answered ${response.status}`);
+  if (response.status >= 500) {
+    throw new NotionUnavailable(`Notion answered ${response.status}`, response);
+  }
   return response;
 }
 

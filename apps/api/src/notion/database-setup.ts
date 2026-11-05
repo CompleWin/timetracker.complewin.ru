@@ -200,7 +200,7 @@ function projectPropertyOf(source: DataSource, id: string | undefined): NotionPr
   return property;
 }
 
-async function ensureTrackerProperties(
+export async function ensureTrackerProperties(
   client: NotionClient,
   source: DataSource,
   wanted: TrackerProperty[],

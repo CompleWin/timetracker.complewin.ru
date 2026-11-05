@@ -13,6 +13,8 @@ export const taskSchema = z.object({
   archived: z.boolean(),
   archivedAt: z.string().nullable(),
   pinned: z.boolean(),
+  notionPageUrl: z.string().nullable(),
+  notionDatabaseId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   totalSec: z.number(),
