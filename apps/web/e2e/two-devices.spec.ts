@@ -1,7 +1,8 @@
 import { expect, test as base, type Page } from "@playwright/test";
 import { createTask } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
-import { button, runningNow, textOf } from "./helpers/ui.ts";
+import { pickerTrigger, startFromPicker } from "./helpers/picker.ts";
+import { runningNow, textOf } from "./helpers/ui.ts";
 
 type Trigger = {
   name: string;
@@ -37,12 +38,12 @@ const test = base.extend<{ secondDevice: Page }>({
 
 async function openHomeWithIdleTask(page: Page): Promise<void> {
   await page.goto("/");
-  await expect(button(page, `Запустить таймер: ${TITLE}`)).toBeVisible();
+  await expect(pickerTrigger(page)).toBeVisible();
   await expect(runningNow(page)).toHaveCount(0);
 }
 
 async function startFromUi(page: Page): Promise<void> {
-  await button(page, `Запустить таймер: ${TITLE}`).click();
+  await startFromPicker(page, TITLE);
   await expect(textOf(runningNow(page), TITLE)).toBeVisible();
 }
 

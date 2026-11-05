@@ -6,13 +6,17 @@ export {
   formatSessionRange,
   formatShortDate,
   formatTime,
+  formatWeekdayDate,
+  formatWeekdayShort,
   fromDateTimeLocal,
+  lastDays,
   toDateTimeLocal,
+  type DayRange,
 } from "./dates.ts";
 export { elapsedSec, formatClock, formatDuration } from "./duration.ts";
 export { isLocale, localeFromLanguage, locales, type Locale } from "./i18n/locale.ts";
 export { messages, type MessageKey, type Messages } from "./i18n/messages.ts";
-export { t, type MessageParams } from "./i18n/t.ts";
+export { t, tc, type MessageParams } from "./i18n/t.ts";
 export {
   addNotionDatabaseBody,
   availableNotionDatabasesResponse,
@@ -54,20 +58,23 @@ export {
 } from "./project.ts";
 export { safeReturnTo } from "./return-to.ts";
 export {
-  activeSessionSchema,
-  activeSessionsResponse,
   createSessionBody,
   MAX_RUNNING_TIMERS,
   SESSION_NOTE_MAX_LENGTH,
+  SESSION_PERIOD_MAX_SEC,
+  sessionPeriodQuery,
   sessionResponse,
   sessionSchema,
   sessionsResponse,
+  sessionsWithTaskResponse,
+  sessionWithTaskSchema,
   TASK_SESSIONS_MAX_LIMIT,
   taskSessionsQuery,
   updateSessionBody,
-  type ActiveSession,
   type CreateSessionBody,
   type Session,
+  type SessionPeriodQuery,
+  type SessionWithTask,
   type TaskSessionsQuery,
   type UpdateSessionBody,
 } from "./session.ts";
@@ -87,6 +94,16 @@ export {
   type UpdateTaskBody,
 } from "./task.ts";
 export { isoDateTime } from "./time.ts";
+export {
+  parallelSec,
+  timelineGaps,
+  timelineLanes,
+  timelineRange,
+  type TimelineGap,
+  type TimelineHours,
+  type TimelineItem,
+  type TimelineLane,
+} from "./timeline.ts";
 export {
   devLoginBody,
   updateMeBody,

@@ -26,6 +26,7 @@ export type TestProject = {
   updatedAt: string;
   totalSec: number;
   notionDatabaseId: string | null;
+  archivedAt: string | null;
 };
 
 export type ProjectInput = {

@@ -1,5 +1,4 @@
 import {
-  activeSessionsResponse,
   availableNotionDatabasesResponse,
   notionConnectionResponse,
   notionDatabaseResponse,
@@ -8,11 +7,11 @@ import {
   projectsResponse,
   sessionResponse,
   sessionsResponse,
+  sessionsWithTaskResponse,
   TASK_SESSIONS_MAX_LIMIT,
   taskResponse,
   tasksResponse,
   userResponse,
-  type ActiveSession,
   type AddNotionDatabaseBody,
   type ArchivedFilter,
   type AvailableNotionDatabase,
@@ -25,6 +24,7 @@ import {
   type NotionProperty,
   type Project,
   type Session,
+  type SessionWithTask,
   type Task,
   type UpdateMeBody,
   type UpdateNotionDatabaseBody,
@@ -155,8 +155,17 @@ export async function deleteSession(id: string): Promise<void> {
   await request("DELETE", `/api/sessions/${id}`);
 }
 
-export async function fetchActiveSessions(): Promise<ActiveSession[]> {
-  return activeSessionsResponse.parse(await request("GET", "/api/timers/active")).sessions;
+export async function fetchActiveSessions(): Promise<SessionWithTask[]> {
+  return sessionsWithTaskResponse.parse(await request("GET", "/api/timers/active")).sessions;
+}
+
+export async function fetchPeriodSessions(from: string, to: string): Promise<SessionWithTask[]> {
+  const path = `/api/sessions?${new URLSearchParams({ from, to })}`;
+  return sessionsWithTaskResponse.parse(await request("GET", path)).sessions;
+}
+
+export async function stopSession(id: string): Promise<Session> {
+  return sessionResponse.parse(await request("POST", `/api/sessions/${id}/stop`)).session;
 }
 
 export async function startTimer(taskId: string): Promise<Session> {

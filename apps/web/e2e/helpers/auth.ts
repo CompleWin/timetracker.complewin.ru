@@ -8,9 +8,9 @@ export type DevUser = {
 
 export type UserLocale = "ru" | "en";
 
-export type LoginOptions = Partial<DevUser> & { locale?: UserLocale };
+export type LoginOptions = Partial<DevUser> & { locale?: UserLocale; username?: string };
 
-type DevLoginBody = DevUser & { locale: UserLocale };
+type DevLoginBody = DevUser & { locale: UserLocale; username?: string };
 
 export function uniqueTelegramId(): number {
   return randomInt(1_000_000, 2 ** 47);
@@ -25,6 +25,7 @@ export async function loginAs(page: Page, options: LoginOptions = {}): Promise<D
   const status = await page.evaluate(postDevLogin, {
     ...devUser,
     locale: options.locale ?? "ru",
+    username: options.username,
   });
   expect(status, "POST /auth/dev-login").toBe(200);
   return devUser;

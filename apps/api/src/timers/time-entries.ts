@@ -9,9 +9,10 @@ export type TimeEntryRow = typeof timeEntries.$inferSelect;
 export type TaskTimer = {
   totalSec: number;
   runningSessionId: string | null;
+  lastStartedAt: string | null;
 };
 
-export const IDLE_TIMER: TaskTimer = { totalSec: 0, runningSessionId: null };
+export const IDLE_TIMER: TaskTimer = { totalSec: 0, runningSessionId: null, lastStartedAt: null };
 
 export const liveEntries = isNull(timeEntries.deletedAt);
 
@@ -80,6 +81,7 @@ export async function taskTimers(
       taskId: timeEntries.taskId,
       totalSec: totalSec(now),
       runningSessionId: entryIdWhere(isNull(timeEntries.endedAt)),
+      lastStartedAt: lastStartedAt(),
     })
     .from(timeEntries)
     .where(
@@ -120,6 +122,12 @@ export async function projectTotals(
 
 export function entryIdWhere(condition: SQL): SQL<string | null> {
   return sql<string | null>`max(case when ${condition} then ${timeEntries.id} end)`;
+}
+
+function lastStartedAt(): SQL<string | null> {
+  return sql<number | null>`max(${timeEntries.startedAt})`.mapWith((value: number | null) =>
+    value === null ? null : new Date(value).toISOString(),
+  );
 }
 
 function totalSec(now: Date): SQL<number> {

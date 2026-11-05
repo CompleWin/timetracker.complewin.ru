@@ -1,9 +1,9 @@
-import { elapsedSec, type ActiveSession, type Session } from "@stt/shared";
+import { elapsedSec, type Session, type SessionWithTask } from "@stt/shared";
 import { HttpError } from "./api.ts";
 
 const CONFLICT_STATUS = 409;
 
-export function sessionsByTask(sessions: ActiveSession[]): Map<string, ActiveSession> {
+export function sessionsByTask(sessions: SessionWithTask[]): Map<string, SessionWithTask> {
   return new Map(sessions.map((session) => [session.taskId, session]));
 }
 

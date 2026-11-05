@@ -1,10 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createProject, createTask } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
-import { button, focusWithKeyboard, heading, textOf } from "./helpers/ui.ts";
+import { PHONE_VIEWPORT, expectNoHorizontalScroll } from "./helpers/layout.ts";
+import { openPicker, pickerTrigger, startTimerButton } from "./helpers/picker.ts";
+import { focusWithKeyboard, heading } from "./helpers/ui.ts";
 
 const PAPER = "rgb(243, 242, 242)";
 const PRIMARY = "rgb(18, 91, 58)";
+const TRANSPARENT = "rgba(0, 0, 0, 0)";
 const GOLOS_TEXT_FIRST = /^["']?Golos Text["']?(,|$)/;
 const NETWORK_URL = /^(https?|wss?):/;
 
@@ -29,7 +32,7 @@ const loginScreen: Screen = {
 const homeScreen: Screen = {
   path: "/",
   prepare: loginWithProjectAndTask,
-  landmark: (page) => textOf(page, "Беговая дорожка"),
+  landmark: (page) => pickerTrigger(page),
 };
 
 const screens = [loginScreen, homeScreen];
@@ -50,20 +53,12 @@ function outsideOrigin(urls: string[], origin: string): string[] {
   return urls.filter((url) => NETWORK_URL.test(url) && new URL(url).origin !== origin);
 }
 
-async function documentWidths(page: Page): Promise<{ scrollWidth: number; clientWidth: number }> {
-  return page.evaluate(async () => {
-    await document.fonts.ready;
-    const { scrollWidth, clientWidth } = document.documentElement;
-    return { scrollWidth, clientWidth };
-  });
-}
-
 for (const screen of screens) {
-  test(`17. на ${screen.path} фон body ${PAPER}, фон шапки ${PRIMARY}`, async ({ page }) => {
+  test(`17. на ${screen.path} фон body ${PAPER}, у шапки своей заливки нет`, async ({ page }) => {
     await open(page, screen);
 
     await expect(page.locator("body")).toHaveCSS("background-color", PAPER);
-    await expect(page.getByRole("banner")).toHaveCSS("background-color", PRIMARY);
+    await expect(page.getByRole("banner")).toHaveCSS("background-color", TRANSPARENT);
   });
 
   test(`18. на ${screen.path} font-family у body начинается с Golos Text`, async ({ page }) => {
@@ -96,32 +91,39 @@ test(`18. на /login document.fonts.load('800 16px "Golos Text"', 'Вход') �
   expect(loadedFaces).toBeGreaterThan(0);
 });
 
-test(`20. у кнопки «Новая задача» в фокусе с клавиатуры outline 2px solid ${PRIMARY}`, async ({
+test(`20. у триггера панели выбора в фокусе с клавиатуры outline 2px solid ${PRIMARY}`, async ({
   page,
 }) => {
   await loginAs(page);
   await page.goto("/");
-  const newTask = button(page, "Новая задача");
-  await expect(newTask).toBeVisible();
+  const trigger = pickerTrigger(page);
+  await expect(trigger).toBeVisible();
 
-  await focusWithKeyboard(page, newTask);
+  await focusWithKeyboard(page, trigger);
 
-  await expect(newTask).toBeFocused();
-  await expect(newTask).toHaveCSS("outline-style", "solid");
-  await expect(newTask).toHaveCSS("outline-width", "2px");
-  await expect(newTask).toHaveCSS("outline-color", PRIMARY);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveCSS("outline-style", "solid");
+  await expect(trigger).toHaveCSS("outline-width", "2px");
+  await expect(trigger).toHaveCSS("outline-color", PRIMARY);
 });
 
 test.describe("ширина окна 390 px", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  test.use({ viewport: PHONE_VIEWPORT });
 
   for (const screen of screens) {
     test(`21. на ${screen.path} нет горизонтальной прокрутки`, async ({ page }) => {
       await open(page, screen);
 
-      const { scrollWidth, clientWidth } = await documentWidths(page);
-
-      expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+      await expectNoHorizontalScroll(page);
     });
   }
+
+  test("21. на / с открытой панелью выбора нет горизонтальной прокрутки", async ({ page }) => {
+    await open(page, homeScreen);
+
+    await openPicker(page);
+    await expect(startTimerButton(page, "Беговая дорожка")).toBeVisible();
+
+    await expectNoHorizontalScroll(page);
+  });
 });

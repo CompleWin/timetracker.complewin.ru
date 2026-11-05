@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { createTask } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
 import { clockIn, expectClockTicks, readClockSec } from "./helpers/clock.ts";
-import { button, runningNow } from "./helpers/ui.ts";
+import { startFromPicker } from "./helpers/picker.ts";
+import { runningNow } from "./helpers/ui.ts";
 
 const HOUR_MS = 60 * 60 * 1_000;
 const ONE_MINUTE_SEC = 60;
@@ -15,7 +16,7 @@ test("10. часы браузера на час впереди: у запуще�
   await createTask(page, { title: "Anki" });
   await page.goto("/");
 
-  await button(page, "Запустить таймер: Anki").click();
+  await startFromPicker(page, "Anki");
 
   const clock = clockIn(runningNow(page));
   await expectClockTicks(clock);

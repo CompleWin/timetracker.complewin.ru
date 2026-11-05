@@ -9,8 +9,10 @@ type ButtonVariant =
   | "outline-white"
   | "solid-danger"
   | "ghost"
-  | "ghost-danger";
-type ButtonSize = "sm" | "md" | "lg";
+  | "ghost-danger"
+  | "quiet-accent"
+  | "quiet";
+type ButtonSize = "2xs" | "xs" | "sm" | "md" | "lg";
 type ButtonWidth = "auto" | "full" | "full-on-mobile";
 
 const props = withDefaults(
@@ -26,7 +28,7 @@ const props = withDefaults(
 );
 
 const BASE =
-  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full py-2 text-center transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed";
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full text-center transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed";
 
 const ACTION_TYPOGRAPHY = "font-extrabold uppercase leading-none tracking-[0.1em]";
 
@@ -44,20 +46,26 @@ const variantClasses: Record<ButtonVariant, string> = {
   "solid-danger": "bg-danger text-white hover:bg-danger-hover disabled:opacity-50",
   ghost: "text-primary hover:bg-primary-soft disabled:opacity-50",
   "ghost-danger": "text-danger-ink hover:bg-danger-soft disabled:opacity-50",
+  "quiet-accent": "font-semibold text-primary hover:bg-primary-soft disabled:opacity-50",
+  quiet: "text-fg-muted hover:bg-surface-page hover:text-fg disabled:opacity-50",
 };
 
-const QUIET_VARIANTS: ButtonVariant[] = ["ghost", "ghost-danger"];
+const QUIET_VARIANTS: ButtonVariant[] = ["ghost", "ghost-danger", "quiet-accent", "quiet"];
 
 const actionSizeClasses: Record<ButtonSize, string> = {
-  sm: "min-h-[38px] px-5 text-[12px] max-md:min-h-11",
-  md: "min-h-[46px] px-[26px] text-[13px]",
-  lg: "min-h-[52px] px-8 text-[14px]",
+  "2xs": "py-0.5 min-h-[26px] px-3 text-[11px]",
+  xs: "py-1 min-h-8 px-4 text-[11px]",
+  sm: "py-2 min-h-[38px] px-5 text-[12px] max-md:min-h-11",
+  md: "py-2 min-h-[46px] px-[26px] text-[13px]",
+  lg: "py-2 min-h-[52px] px-8 text-[14px]",
 };
 
 const quietSizeClasses: Record<ButtonSize, string> = {
-  sm: "min-h-[38px] px-3 text-small max-md:min-h-11",
-  md: "min-h-[46px] px-4 text-body",
-  lg: "min-h-[52px] px-6 text-lead",
+  "2xs": "py-0.5 min-h-[26px] px-2.5 text-meta",
+  xs: "py-1 min-h-8 px-3 text-meta",
+  sm: "py-2 min-h-[38px] px-3 text-small max-md:min-h-11",
+  md: "py-2 min-h-[46px] px-4 text-body",
+  lg: "py-2 min-h-[52px] px-6 text-lead",
 };
 
 const widthClasses: Record<ButtonWidth, string> = {

@@ -128,6 +128,7 @@ export const tasks = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     projectId: text("project_id").references(() => projects.id),
     title: text("title").notNull(),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),

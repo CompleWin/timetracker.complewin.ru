@@ -1,10 +1,11 @@
 import {
   MAX_RUNNING_TIMERS,
-  type ActiveSession,
   type Session,
+  type SessionPeriodQuery,
+  type SessionWithTask,
   type TaskSessionsQuery,
 } from "@stt/shared";
-import { and, asc, count, desc, eq, isNull, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, lt, type SQL } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { tasks, timeEntries } from "../db/schema.ts";
 import { alreadyRunning, notRunning, tooManyRunning } from "../http/errors.ts";
@@ -70,21 +71,32 @@ export async function getSession(
   return toSession(await requireEntry(db, userId, id), now);
 }
 
-export async function listActiveSessions(
+export function listActiveSessions(
   db: Database,
   userId: string,
   now: Date,
-): Promise<ActiveSession[]> {
-  const rows = await db
-    .select({
-      entry: timeEntries,
-      task: { id: tasks.id, title: tasks.title, projectId: tasks.projectId },
-    })
-    .from(timeEntries)
-    .innerJoin(tasks, eq(tasks.id, timeEntries.taskId))
-    .where(and(eq(timeEntries.userId, userId), isNull(timeEntries.endedAt)))
-    .orderBy(asc(timeEntries.startedAt), asc(timeEntries.id));
-  return rows.map(({ entry, task }) => ({ ...toSession(entry, now), task }));
+): Promise<SessionWithTask[]> {
+  return listSessionsWithTask(
+    db,
+    and(eq(timeEntries.userId, userId), isNull(timeEntries.endedAt)),
+    now,
+  );
+}
+
+export function listPeriodSessions(
+  db: Database,
+  userId: string,
+  { from, to, taskId }: SessionPeriodQuery,
+  now: Date,
+): Promise<SessionWithTask[]> {
+  const inPeriod = and(
+    eq(timeEntries.userId, userId),
+    liveEntries,
+    gte(timeEntries.startedAt, new Date(from)),
+    lt(timeEntries.startedAt, new Date(to)),
+    taskId === undefined ? undefined : eq(timeEntries.taskId, taskId),
+  );
+  return listSessionsWithTask(db, inPeriod, now);
 }
 
 export async function listTaskSessions(
@@ -108,6 +120,23 @@ export async function listTaskSessions(
     .orderBy(desc(timeEntries.startedAt), desc(timeEntries.id))
     .limit(limit);
   return rows.map((row) => toSession(row, now));
+}
+
+async function listSessionsWithTask(
+  db: Database,
+  condition: SQL | undefined,
+  now: Date,
+): Promise<SessionWithTask[]> {
+  const rows = await db
+    .select({
+      entry: timeEntries,
+      task: { id: tasks.id, title: tasks.title, projectId: tasks.projectId },
+    })
+    .from(timeEntries)
+    .innerJoin(tasks, eq(tasks.id, timeEntries.taskId))
+    .where(condition)
+    .orderBy(asc(timeEntries.startedAt), asc(timeEntries.id));
+  return rows.map(({ entry, task }) => ({ ...toSession(entry, now), task }));
 }
 
 async function ensureCanStart(db: Database, userId: string, taskId: string): Promise<void> {

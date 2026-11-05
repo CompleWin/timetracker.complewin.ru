@@ -1,27 +1,10 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { messages, t, type Locale } from "@stt/shared";
+import { entriesOf, keysOf } from "./dictionary.ts";
 
-type Entry = [key: string, value: unknown];
 type MessageKey = Parameters<typeof t>[1];
 
 const locales = ["ru", "en"] as const satisfies readonly Locale[];
-
-function entriesOf(dictionary: object, prefix = ""): Entry[] {
-  return Object.entries(dictionary).flatMap(([key, value]): Entry[] => {
-    const path = `${prefix}${key}`;
-    return isNested(value) ? entriesOf(value, `${path}.`) : [[path, value]];
-  });
-}
-
-function isNested(value: unknown): value is object {
-  return typeof value === "object" && value !== null;
-}
-
-function keysOf(locale: Locale): string[] {
-  return entriesOf(messages[locale])
-    .map(([key]) => key)
-    .sort();
-}
 
 function isMessageKey(key: string): key is MessageKey {
   return keysOf("ru").includes(key);

@@ -24,6 +24,7 @@ export const projectSchema = z.object({
   name: z.string(),
   color: z.enum(projectColors),
   archived: z.boolean(),
+  archivedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   totalSec: z.number(),

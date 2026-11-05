@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Response } from "@playwright/test";
+import { openAccountMenu } from "./helpers/account-menu.ts";
 import { loginAs } from "./helpers/auth.ts";
+import { button, heading } from "./helpers/ui.ts";
 
 function savesLocale(locale: string): (response: Response) => boolean {
   return (response) => {
@@ -12,26 +14,29 @@ function savesLocale(locale: string): (response: Response) => boolean {
   };
 }
 
-async function chooseEnglishInHeader(page: Page): Promise<void> {
-  const saved = page.waitForResponse(savesLocale("en"));
-  await page.getByLabel("Язык", { exact: true }).selectOption({ label: "English" });
-  await saved;
+async function expectEnglishInterface(page: Page): Promise<void> {
+  await expect(heading(page, "Language")).toBeVisible();
+  await expect(button(page, "English")).toHaveAttribute("aria-pressed", "true");
+  await openAccountMenu(page, "Menu");
+  await expect(button(page, "Sign out")).toBeVisible();
+  await expect(button(page, "Выйти")).toHaveCount(0);
 }
 
-test("24. выбор «English» в списке «Язык» меняет «Выйти» на «Sign out», язык сохраняется после перезагрузки", async ({
+test("24. «English» в разделе «Язык» на /settings получает aria-pressed, в меню «Menu» видно «Sign out», после перезагрузки интерфейс английский", async ({
   page,
 }) => {
   await loginAs(page);
-  await page.goto("/");
-  await expect(page.getByRole("button", { name: "Выйти" })).toBeVisible();
+  await page.goto("/settings");
+  await expect(heading(page, "Язык")).toBeVisible();
+  await expect(button(page, "English")).toHaveAttribute("aria-pressed", "false");
 
-  await chooseEnglishInHeader(page);
+  const saved = page.waitForResponse(savesLocale("en"));
+  await button(page, "English").click();
+  await saved;
 
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(page.getByLabel("Language", { exact: true })).toBeVisible();
+  await expectEnglishInterface(page);
 
   await page.reload();
 
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(page.getByLabel("Language", { exact: true })).toBeVisible();
+  await expectEnglishInterface(page);
 });

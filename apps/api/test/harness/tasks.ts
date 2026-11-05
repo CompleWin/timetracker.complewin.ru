@@ -11,11 +11,14 @@ export type TestTask = {
   updatedAt: string;
   totalSec: number;
   runningSessionId: string | null;
+  lastStartedAt: string | null;
+  pinned: boolean;
+  archivedAt: string | null;
 };
 
 export type TaskInput = { title: string; projectId?: string | null };
 
-export type TaskChanges = Partial<Pick<TestTask, "title" | "projectId" | "archived">>;
+export type TaskChanges = Partial<Pick<TestTask, "title" | "projectId" | "archived" | "pinned">>;
 
 export function taskPath(id: string): string {
   return `/api/tasks/${id}`;

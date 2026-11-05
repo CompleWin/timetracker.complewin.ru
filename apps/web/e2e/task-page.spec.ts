@@ -14,6 +14,7 @@ import {
 import { loginAs } from "./helpers/auth.ts";
 import { clockIn, expectClockTicks } from "./helpers/clock.ts";
 import { MOSCOW_TIME_ZONE, moscowDate, moscowIso, moscowTime } from "./helpers/moscow-time.ts";
+import { openPicker } from "./helpers/picker.ts";
 import { button, dialog, heading, textOf } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
@@ -123,13 +124,14 @@ test.beforeEach(async ({ page }) => {
   await setTimeZone(page, MOSCOW_TIME_ZONE);
 });
 
-test("13. название задачи на главной ведёт на её страницу: заголовок, «Без проекта», «Всего», «Старт» и список «Сессии»", async ({
+test("13. «Открыть задачу: Anki» в панели выбора ведёт на её страницу: заголовок, «Без проекта», «Всего», «Старт» и список «Сессии»", async ({
   page,
 }) => {
   const task = await createTask(page, { title: "Anki" });
   await page.goto("/");
+  await openPicker(page);
 
-  await page.getByRole("link", { name: "Anki", exact: true }).click();
+  await page.getByRole("link", { name: "Открыть задачу: Anki", exact: true }).click();
 
   await expect(page).toHaveURL(urlMatching(taskPage(task)));
   await expect(heading(page, "Anki")).toBeVisible();

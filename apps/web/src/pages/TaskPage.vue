@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus } from "@lucide/vue";
+import { Archive, Pencil, Plus } from "@lucide/vue";
 import { formatDuration, type Project, type Session, type Task } from "@stt/shared";
 import { computed, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -8,8 +8,10 @@ import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
 import SessionDialog from "../components/SessionDialog.vue";
 import SessionRow from "../components/SessionRow.vue";
+import TaskDialog from "../components/TaskDialog.vue";
 import TimerButton from "../components/TimerButton.vue";
 import AppButton from "../components/ui/AppButton.vue";
+import AppIconButton from "../components/ui/AppIconButton.vue";
 import AppIsland from "../components/ui/AppIsland.vue";
 import AppSectionLabel from "../components/ui/AppSectionLabel.vue";
 import AppSkeleton from "../components/ui/AppSkeleton.vue";
@@ -19,7 +21,7 @@ import { useServerNow } from "../server-clock.ts";
 import { useSessionStore } from "../stores/session.ts";
 import { changeTimer, liveTotalSec } from "../timers.ts";
 
-type OpenDialog = { session?: Session };
+type OpenDialog = { kind: "session"; session?: Session } | { kind: "task"; projects: Project[] };
 
 const NOT_FOUND_STATUS = 404;
 
@@ -36,6 +38,12 @@ const now = useServerNow();
 const sessionsHeadingId = useId();
 
 const timeZone = computed(() => account.user?.timezone ?? null);
+
+const sessionTask = computed(() =>
+  task.value === null
+    ? undefined
+    : { id: task.value.id, title: task.value.title, project: project.value },
+);
 
 const isActive = computed(
   () => task.value !== null && !task.value.archived && project.value?.archived !== true,
@@ -71,6 +79,16 @@ async function changeTimerAndReload(change: () => Promise<unknown>): Promise<voi
   await load();
 }
 
+async function editTask(): Promise<void> {
+  const projects = await api.fetchProjects("false");
+  dialog.value = { kind: "task", projects };
+}
+
+async function archiveTask(): Promise<void> {
+  await api.updateTask(props.id, { archived: true });
+  await load();
+}
+
 async function onSaved(): Promise<void> {
   dialog.value = null;
   await load();
@@ -85,9 +103,15 @@ async function onSaved(): Promise<void> {
     <AppIsland>
       <div class="flex items-center gap-2">
         <ProjectMarker v-if="project" :color="project.color" />
-        <AppSectionLabel class="min-w-0 break-words">
+        <AppSectionLabel class="min-w-0 flex-1 break-words">
           {{ project?.name ?? t("home.noProject") }}
         </AppSectionLabel>
+        <AppIconButton :label="t('tasks.edit')" @click="editTask">
+          <Pencil :size="17" aria-hidden="true" />
+        </AppIconButton>
+        <AppIconButton v-if="isActive" :label="t('actions.archive')" @click="archiveTask">
+          <Archive :size="17" aria-hidden="true" />
+        </AppIconButton>
       </div>
       <h1 class="mt-3 text-h1 break-words md:text-h1-lg">{{ task.title }}</h1>
       <div class="mt-5 flex flex-wrap items-center gap-3">
@@ -110,7 +134,12 @@ async function onSaved(): Promise<void> {
     <AppIsland as="section" :aria-labelledby="sessionsHeadingId">
       <div class="flex items-center justify-between gap-3">
         <h2 :id="sessionsHeadingId" class="text-title">{{ t("sessions.title") }}</h2>
-        <AppButton v-if="isActive" variant="outline-primary" size="sm" @click="dialog = {}">
+        <AppButton
+          v-if="isActive"
+          variant="outline-primary"
+          size="sm"
+          @click="dialog = { kind: 'session' }"
+        >
           <Plus :size="17" aria-hidden="true" />
           {{ t("sessions.add") }}
         </AppButton>
@@ -122,16 +151,23 @@ async function onSaved(): Promise<void> {
           :session
           :time-zone
           :now
-          @edit="dialog = { session }"
+          @edit="dialog = { kind: 'session', session }"
         />
       </ul>
     </AppIsland>
 
     <SessionDialog
-      v-if="dialog"
-      :task-id="task.id"
+      v-if="dialog?.kind === 'session'"
+      :task="sessionTask"
       :session="dialog.session"
       :time-zone
+      @close="dialog = null"
+      @saved="onSaved"
+    />
+    <TaskDialog
+      v-if="dialog?.kind === 'task'"
+      :projects="dialog.projects"
+      :task
       @close="dialog = null"
       @saved="onSaved"
     />
