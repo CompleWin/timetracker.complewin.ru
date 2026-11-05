@@ -15,6 +15,7 @@ import {
 import { fakeNotionPages, type FakeNotionPages, type FakePage } from "./notion-pages.ts";
 import {
   fakeNotionWorkspace,
+  isDataSourceQuery,
   isRecord,
   type FakeDataSource,
   type FakeNotionWorkspace,
@@ -75,6 +76,7 @@ export type FakeNotionSync = {
   ): Promise<Record<Key, SyncedDatabase>>;
   pageOfTask(session: TestSession, taskId: string): Promise<FakePage>;
   requestsDuring(action: () => Promise<unknown>): Promise<ExternalCall[]>;
+  requestsExceptPullDuring(action: () => Promise<unknown>): Promise<ExternalCall[]>;
   creationsDuring(action: () => Promise<unknown>): Promise<ExternalCall[]>;
   updatesDuring(page: FakePage, action: () => Promise<unknown>): Promise<ExternalCall[]>;
 };
@@ -155,6 +157,8 @@ export function fakeNotionSync(): FakeNotionSync {
     connectNotion,
     pageOfTask,
     requestsDuring: (action) => callsDuring(() => notion.requests(), action),
+    requestsExceptPullDuring: (action) =>
+      callsDuring(() => notion.requests().filter((call) => !isDataSourceQuery(call)), action),
     creationsDuring: (action) => callsDuring(() => pages.creations(), action),
     updatesDuring: (page, action) => callsDuring(() => pages.updates(page), action),
   };

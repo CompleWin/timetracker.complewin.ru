@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { NotionClient } from "../notion/client.ts";
 import { NotionUnavailable, type NotionApiRequest } from "../notion/http.ts";
+import { pagePath } from "../notion/pages.ts";
 import type { PageProperties } from "./page-state.ts";
 
 const TOO_MANY_REQUESTS = 429;
@@ -162,10 +163,6 @@ function rateLimited(response: Response): RateLimited {
 function errorMessage(reply: PageReply): string {
   const parsed = errorSchema.safeParse(reply.body);
   return parsed.success ? parsed.data.message : `Notion answered ${reply.status}`;
-}
-
-function pagePath(pageId: string): string {
-  return `/v1/pages/${encodeURIComponent(pageId)}`;
 }
 
 function pause(ms: number): Promise<void> {

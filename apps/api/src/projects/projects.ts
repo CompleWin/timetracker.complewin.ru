@@ -11,6 +11,8 @@ import { projectTotals, stopProjectEntries } from "../timers/time-entries.ts";
 
 type ProjectRow = typeof projects.$inferSelect;
 
+export type ProjectRef = Pick<ProjectRow, "id" | "name" | "notionDatabaseId">;
+
 export type NewProject = {
   name: string;
   color: ProjectColor;
@@ -104,6 +106,29 @@ export async function updateProject(
   return withTotal(db, row, now);
 }
 
+export function activeProjects(db: Database, userId: string): Promise<ProjectRef[]> {
+  return db
+    .select({ id: projects.id, name: projects.name, notionDatabaseId: projects.notionDatabaseId })
+    .from(projects)
+    .where(and(eq(projects.userId, userId), isNull(projects.archivedAt)));
+}
+
+export async function projectNamed(
+  db: Database,
+  userId: string,
+  { name, color }: Pick<NewProject, "name" | "color">,
+  now: Date,
+): Promise<ProjectRef> {
+  const found = (await activeProjects(db, userId)).find((project) =>
+    sameProjectName(project.name, name),
+  );
+  return found ?? createProject(db, userId, { name, color, notionDatabaseId: null }, now);
+}
+
+export function sameProjectName(left: string, right: string): boolean {
+  return nameKey(left) === nameKey(right);
+}
+
 async function findProject(
   db: Database,
   userId: string,
@@ -126,12 +151,8 @@ async function ensureNameFree(
   name: string,
   exceptId?: string,
 ): Promise<void> {
-  const active = await db
-    .select({ id: projects.id, name: projects.name })
-    .from(projects)
-    .where(and(eq(projects.userId, userId), isNull(projects.archivedAt)));
-  const key = nameKey(name);
-  if (active.some((project) => project.id !== exceptId && nameKey(project.name) === key)) {
+  const active = await activeProjects(db, userId);
+  if (active.some((project) => project.id !== exceptId && sameProjectName(project.name, name))) {
     throw nameTaken();
   }
 }

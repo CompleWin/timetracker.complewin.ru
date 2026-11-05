@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, FolderPlus, ListPlus, Plus, Search, Star } from "@lucide/vue";
+import {
+  ArrowDown,
+  ArrowUp,
+  ExternalLink,
+  FolderPlus,
+  ListPlus,
+  Plus,
+  Search,
+  Star,
+} from "@lucide/vue";
 import type { Project, SessionWithTask, Task } from "@stt/shared";
 import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -31,6 +40,7 @@ const props = defineProps<{
   running: Map<string, SessionWithTask>;
   todaySec: Map<string, number>;
   now: number;
+  canAddFromNotion: boolean;
 }>();
 const emit = defineEmits<{
   start: [task: Task];
@@ -40,6 +50,7 @@ const emit = defineEmits<{
   newProject: [];
   editProject: [project: Project];
   archiveProject: [project: Project];
+  addFromNotion: [];
   close: [];
 }>();
 
@@ -322,6 +333,15 @@ function onPanelKeydown(event: KeyboardEvent): void {
           </span>
         </div>
       </template>
+      <button
+        v-if="canAddFromNotion"
+        type="button"
+        class="mt-1 flex min-h-[46px] w-full cursor-pointer items-center gap-2 rounded-field px-3 text-left text-body text-primary transition-colors duration-150 hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        @click="emit('addFromNotion')"
+      >
+        <ExternalLink :size="17" aria-hidden="true" class="flex-none" />
+        {{ t("notionPages.title") }}
+      </button>
     </div>
 
     <div

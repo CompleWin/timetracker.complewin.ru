@@ -18,6 +18,7 @@ export type FakePage = {
   dataSourceId: string;
   values: Map<string, PageValue>;
   inTrash: boolean;
+  lastEditedTime: string;
 };
 
 export type NotionFailure = {
@@ -28,6 +29,8 @@ export type NotionFailure = {
 };
 
 export type FakeNotionPages = {
+  create(dataSourceId: string): FakePage;
+  json(page: FakePage): Record<string, unknown>;
   list(): FakePage[];
   last(): FakePage;
   byUrl(url: string | null): FakePage;
@@ -57,6 +60,8 @@ export const notionFailures = {
 const PAGES_URL = `${NOTION_V1}/pages`;
 const PAGE_PATTERN = resourcePattern("pages");
 const PAGE_HOST = "https://www.notion.so";
+const EDITED_BEFORE_TEST_CLOCK = "2029-12-31T00:00:00.000Z";
+const RICH_TEXT_KEYS = new Set(["title", "rich_text"]);
 const ARCHIVED_PAGE: NotionFailure = {
   status: 400,
   code: "validation_error",
@@ -99,6 +104,7 @@ export function fakeNotionPages(workspace: FakeNotionWorkspace): FakeNotionPages
       dataSourceId,
       values: new Map(),
       inTrash: false,
+      lastEditedTime: EDITED_BEFORE_TEST_CLOCK,
     };
     pages.set(id, page);
     return page;
@@ -112,6 +118,7 @@ export function fakeNotionPages(workspace: FakeNotionWorkspace): FakeNotionPages
       parent: { type: "data_source_id", data_source_id: page.dataSourceId },
       in_trash: page.inTrash,
       archived: page.inTrash,
+      last_edited_time: page.lastEditedTime,
       properties: Object.fromEntries(
         [...page.values].map(([propertyId, value]) => propertyJson(page, propertyId, value)),
       ),
@@ -126,7 +133,7 @@ export function fakeNotionPages(workspace: FakeNotionWorkspace): FakeNotionPages
     const source = workspace.dataSourceById(page.dataSourceId);
     const property = source?.properties.find((candidate) => candidate.id === propertyId);
     const type = property?.type ?? Object.keys(value)[0] ?? "";
-    return [property?.name ?? propertyId, { id: propertyId, type, ...value }];
+    return [property?.name ?? propertyId, { id: propertyId, type, ...withPlainText(value) }];
   }
 
   function byUrl(url: string | null): FakePage {
@@ -142,6 +149,8 @@ export function fakeNotionPages(workspace: FakeNotionWorkspace): FakeNotionPages
   }
 
   return {
+    create: createPage,
+    json: pageJson,
     list: () => [...pages.values()],
     last,
     byUrl,
@@ -178,7 +187,23 @@ function selectOption(name: string): Record<string, unknown> {
   return { id: crypto.randomUUID(), name, color: "default" };
 }
 
-function failureResponse({ status, code, message, retryAfterSec }: NotionFailure): Response {
+function withPlainText(value: PageValue): PageValue {
+  return Object.fromEntries(
+    Object.entries(value).map(([key, content]) => [
+      key,
+      RICH_TEXT_KEYS.has(key) && Array.isArray(content) ? content.map(richTextItemJson) : content,
+    ]),
+  );
+}
+
+function richTextItemJson(item: unknown): unknown {
+  if (!isRecord(item)) return item;
+  const content =
+    isRecord(item.text) && typeof item.text.content === "string" ? item.text.content : "";
+  return { type: "text", plain_text: content, ...item };
+}
+
+export function failureResponse({ status, code, message, retryAfterSec }: NotionFailure): Response {
   const headers: Record<string, string> =
     retryAfterSec === undefined ? {} : { "Retry-After": String(retryAfterSec) };
   return Response.json(

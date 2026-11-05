@@ -4,9 +4,23 @@ import { testEnv } from "./test-env.ts";
 export type NotionIcon =
   { type: "emoji"; emoji: string } | { type: "external"; external: { url: string } };
 
+export type FakeOption = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+export type FakeStatusGroup = {
+  id: string;
+  name: string;
+  optionIds: string[];
+};
+
 export type PropertySpec = {
   name: string;
   type: string;
+  options?: FakeOption[];
+  groups?: FakeStatusGroup[];
 };
 
 export type FakeProperty = PropertySpec & {
@@ -40,7 +54,9 @@ export type FakeNotionWorkspace = {
   pageWithoutDatabases(): string;
   searchRequests(): ExternalCall[];
   databaseReads(): ExternalCall[];
+  dataSourceReads(dataSource: FakeDataSource): ExternalCall[];
   schemaUpdates(dataSource: FakeDataSource): ExternalCall[];
+  queries(dataSource?: FakeDataSource): ExternalCall[];
 };
 
 type SearchPage = {
@@ -57,6 +73,8 @@ type Block = {
 export const NOTION_V1 = `${testEnv.NOTION_API_BASE}/v1`;
 const SEARCH_URL = `${NOTION_V1}/search`;
 const DATABASE_PATTERN = resourcePattern("databases");
+export const QUERY_PATTERN = resourcePattern("data_sources", "/query");
+const EMPTY_QUERY_RESULT = { object: "list", results: [], has_more: false, next_cursor: null };
 const CURSOR_PREFIX = "cursor-";
 const TITLE_PROPERTY: PropertySpec = { name: "Name", type: "title" };
 const OPTION_TYPES = new Set(["select", "multi_select"]);
@@ -85,6 +103,8 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
     found.properties.push(...additions.map(newProperty));
     return Response.json(dataSourceJson(found));
   });
+
+  external.on("POST", QUERY_PATTERN, () => Response.json(EMPTY_QUERY_RESULT));
 
   external.on("GET", DATABASE_PATTERN, (request) => {
     const id = resourceId(request);
@@ -158,9 +178,20 @@ export function fakeNotionWorkspace(): FakeNotionWorkspace {
     pageWithoutDatabases: () => page([paragraphBlock()]),
     searchRequests: () => external.calls({ method: "POST", url: SEARCH_URL }),
     databaseReads: () => external.calls({ method: "GET", url: DATABASE_PATTERN }),
+    dataSourceReads: (source) =>
+      external.calls({ method: "GET", url: `${NOTION_V1}/data_sources/${source.id}` }),
     schemaUpdates: (source) =>
       external.calls({ method: "PATCH", url: `${NOTION_V1}/data_sources/${source.id}` }),
+    queries: (source) =>
+      external.calls({
+        method: "POST",
+        url: source ? `${NOTION_V1}/data_sources/${source.id}/query` : QUERY_PATTERN,
+      }),
   };
+}
+
+export function isDataSourceQuery(call: ExternalCall): boolean {
+  return call.method === "POST" && QUERY_PATTERN.test(call.url);
 }
 
 function pageOf(searchPages: FakeDataSource[][], index: number): SearchPage {
@@ -199,8 +230,26 @@ function dataSourceJson(source: FakeDataSource): Record<string, unknown> {
   };
 }
 
-function propertyJson({ id, name, type }: FakeProperty): Record<string, unknown> {
-  return { id, name, type, [type]: OPTION_TYPES.has(type) ? { options: [] } : {} };
+function propertyJson(property: FakeProperty): Record<string, unknown> {
+  const { id, name, type } = property;
+  return { id, name, type, [type]: propertyConfigJson(property) };
+}
+
+function propertyConfigJson({
+  type,
+  options = [],
+  groups = [],
+}: FakeProperty): Record<string, unknown> {
+  if (type === "status") return { options: options.map(optionJson), groups: groups.map(groupJson) };
+  return OPTION_TYPES.has(type) ? { options: options.map(optionJson) } : {};
+}
+
+function optionJson({ id, name, color }: FakeOption): Record<string, unknown> {
+  return { id, name, color, description: null };
+}
+
+function groupJson({ id, name, optionIds }: FakeStatusGroup): Record<string, unknown> {
+  return { id, name, color: "default", option_ids: optionIds };
 }
 
 function databaseJson(id: string, sources: FakeDataSource[]): Record<string, unknown> {

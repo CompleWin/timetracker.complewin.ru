@@ -12,6 +12,7 @@ import { notionAvailableDatabases } from "./routes/notion-available-databases.ts
 import { notionConnection } from "./routes/notion-connection.ts";
 import { notionDatabases } from "./routes/notion-databases.ts";
 import { notionOauth } from "./routes/notion-oauth.ts";
+import { notionPages } from "./routes/notion-pages.ts";
 import { notionSync } from "./routes/notion-sync.ts";
 import { projects } from "./routes/projects.ts";
 import { tasks } from "./routes/tasks.ts";
@@ -33,6 +34,7 @@ function apiRoutes() {
     .route("/notion/connection", notionConnection)
     .route("/notion/available-databases", notionAvailableDatabases)
     .route("/notion/databases", notionDatabases)
+    .route("/notion/pages", notionPages)
     .route("/notion", notionSync)
     .all("*", () => {
       throw notFound();

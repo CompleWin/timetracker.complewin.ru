@@ -86,9 +86,9 @@ describe("склейка изменений", () => {
     expect(updates).toHaveLength(1);
   });
 
-  it("8. без изменений в трекере повторный cron не отправляет запросов", async () => {
+  it("8. без изменений в трекере повторный cron не отправляет запросов, кроме query pull", async () => {
     await userWithTaskPage(fake);
-    const requests = await fake.requestsDuring(async () => {
+    const requests = await fake.requestsExceptPullDuring(async () => {
       await cronAt(atMinute(1));
       await cronAt(atMinute(30));
     });
@@ -98,10 +98,10 @@ describe("склейка изменений", () => {
 });
 
 describe("идущий таймер", () => {
-  it("7. cron через 5 минут после последнего синка ничего не отправляет", async () => {
+  it("7. cron через 5 минут после последнего синка ничего не отправляет, кроме query pull", async () => {
     await runningTaskWithPage();
 
-    expect(await fake.requestsDuring(() => cronAt(atMinute(5)))).toEqual([]);
+    expect(await fake.requestsExceptPullDuring(() => cronAt(atMinute(5)))).toEqual([]);
   });
 
   it("7. cron через 10 минут после последнего синка отправляет PATCH с обновлённым временем и running: true", async () => {

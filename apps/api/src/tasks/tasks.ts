@@ -23,6 +23,11 @@ export type NewTask = {
   projectId: string | null;
 };
 
+export type TaskPageLink = Pick<
+  TaskRow,
+  "notionDatabaseId" | "notionPageId" | "notionPageUrl" | "notionSent"
+>;
+
 const activityConditions: Record<ArchivedFilter, SQL | undefined> = {
   false: and(isNull(tasks.archivedAt), isNull(projects.archivedAt)),
   true: or(isNotNull(tasks.archivedAt), isNotNull(projects.archivedAt)),
@@ -61,11 +66,12 @@ export async function createTask(
   userId: string,
   task: NewTask,
   now: Date,
+  page?: TaskPageLink,
 ): Promise<Task> {
   await ensureProjectUsable(db, userId, task.projectId);
   const [row] = await db
     .insert(tasks)
-    .values({ id: crypto.randomUUID(), userId, ...task, createdAt: now, updatedAt: now })
+    .values({ id: crypto.randomUUID(), userId, ...task, ...page, createdAt: now, updatedAt: now })
     .returning();
   if (row === undefined) throw new Error(`Task "${task.title}" was not created`);
   await enqueueTasks(db, userId, [row.id], now);
@@ -89,6 +95,8 @@ export async function updateTask(
       projectId: changes.projectId,
       pinned: changes.pinned,
       notionBlockPosition: changes.notionBlockPosition,
+      titleChangedAt: changedAt(current.title, changes.title, now),
+      projectChangedAt: changedAt(current.projectId, changes.projectId, now),
       archivedAt: archivedAtAfter(current.archivedAt, changes.archived, now),
       updatedAt: now,
     })
@@ -115,6 +123,10 @@ export async function requireActiveTask(db: Database, userId: string, id: string
     .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
   if (row === undefined) throw notFound();
   if (row.archivedAt !== null || row.projectArchivedAt !== null) throw taskArchived();
+}
+
+function changedAt<Value>(current: Value, next: Value | undefined, now: Date): Date | undefined {
+  return next === undefined || next === current ? undefined : now;
 }
 
 function changesNotionPage({ title, projectId, notionBlockPosition }: UpdateTaskBody): boolean {

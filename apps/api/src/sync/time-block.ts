@@ -32,7 +32,7 @@ import {
   type LogLine,
   type Reader,
 } from "./block-texts.ts";
-import type { PushRun } from "./task-pages.ts";
+import type { SyncRun } from "./task-pages.ts";
 
 const TIMER_EMOJI = String.fromCodePoint(0x23f1);
 const MAX_CHILDREN_PER_APPEND = 100;
@@ -51,7 +51,7 @@ type DesiredLine = {
   line: LogLine;
 };
 
-export async function syncTimeBlock(run: PushRun, taskId: string): Promise<void> {
+export async function syncTimeBlock(run: SyncRun, taskId: string): Promise<void> {
   const task = await loadBlockTask(run, taskId);
   if (task === undefined) return;
   const { position, link } = task;
@@ -60,7 +60,7 @@ export async function syncTimeBlock(run: PushRun, taskId: string): Promise<void>
   if (position !== "none") await createBlock(run, task, position);
 }
 
-async function loadBlockTask(run: PushRun, taskId: string): Promise<BlockTask | undefined> {
+async function loadBlockTask(run: SyncRun, taskId: string): Promise<BlockTask | undefined> {
   const row = await run.db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
   if (row === undefined || row.notionPageId === null) return undefined;
   const database = run.databases.find(({ id }) => id === row.notionDatabaseId);
@@ -72,12 +72,12 @@ async function loadBlockTask(run: PushRun, taskId: string): Promise<BlockTask | 
   };
 }
 
-async function removeBlock(run: PushRun, taskId: string, link: TimeBlockLink): Promise<void> {
+async function removeBlock(run: SyncRun, taskId: string, link: TimeBlockLink): Promise<void> {
   await deleteBlock(run.client, link.calloutId);
   await forgetBlockLink(run.db, taskId);
 }
 
-async function refreshBlock(run: PushRun, task: BlockTask, link: TimeBlockLink): Promise<boolean> {
+async function refreshBlock(run: SyncRun, task: BlockTask, link: TimeBlockLink): Promise<boolean> {
   try {
     await updateSummary(run, task, link.calloutId);
     await syncLines(run, task, await toggleOf(run, task, link));
@@ -90,7 +90,7 @@ async function refreshBlock(run: PushRun, task: BlockTask, link: TimeBlockLink):
   }
 }
 
-async function createBlock(run: PushRun, task: BlockTask, position: PlacedPosition): Promise<void> {
+async function createBlock(run: SyncRun, task: BlockTask, position: PlacedPosition): Promise<void> {
   const entries = await taskEntries(run.db, task.id);
   const callout = calloutSpec(reader(run), summary(run, entries));
   const [calloutId] = await appendBlocks(
@@ -106,20 +106,20 @@ async function createBlock(run: PushRun, task: BlockTask, position: PlacedPositi
   await syncLines(run, task, await toggleOf(run, task, link));
 }
 
-async function updateSummary(run: PushRun, task: BlockTask, calloutId: string): Promise<void> {
+async function updateSummary(run: SyncRun, task: BlockTask, calloutId: string): Promise<void> {
   const entries = await taskEntries(run.db, task.id);
   const content = { rich_text: plainRichText(summary(run, entries)) };
   await updateBlock(run.client, calloutId, "callout", content);
 }
 
-async function toggleOf(run: PushRun, task: BlockTask, link: TimeBlockLink): Promise<string> {
+async function toggleOf(run: SyncRun, task: BlockTask, link: TimeBlockLink): Promise<string> {
   if (link.toggleId !== null) return link.toggleId;
   const toggleId = await childBlockOfType(run.client, link.calloutId, "toggle");
   await saveBlockLink(run.db, task.id, { ...link, toggleId });
   return toggleId;
 }
 
-async function syncLines(run: PushRun, task: BlockTask, toggleId: string): Promise<void> {
+async function syncLines(run: SyncRun, task: BlockTask, toggleId: string): Promise<void> {
   const entries = await taskEntries(run.db, task.id);
   await removeStaleLines(run, entries);
   const desired = desiredLines(run, entries);
@@ -127,7 +127,7 @@ async function syncLines(run: PushRun, task: BlockTask, toggleId: string): Promi
   await insertNewLines(run, toggleId, desired);
 }
 
-async function removeStaleLines(run: PushRun, entries: LoggedEntry[]): Promise<void> {
+async function removeStaleLines(run: SyncRun, entries: LoggedEntry[]): Promise<void> {
   for (const entry of entries) {
     if (entry.notionBlockId === null || isLogged(entry)) continue;
     await deleteBlock(run.client, entry.notionBlockId);
@@ -135,7 +135,7 @@ async function removeStaleLines(run: PushRun, entries: LoggedEntry[]): Promise<v
   }
 }
 
-async function updateChangedLines(run: PushRun, desired: DesiredLine[]): Promise<void> {
+async function updateChangedLines(run: SyncRun, desired: DesiredLine[]): Promise<void> {
   for (const { entry, line } of desired) {
     const content = lineContent(line);
     if (entry.notionBlockId === null || entry.notionLine === content) continue;
@@ -146,7 +146,7 @@ async function updateChangedLines(run: PushRun, desired: DesiredLine[]): Promise
 }
 
 async function insertNewLines(
-  run: PushRun,
+  run: SyncRun,
   toggleId: string,
   desired: DesiredLine[],
 ): Promise<void> {
@@ -166,7 +166,7 @@ async function insertNewLines(
 }
 
 async function insertAfter(
-  run: PushRun,
+  run: SyncRun,
   toggleId: string,
   lines: DesiredLine[],
   anchor: string | null,
@@ -192,7 +192,7 @@ function placedLines(lines: DesiredLine[], blockIds: string[]): PlacedLine[] {
 }
 
 async function appendLines(
-  run: PushRun,
+  run: SyncRun,
   toggleId: string,
   lines: DesiredLine[],
   position: InsertPosition | undefined,
@@ -217,7 +217,7 @@ function insertPosition(anchor: string | null, logEmpty: boolean): InsertPositio
   return logEmpty ? undefined : { type: "start" };
 }
 
-function desiredLines(run: PushRun, entries: LoggedEntry[]): DesiredLine[] {
+function desiredLines(run: SyncRun, entries: LoggedEntry[]): DesiredLine[] {
   return entries.filter(isLogged).map((entry) => ({ entry, line: logLine(reader(run), entry) }));
 }
 
@@ -225,12 +225,12 @@ function isLogged(entry: LoggedEntry): entry is FinishedEntry {
   return entry.deletedAt === null && entry.endedAt !== null;
 }
 
-function summary(run: PushRun, entries: LoggedEntry[]): string {
+function summary(run: SyncRun, entries: LoggedEntry[]): string {
   const live = entries.filter((entry) => entry.deletedAt === null);
   return summaryText(reader(run), live, run.now);
 }
 
-function reader(run: PushRun): Reader {
+function reader(run: SyncRun): Reader {
   return { locale: run.owner.locale, timeZone: run.owner.timeZone };
 }
 

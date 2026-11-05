@@ -18,6 +18,7 @@ const props = defineProps<{
   todaySec: Map<string, number>;
   now: number;
   timeZone: string | null;
+  canAddFromNotion: boolean;
 }>();
 const emit = defineEmits<{
   start: [task: Task];
@@ -30,6 +31,7 @@ const emit = defineEmits<{
   newProject: [];
   editProject: [project: Project];
   archiveProject: [project: Project];
+  addFromNotion: [];
 }>();
 
 const { t } = useI18n();
@@ -141,11 +143,13 @@ function stopListening(): void {
             :running="runningByTask"
             :today-sec
             :now
+            :can-add-from-notion
             @start="(task) => closeThen(() => emit('start', task))"
             @create="(request) => closeThen(() => emit('create', request))"
             @pin="(task) => emit('pin', task)"
             @new-task="closeThen(() => emit('newTask'))"
             @new-project="closeThen(() => emit('newProject'))"
+            @add-from-notion="closeThen(() => emit('addFromNotion'))"
             @edit-project="(project) => closeThen(() => emit('editProject', project))"
             @archive-project="(project) => emit('archiveProject', project)"
             @close="closePicker"
