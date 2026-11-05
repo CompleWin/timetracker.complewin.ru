@@ -1,43 +1,67 @@
 <script setup lang="ts">
-import { Archive, Pencil, Plus } from "@lucide/vue";
-import { formatDuration, type Project, type Session, type Task } from "@stt/shared";
-import { computed, ref, useId, watch } from "vue";
+import { ChevronLeft } from "@lucide/vue";
+import { lastDays, type Project, type Session, type SessionWithTask, type Task } from "@stt/shared";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
 import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
 import SessionDialog from "../components/SessionDialog.vue";
-import SessionRow from "../components/SessionRow.vue";
+import TaskDays from "../components/TaskDays.vue";
 import TaskDialog from "../components/TaskDialog.vue";
-import TimerButton from "../components/TimerButton.vue";
+import TaskOverview from "../components/TaskOverview.vue";
+import TaskSessions from "../components/TaskSessions.vue";
 import AppButton from "../components/ui/AppButton.vue";
-import AppIconButton from "../components/ui/AppIconButton.vue";
 import AppIsland from "../components/ui/AppIsland.vue";
-import AppSectionLabel from "../components/ui/AppSectionLabel.vue";
 import AppSkeleton from "../components/ui/AppSkeleton.vue";
-import ProjectMarker from "../components/ui/ProjectMarker.vue";
-import { currentLocale } from "../i18n.ts";
-import { useServerNow } from "../server-clock.ts";
+import { startedIn } from "../day-sessions.ts";
+import { serverNowMs, useServerNow } from "../server-clock.ts";
 import { useSessionStore } from "../stores/session.ts";
-import { changeTimer, liveTotalSec } from "../timers.ts";
+import { changeTimer } from "../timers.ts";
 
 type OpenDialog = { kind: "session"; session?: Session } | { kind: "task"; projects: Project[] };
 
+type TaskPageData = {
+  task: Task;
+  project: Project | null;
+  sessions: Session[];
+  periodSessions: SessionWithTask[];
+};
+
 const NOT_FOUND_STATUS = 404;
+const PERIOD_DAYS = 14;
+const MS_PER_MINUTE = 60_000;
 
 const props = defineProps<{ id: string }>();
 
 const { t } = useI18n();
 const router = useRouter();
 const account = useSessionStore();
-const task = ref<Task | null>(null);
-const project = ref<Project | null>(null);
-const sessions = ref<Session[]>([]);
+const data = ref<TaskPageData | null>(null);
 const dialog = ref<OpenDialog | null>(null);
 const now = useServerNow();
-const sessionsHeadingId = useId();
+let latestLoad = 0;
 
 const timeZone = computed(() => account.user?.timezone ?? null);
+const currentMinute = computed(() => Math.floor(now.value / MS_PER_MINUTE));
+const days = computed(() => periodOf(currentMinute.value * MS_PER_MINUTE));
+
+const task = computed(() => data.value?.task ?? null);
+const project = computed(() => data.value?.project ?? null);
+const sessions = computed(() => data.value?.sessions ?? []);
+const periodSessions = computed(() => data.value?.periodSessions ?? []);
+
+const taskArchived = computed(() => task.value?.archived === true);
+const projectArchived = computed(() => project.value?.archived === true);
+const isActive = computed(() => !taskArchived.value && !projectArchived.value);
+
+const running = computed(() =>
+  sessions.value.find((session) => session.id === task.value?.runningSessionId),
+);
+const todaySessions = computed(() => {
+  const today = days.value.at(-1);
+  return today === undefined ? [] : startedIn(today, periodSessions.value);
+});
 
 const sessionTask = computed(() =>
   task.value === null
@@ -45,48 +69,64 @@ const sessionTask = computed(() =>
     : { id: task.value.id, title: task.value.title, project: project.value },
 );
 
-const isActive = computed(
-  () => task.value !== null && !task.value.archived && project.value?.archived !== true,
-);
-
-const total = computed(() => {
-  const running = sessions.value.filter((session) => session.endedAt === null);
-  const totalSec = liveTotalSec(task.value?.totalSec ?? 0, running, now.value);
-  return t("tasks.total", { duration: formatDuration(totalSec, currentLocale()) });
-});
-
 watch(() => props.id, load, { immediate: true });
+watch(timeZone, load);
 useAutoRefresh(load);
 
+function periodOf(epochMs: number) {
+  return lastDays(new Date(epochMs).toISOString(), timeZone.value, PERIOD_DAYS);
+}
+
 async function load(): Promise<void> {
+  const loadNumber = ++latestLoad;
   try {
-    const [loadedTask, loadedSessions] = await Promise.all([
-      api.fetchTask(props.id),
-      api.fetchTaskSessions(props.id),
-    ]);
-    project.value =
-      loadedTask.projectId === null ? null : await api.fetchProject(loadedTask.projectId);
-    sessions.value = loadedSessions;
-    task.value = loadedTask;
+    const loaded = await fetchPageData(props.id);
+    if (loadNumber === latestLoad) data.value = loaded;
   } catch (error) {
     if (!(error instanceof api.HttpError && error.status === NOT_FOUND_STATUS)) throw error;
     await router.replace("/");
   }
 }
 
-async function changeTimerAndReload(change: () => Promise<unknown>): Promise<void> {
-  await changeTimer(change);
+async function fetchPageData(id: string): Promise<TaskPageData> {
+  const period = periodOf(serverNowMs());
+  const from = period[0]?.from ?? "";
+  const to = period[period.length - 1]?.to ?? "";
+  const [loadedTask, loadedSessions, loadedPeriodSessions] = await Promise.all([
+    api.fetchTask(id),
+    api.fetchTaskSessions(id),
+    api.fetchPeriodSessions(from, to, id),
+  ]);
+  const loadedProject =
+    loadedTask.projectId === null ? null : await api.fetchProject(loadedTask.projectId);
+  return {
+    task: loadedTask,
+    project: loadedProject,
+    sessions: loadedSessions,
+    periodSessions: loadedPeriodSessions,
+  };
+}
+
+async function changeAndReload(change: () => Promise<unknown>): Promise<void> {
+  await change();
   await load();
+}
+
+function startTimer(): Promise<void> {
+  return changeAndReload(() => changeTimer(() => api.startTimer(props.id)));
+}
+
+function stopTimer(): Promise<void> {
+  return changeAndReload(() => changeTimer(() => api.stopTimer(props.id)));
+}
+
+function setArchived(archived: boolean): Promise<void> {
+  return changeAndReload(() => api.updateTask(props.id, { archived }));
 }
 
 async function editTask(): Promise<void> {
   const projects = await api.fetchProjects("false");
   dialog.value = { kind: "task", projects };
-}
-
-async function archiveTask(): Promise<void> {
-  await api.updateTask(props.id, { archived: true });
-  await load();
 }
 
 async function onSaved(): Promise<void> {
@@ -96,65 +136,62 @@ async function onSaved(): Promise<void> {
 </script>
 
 <template>
+  <RouterLink
+    to="/"
+    class="inline-flex min-h-9 items-center gap-1 self-start rounded-full pr-3 pl-1.5 text-small text-fg-subtle no-underline transition-colors duration-150 hover:bg-surface-active hover:text-fg"
+  >
+    <ChevronLeft :size="17" aria-hidden="true" />
+    {{ t("header.tracker") }}
+  </RouterLink>
   <AppIsland v-if="task === null">
     <AppSkeleton />
   </AppIsland>
   <template v-else>
-    <AppIsland>
-      <div class="flex items-center gap-2">
-        <ProjectMarker v-if="project" :color="project.color" />
-        <AppSectionLabel class="min-w-0 flex-1 break-words">
-          {{ project?.name ?? t("home.noProject") }}
-        </AppSectionLabel>
-        <AppIconButton :label="t('tasks.edit')" @click="editTask">
-          <Pencil :size="17" aria-hidden="true" />
-        </AppIconButton>
-        <AppIconButton v-if="isActive" :label="t('actions.archive')" @click="archiveTask">
-          <Archive :size="17" aria-hidden="true" />
-        </AppIconButton>
-      </div>
-      <h1 class="mt-3 text-h1 break-words md:text-h1-lg">{{ task.title }}</h1>
-      <div class="mt-5 flex flex-wrap items-center gap-3">
-        <span
-          class="inline-flex h-8 items-center rounded-full bg-primary-soft px-3.5 text-meta text-primary-ink"
+    <div class="flex flex-wrap items-start gap-x-4 gap-y-5">
+      <div class="flex min-w-0 flex-[999_1_520px] flex-col gap-5">
+        <div
+          v-if="!isActive"
+          class="flex flex-wrap items-center gap-x-3 gap-y-2.5 rounded-panel bg-surface-active px-4 py-3 text-small text-fg-muted"
         >
-          {{ total }}
-        </span>
-        <TimerButton
-          v-if="isActive"
-          :title="task.title"
-          :running="task.runningSessionId !== null"
-          prominent
-          @start="changeTimerAndReload(() => api.startTimer(props.id))"
-          @stop="changeTimerAndReload(() => api.stopTimer(props.id))"
-        />
-      </div>
-    </AppIsland>
-
-    <AppIsland as="section" :aria-labelledby="sessionsHeadingId">
-      <div class="flex items-center justify-between gap-3">
-        <h2 :id="sessionsHeadingId" class="text-title">{{ t("sessions.title") }}</h2>
-        <AppButton
-          v-if="isActive"
-          variant="outline-primary"
-          size="sm"
-          @click="dialog = { kind: 'session' }"
-        >
-          <Plus :size="17" aria-hidden="true" />
-          {{ t("sessions.add") }}
-        </AppButton>
-      </div>
-      <ul v-if="sessions.length > 0" class="mt-2">
-        <SessionRow
-          v-for="session in sessions"
-          :key="session.id"
-          :session
-          :time-zone
+          <p class="min-w-0 flex-[1_1_260px]">
+            {{ taskArchived ? t("tasks.archivedNotice") : t("tasks.projectArchivedNotice") }}
+          </p>
+          <AppButton
+            v-if="taskArchived"
+            variant="outline-primary"
+            size="sm"
+            class="bg-surface-island"
+            @click="setArchived(false)"
+          >
+            {{ t("archive.restore") }}
+          </AppButton>
+        </div>
+        <TaskOverview
+          :task
+          :project
+          :active="isActive"
+          :running
+          :today-sessions="todaySessions"
           :now
-          @edit="dialog = { kind: 'session', session }"
+          :time-zone
+          @edit="editTask"
+          @archive="setArchived(true)"
+          @start="startTimer"
+          @stop="stopTimer"
         />
-      </ul>
-    </AppIsland>
+        <TaskSessions
+          :sessions
+          :active="isActive"
+          :now
+          :time-zone
+          @add="dialog = { kind: 'session' }"
+          @edit="(session) => (dialog = { kind: 'session', session })"
+        />
+      </div>
+      <div class="flex max-w-full min-w-0 flex-[1_1_320px] flex-col gap-5">
+        <TaskDays :sessions="periodSessions" :days :now :time-zone />
+      </div>
+    </div>
 
     <SessionDialog
       v-if="dialog?.kind === 'session'"

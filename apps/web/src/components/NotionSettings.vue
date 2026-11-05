@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { MessageKey, NotionConnection } from "@stt/shared";
-import { computed, onMounted, ref, useId } from "vue";
+import { formatDate, tc, type MessageKey, type NotionConnection } from "@stt/shared";
+import { computed, ref, useId } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import * as api from "../api.ts";
-import { useAutoRefresh } from "../auto-refresh.ts";
-import NotionDatabases from "./NotionDatabases.vue";
+import { currentLocale } from "../i18n.ts";
+import { useSessionStore } from "../stores/session.ts";
 import AppButton from "./ui/AppButton.vue";
 import AppConfirmDialog from "./ui/AppConfirmDialog.vue";
 import AppFormError from "./ui/AppFormError.vue";
@@ -14,11 +14,13 @@ import AppSkeleton from "./ui/AppSkeleton.vue";
 
 const CONNECT_PATH = "/notion/oauth/start";
 
+const props = defineProps<{ connection: NotionConnection | null; loaded: boolean }>();
+const emit = defineEmits<{ changed: [] }>();
+
 const { t } = useI18n();
 const route = useRoute();
+const account = useSessionStore();
 const titleId = useId();
-const connection = ref<NotionConnection | null>(null);
-const loaded = ref(false);
 const confirmingDisconnect = ref(false);
 
 const justConnected = computed(() => route.query.notion === "connected");
@@ -28,26 +30,24 @@ const connectError = computed((): MessageKey | undefined => {
   return error === "cancelled" ? "notion.error.cancelled" : "notion.error.failed";
 });
 
-onMounted(async () => {
-  await reload();
-  if (connection.value !== null) await checkAccess();
+const workspaceInitial = computed(() => {
+  const [initial = ""] = Array.from(props.connection?.workspaceName.trim() ?? "");
+  return initial.toLocaleUpperCase();
 });
-useAutoRefresh(reload);
 
-async function reload(): Promise<void> {
-  connection.value = await api.fetchNotionConnection();
-  loaded.value = true;
-}
-
-async function checkAccess(): Promise<void> {
-  const checked = await api.checkNotionConnection().catch(() => undefined);
-  if (checked !== undefined) connection.value = checked;
-}
+const access = computed(() => {
+  if (props.connection === null) return "";
+  const locale = currentLocale();
+  const timeZone = account.user?.timezone ?? null;
+  return tc(locale, "notion.since", props.connection.databases.length, {
+    date: formatDate(props.connection.createdAt, timeZone, locale),
+  });
+});
 
 async function disconnect(): Promise<void> {
   confirmingDisconnect.value = false;
   await api.disconnectNotion();
-  connection.value = null;
+  emit("changed");
 }
 </script>
 
@@ -74,12 +74,26 @@ async function disconnect(): Promise<void> {
           <AppButton :href="CONNECT_PATH">{{ t("notion.reconnect") }}</AppButton>
         </template>
         <template v-else>
-          <p class="min-w-0 text-body break-words">
-            {{ t("notion.connectedTo", { workspace: connection.workspaceName }) }}
-          </p>
-          <AppButton variant="outline-gray" @click="confirmingDisconnect = true">
-            {{ t("notion.disconnect") }}
-          </AppButton>
+          <div class="flex min-w-0 flex-[1_1_260px] items-center gap-3.5">
+            <span
+              aria-hidden="true"
+              class="flex size-11 flex-none items-center justify-center rounded-field bg-surface-page text-title font-extrabold"
+            >
+              {{ workspaceInitial }}
+            </span>
+            <div class="min-w-0">
+              <p class="text-body break-words">
+                {{ t("notion.connectedTo", { workspace: connection.workspaceName }) }}
+              </p>
+              <p class="text-meta text-fg-subtle">{{ access }}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <AppButton :href="CONNECT_PATH">{{ t("notion.reconnect") }}</AppButton>
+            <AppButton variant="ghost-danger" @click="confirmingDisconnect = true">
+              {{ t("notion.disconnect") }}
+            </AppButton>
+          </div>
         </template>
       </div>
     </div>
@@ -91,9 +105,4 @@ async function disconnect(): Promise<void> {
       @close="confirmingDisconnect = false"
     />
   </AppIsland>
-  <NotionDatabases
-    v-if="connection?.status === 'ok'"
-    :databases="connection.databases"
-    @changed="reload"
-  />
 </template>

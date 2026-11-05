@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export type IconButtonSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
+export type IconButtonSize = "xs" | "sm" | "md" | "toolbar" | "lg" | "xl" | "2xl";
 
 export type IconButtonTone = "calm" | "stop" | "start" | "outlined";
 
@@ -18,6 +18,7 @@ const sizeClasses: Record<IconButtonSize, string> = {
   xs: "relative size-[26px] max-md:after:absolute max-md:after:-inset-[9px]",
   sm: "size-8 max-md:size-11",
   md: "size-9 max-md:size-11",
+  toolbar: "size-[38px] max-md:size-11",
   lg: "size-[46px]",
   xl: "size-12",
   "2xl": "size-[52px]",

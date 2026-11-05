@@ -8,6 +8,7 @@ export type Project = {
   name: string;
   color: ProjectColor;
   archived: boolean;
+  archivedAt: string | null;
 };
 
 export type Task = {
@@ -15,6 +16,7 @@ export type Task = {
   projectId: string | null;
   title: string;
   archived: boolean;
+  archivedAt: string | null;
   pinned: boolean;
   runningSessionId: string | null;
 };

@@ -15,8 +15,11 @@ export function keysOf(locale: Locale): string[] {
     .sort();
 }
 
-export function hasValue(locale: Locale, key: string, value: string): boolean {
-  return entriesOf(messages[locale]).some(([path, text]) => path === key && text === value);
+export function keysWithValue(locale: Locale, matches: (value: string) => boolean): string[] {
+  return entriesOf(messages[locale])
+    .filter(([, value]) => typeof value === "string" && matches(value))
+    .map(([key]) => key)
+    .sort();
 }
 
 function isNested(value: unknown): value is object {

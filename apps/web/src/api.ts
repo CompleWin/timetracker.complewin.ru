@@ -159,8 +159,13 @@ export async function fetchActiveSessions(): Promise<SessionWithTask[]> {
   return sessionsWithTaskResponse.parse(await request("GET", "/api/timers/active")).sessions;
 }
 
-export async function fetchPeriodSessions(from: string, to: string): Promise<SessionWithTask[]> {
-  const path = `/api/sessions?${new URLSearchParams({ from, to })}`;
+export async function fetchPeriodSessions(
+  from: string,
+  to: string,
+  taskId?: string,
+): Promise<SessionWithTask[]> {
+  const query: Record<string, string> = taskId === undefined ? { from, to } : { from, to, taskId };
+  const path = `/api/sessions?${new URLSearchParams(query)}`;
   return sessionsWithTaskResponse.parse(await request("GET", path)).sessions;
 }
 
