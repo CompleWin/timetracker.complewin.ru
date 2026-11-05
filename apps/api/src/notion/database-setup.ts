@@ -9,6 +9,7 @@ import {
 import { database, type Database } from "../db/client.ts";
 import type { Bindings } from "../env.ts";
 import { databaseAlreadyAdded, tooManyDatabases, validationError } from "../http/errors.ts";
+import { enqueueBlockInheritingTasks } from "../sync/outbox.ts";
 import { notionClient, type NotionClient } from "./client.ts";
 import { requireUsableConnection, type ConnectedRow } from "./connections.ts";
 import {
@@ -121,6 +122,7 @@ export async function changeNotionDatabase(
   owner: DatabaseOwner,
   id: string,
   changes: UpdateNotionDatabaseBody,
+  now: Date,
 ): Promise<NotionDatabase> {
   const db = database(env);
   const connection = await requireUsableConnection(db, owner.id);
@@ -145,6 +147,9 @@ export async function changeNotionDatabase(
     blockPosition: changes.blockPosition,
     isDefault: changes.isDefault,
   });
+  if (updated.blockPosition !== current.blockPosition) {
+    await enqueueBlockInheritingTasks(db, owner.id, id, now);
+  }
   return toNotionDatabase(updated);
 }
 

@@ -5,7 +5,12 @@ import { sortByName } from "../db/order.ts";
 import { notionDatabases, projects } from "../db/schema.ts";
 import { notFound } from "../http/errors.ts";
 import { clearQueue, removeQueuedTasksOfDatabase } from "../sync/outbox.ts";
-import { unlinkDatabaseTasks, unlinkUserTasks } from "../sync/page-links.ts";
+import {
+  forgetDatabaseLines,
+  forgetUserLines,
+  unlinkDatabaseTasks,
+  unlinkUserTasks,
+} from "../sync/page-links.ts";
 
 export type NotionDatabaseRow = typeof notionDatabases.$inferSelect;
 
@@ -116,6 +121,7 @@ export async function updateNotionDatabase(
 export async function removeNotionDatabase(db: Database, id: string): Promise<void> {
   await db.batch([
     removeQueuedTasksOfDatabase(db, id),
+    forgetDatabaseLines(db, id),
     unlinkDatabaseTasks(db, id),
     db.update(projects).set({ notionDatabaseId: null }).where(eq(projects.notionDatabaseId, id)),
     db.delete(notionDatabases).where(eq(notionDatabases.id, id)),
@@ -125,6 +131,7 @@ export async function removeNotionDatabase(db: Database, id: string): Promise<vo
 export async function removeAllNotionDatabases(db: Database, userId: string): Promise<void> {
   await db.batch([
     clearQueue(db, userId),
+    forgetUserLines(db, userId),
     unlinkUserTasks(db, userId),
     db.update(projects).set({ notionDatabaseId: null }).where(eq(projects.userId, userId)),
     db.delete(notionDatabases).where(eq(notionDatabases.userId, userId)),

@@ -85,7 +85,7 @@ export function createPage(
   properties: PageProperties,
 ): Promise<PageReply> {
   const parent = { type: "data_source_id", data_source_id: dataSourceId };
-  return send(client, { method: "POST", path: "/v1/pages", body: { parent, properties } });
+  return sendRequest(client, { method: "POST", path: "/v1/pages", body: { parent, properties } });
 }
 
 export function updatePage(
@@ -93,11 +93,11 @@ export function updatePage(
   pageId: string,
   properties: PageProperties,
 ): Promise<PageReply> {
-  return send(client, { method: "PATCH", path: pagePath(pageId), body: { properties } });
+  return sendRequest(client, { method: "PATCH", path: pagePath(pageId), body: { properties } });
 }
 
 export async function retrievePage(client: NotionClient, pageId: string): Promise<Page> {
-  const reply = await send(client, { method: "GET", path: pagePath(pageId) });
+  const reply = await sendRequest(client, { method: "GET", path: pagePath(pageId) });
   if (reply.status === NOT_FOUND) throw new PageGone();
   ensureAccepted(reply);
   const page = pageSchema.safeParse(reply.body);
@@ -133,7 +133,10 @@ export function isMissingProperty(reply: PageReply): boolean {
   return isBadRequest(reply) && MISSING_PROPERTY.test(errorMessage(reply));
 }
 
-async function send(client: NotionClient, request: NotionApiRequest): Promise<PageReply> {
+export async function sendRequest(
+  client: NotionClient,
+  request: NotionApiRequest,
+): Promise<PageReply> {
   const response = await sendOrRateLimit(client, request);
   if (response.status === TOO_MANY_REQUESTS) throw rateLimited(response);
   return { status: response.status, body: await response.json().catch(() => undefined) };

@@ -19,6 +19,7 @@ export const notionDatabases = new Hono<AuthedEnv>()
       c.var.user,
       c.req.param("id"),
       c.req.valid("json"),
+      c.var.now,
     );
     return c.json({ database });
   })

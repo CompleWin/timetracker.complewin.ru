@@ -1,13 +1,28 @@
 <script setup lang="ts">
 import { ExternalLink } from "@lucide/vue";
-import { useId } from "vue";
+import { notionBlockPositions, type NotionBlockPosition } from "@stt/shared";
+import { computed, useId } from "vue";
 import { useI18n } from "vue-i18n";
+import AppField from "./ui/AppField.vue";
 import AppIsland from "./ui/AppIsland.vue";
 
-defineProps<{ pageUrl: string }>();
+const INHERIT = "inherit";
+
+const props = defineProps<{ pageUrl: string; blockPosition: NotionBlockPosition | null }>();
+
+const emit = defineEmits<{ changePosition: [position: NotionBlockPosition | null] }>();
 
 const { t } = useI18n();
 const titleId = useId();
+
+const position = computed({
+  get: () => props.blockPosition ?? INHERIT,
+  set: (value: string) => emit("changePosition", toBlockPosition(value)),
+});
+
+function toBlockPosition(value: string): NotionBlockPosition | null {
+  return notionBlockPositions.find((candidate) => candidate === value) ?? null;
+}
 </script>
 
 <template>
@@ -22,5 +37,17 @@ const titleId = useId();
       <ExternalLink :size="17" aria-hidden="true" />
       {{ t("tasks.openInNotion") }}
     </a>
+    <AppField
+      v-model="position"
+      kind="select"
+      :label="t('tasks.blockPosition')"
+      :note="t('tasks.blockPosition.note')"
+      class="mt-4"
+    >
+      <option :value="INHERIT">{{ t("tasks.blockPosition.inherit") }}</option>
+      <option v-for="option in notionBlockPositions" :key="option" :value="option">
+        {{ t(`tasks.blockPosition.${option}`) }}
+      </option>
+    </AppField>
   </AppIsland>
 </template>

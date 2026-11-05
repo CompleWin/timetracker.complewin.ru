@@ -9,6 +9,7 @@ import {
 import { isNull, sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { TrackerPropertyIds } from "../notion/tracker-properties.ts";
+import type { TimeBlockLink } from "../sync/block-links.ts";
 import type { SentPage } from "../sync/page-state.ts";
 
 const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
@@ -137,6 +138,8 @@ export const tasks = sqliteTable(
     notionPageUrl: text("notion_page_url"),
     notionSent: text("notion_sent", { mode: "json" }).$type<SentPage>(),
     notionSyncedAt: timestamp("notion_synced_at"),
+    notionBlockPosition: text("notion_block_position", { enum: notionBlockPositions }),
+    notionBlock: text("notion_block", { mode: "json" }).$type<TimeBlockLink>(),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -161,6 +164,8 @@ export const timeEntries = sqliteTable(
     endedAt: timestamp("ended_at"),
     note: text("note").notNull().default(""),
     deletedAt: timestamp("deleted_at"),
+    notionBlockId: text("notion_block_id"),
+    notionLine: text("notion_line"),
   },
   (table) => [
     index("time_entries_user_id_idx").on(table.userId),

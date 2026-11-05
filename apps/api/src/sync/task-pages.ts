@@ -10,6 +10,7 @@ import { trackerPropertiesFor } from "../notion/tracker-properties.ts";
 import { updateTask } from "../tasks/tasks.ts";
 import { IDLE_TIMER, taskTimers } from "../timers/time-entries.ts";
 import { linkTask, markSynced, unlinkTask } from "./page-links.ts";
+import { syncTimeBlock } from "./time-block.ts";
 import {
   createdPage,
   createPage,
@@ -40,7 +41,7 @@ import {
 export type PushRun = {
   db: Database;
   client: NotionClient;
-  owner: { id: string; locale: Locale };
+  owner: { id: string; locale: Locale; timeZone: string | null };
   databases: NotionDatabaseRow[];
   now: Date;
 };
@@ -62,8 +63,10 @@ export async function pushTask(run: PushRun, taskId: string): Promise<void> {
   const task = await loadTask(run, taskId);
   const target = task === undefined ? undefined : targetDatabase(run, task);
   if (task === undefined || target === undefined) return;
-  if (isLinked(task)) await updateTaskPage(run, task, target);
-  else await createTaskPage(run, task, target);
+  const pageAlive = isLinked(task)
+    ? await updateTaskPage(run, task, target)
+    : await createTaskPage(run, task, target);
+  if (pageAlive) await syncTimeBlock(run, taskId);
 }
 
 async function loadTask(run: PushRun, taskId: string): Promise<LoadedTask | undefined> {
@@ -112,7 +115,7 @@ async function createTaskPage(
   run: PushRun,
   task: LoadedTask,
   target: NotionDatabaseRow,
-): Promise<void> {
+): Promise<boolean> {
   const desired = desiredPage(task.snapshot, target, run.owner.locale);
   const { reply, target: usedTarget } = await sendWithFreshProperties(run, target, (current) =>
     createPage(run.client, current.dataSourceId, newPageProperties(current, desired)),
@@ -120,38 +123,39 @@ async function createTaskPage(
   const page = createdPage(reply);
   const link = { pageId: page.id, pageUrl: page.url, databaseId: usedTarget.id };
   await linkTask(run.db, task.id, link, sentOnCreate(usedTarget, desired), run.now);
+  return true;
 }
 
 async function updateTaskPage(
   run: PushRun,
   task: LinkedTask,
   target: NotionDatabaseRow,
-): Promise<void> {
+): Promise<boolean> {
   try {
-    await patchTaskPage(run, task, target);
+    return await patchTaskPage(run, task, target);
   } catch (error) {
     if (!(error instanceof PageGone)) throw error;
-    await recreateTaskPage(run, task);
+    return recreateTaskPage(run, task);
   }
 }
 
-async function recreateTaskPage(run: PushRun, task: LinkedTask): Promise<void> {
+async function recreateTaskPage(run: PushRun, task: LinkedTask): Promise<boolean> {
   await unlinkTask(run.db, task.id);
   const unlinked = { ...task, notionDatabaseId: null, notionPageId: null, notionSent: null };
   const target = targetDatabase(run, unlinked);
-  if (target !== undefined) await createTaskPage(run, unlinked, target);
+  return target !== undefined && (await createTaskPage(run, unlinked, target));
 }
 
 async function patchTaskPage(
   run: PushRun,
   task: LinkedTask,
   target: NotionDatabaseRow,
-): Promise<void> {
+): Promise<boolean> {
   const sent = task.notionSent;
   const desired = desiredPage(task.snapshot, target, run.owner.locale);
   if (!hasChanges(target, desired, sent)) {
     await markSynced(run.db, task.id, sent, run.now);
-    return;
+    return true;
   }
   const values = await currentMultiSelect(run, task, target, desired);
   const patch: PageSender = (current) =>
@@ -164,13 +168,14 @@ async function patchTaskPage(
   if (isNotFound(reply)) throw new PageGone();
   if (isBadRequest(reply) && (await isTrashed(run, task.notionPageId))) {
     await updateTask(run.db, run.owner.id, task.id, { archived: true }, run.now);
-    return;
+    return false;
   }
   const accepted = isMissingProperty(reply)
     ? await patch(await refreshProperties(run, target))
     : reply;
   ensureAccepted(accepted);
   await markSynced(run.db, task.id, sentOnUpdate(target, desired, sent), run.now);
+  return true;
 }
 
 async function currentMultiSelect(
