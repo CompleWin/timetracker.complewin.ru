@@ -39,6 +39,10 @@ export const useSessionStore = defineStore("session", () => {
     await saveProfile({ locale });
   }
 
+  async function changeReminderThreshold(reminderThresholdMin: number): Promise<void> {
+    await saveProfile({ reminderThresholdMin });
+  }
+
   function signedIn(signedInUser: User | null): void {
     user.value = signedInUser;
     if (signedInUser === null) return;
@@ -56,5 +60,13 @@ export const useSessionStore = defineStore("session", () => {
     await api.updateMe(changes);
   }
 
-  return { user, unverified, ensureLoaded, signInAsTestUser, signOut, changeLocale };
+  return {
+    user,
+    unverified,
+    ensureLoaded,
+    signInAsTestUser,
+    signOut,
+    changeLocale,
+    changeReminderThreshold,
+  };
 });
