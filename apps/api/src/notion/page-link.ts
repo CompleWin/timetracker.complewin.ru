@@ -2,12 +2,7 @@ import type { LinkNotionPageBody, Locale, Task } from "@stt/shared";
 import { database, type Database } from "../db/client.ts";
 import type { Bindings } from "../env.ts";
 import { alreadyLinked, notFound, validationError } from "../http/errors.ts";
-import {
-  activeProjects,
-  isActiveProject,
-  projectNamed,
-  type ProjectRef,
-} from "../projects/projects.ts";
+import { isActiveProject } from "../projects/projects.ts";
 import { createTask } from "../tasks/tasks.ts";
 import { notionClient, type NotionClient } from "./client.ts";
 import { listNotionDatabaseRows, type NotionDatabaseRow } from "./databases.ts";
@@ -20,16 +15,11 @@ import {
   pagePath,
   taskTitleOf,
   toPageSnapshot,
-  type NotionOption,
   type NotionPageSnapshot,
 } from "./pages.ts";
+import { openProjectBook, projectOfRecord, type RecordProject } from "./record-projects.ts";
 
 type PageOwner = { id: string; locale: Locale };
-
-type ChosenProject = {
-  projectId: string | null;
-  sentProject: string | null;
-};
 
 const notLinkable = () => validationError({ pageId: "Expected a page of an added database" });
 
@@ -50,7 +40,7 @@ export async function linkNotionPage(
   const linkedTaskId = (await linkedTaskIds(db, owner.id, [page.id])).get(page.id);
   if (linkedTaskId !== undefined) throw alreadyLinked(linkedTaskId);
   const title = taskTitleOf(page, target.propertyIds.title, owner.locale);
-  const { projectId, sentProject } = await chooseProject(db, owner.id, page, target, body, now);
+  const { projectId, sentProject } = await chooseProject(db, owner, page, target, body, now);
   return createTask(db, owner.id, { title, projectId }, now, {
     notionDatabaseId: target.id,
     notionPageId: page.id,
@@ -68,30 +58,17 @@ async function retrievePage(client: NotionClient, pageId: string): Promise<Notio
 
 async function chooseProject(
   db: Database,
-  userId: string,
+  owner: PageOwner,
   page: NotionPageSnapshot,
   target: NotionDatabaseRow,
   body: LinkNotionPageBody,
   now: Date,
-): Promise<ChosenProject> {
-  const active = await activeProjects(db, userId);
-  const option = chosenOption(projectValueOf(page, target), active);
-  const sentProject = option?.name ?? null;
-  if (body.projectId !== undefined) {
-    return { projectId: await requireOwnActiveProject(db, userId, body.projectId), sentProject };
-  }
-  if (option !== null) return projectOfOption(db, userId, option, now);
-  return { projectId: onlyBoundProject(active, target)?.id ?? null, sentProject };
-}
-
-async function projectOfOption(
-  db: Database,
-  userId: string,
-  option: NotionOption,
-  now: Date,
-): Promise<ChosenProject> {
-  const project = await projectNamed(db, userId, option, now);
-  return { projectId: project.id, sentProject: project.name };
+): Promise<RecordProject> {
+  const book = await openProjectBook(db, owner, now);
+  const value = projectValueOf(page, target);
+  if (body.projectId === undefined) return projectOfRecord(book, value, target);
+  const sentProject = chosenOption(value, book.projects)?.name ?? null;
+  return { projectId: await requireOwnActiveProject(db, owner.id, body.projectId), sentProject };
 }
 
 async function requireOwnActiveProject(
@@ -103,9 +80,4 @@ async function requireOwnActiveProject(
     throw validationError({ projectId: "Expected an own active project" });
   }
   return projectId;
-}
-
-function onlyBoundProject(active: ProjectRef[], target: NotionDatabaseRow): ProjectRef | undefined {
-  const bound = active.filter((project) => project.notionDatabaseId === target.id);
-  return bound.length === 1 ? bound[0] : undefined;
 }

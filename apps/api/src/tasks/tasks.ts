@@ -69,13 +69,23 @@ export async function createTask(
   page?: TaskPageLink,
 ): Promise<Task> {
   await ensureProjectUsable(db, userId, task.projectId);
-  const [row] = await db
-    .insert(tasks)
-    .values({ id: crypto.randomUUID(), userId, ...task, ...page, createdAt: now, updatedAt: now })
-    .returning();
+  const [row] = await insertTask(db, userId, task, now, page);
   if (row === undefined) throw new Error(`Task "${task.title}" was not created`);
   await enqueueTasks(db, userId, [row.id], now);
   return toTask(row, IDLE_TIMER);
+}
+
+export function insertTask(
+  db: Database,
+  userId: string,
+  task: NewTask,
+  now: Date,
+  page?: TaskPageLink,
+) {
+  return db
+    .insert(tasks)
+    .values({ id: crypto.randomUUID(), userId, ...task, ...page, createdAt: now, updatedAt: now })
+    .returning();
 }
 
 export async function updateTask(

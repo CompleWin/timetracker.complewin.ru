@@ -18,6 +18,17 @@ export type TestProjectProperty = {
   type: "select" | "multi_select";
 };
 
+export type TestStatusProperty = {
+  id: string;
+  name: string;
+};
+
+export type TestStatusOption = {
+  id: string;
+  name: string;
+  complete: boolean;
+};
+
 export type TestNotionDatabase = {
   id: string;
   dataSourceId: string;
@@ -25,6 +36,8 @@ export type TestNotionDatabase = {
   title: string;
   projectMode: ProjectMode;
   projectProperty: TestProjectProperty | null;
+  statusProperty: TestStatusProperty | null;
+  skippedStatusIds: string[];
   blockPosition: BlockPosition;
   timeProperties: boolean;
   isDefault: boolean;
@@ -45,6 +58,7 @@ export type DatabaseSettings = {
   blockPosition?: BlockPosition;
   timeProperties?: boolean;
   isDefault?: boolean;
+  skippedStatusIds?: string[];
 };
 
 export type DatabaseBody = DatabaseSettings & {

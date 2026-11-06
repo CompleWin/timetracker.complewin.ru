@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { tasks, timeEntries } from "../db/schema.ts";
+import type { TaskPageLink } from "../tasks/tasks.ts";
 import type { SentPage } from "./page-state.ts";
 
 export type PageLink = {
@@ -49,6 +50,13 @@ export async function unlinkTask(db: Database, taskId: string): Promise<void> {
     forgetTaskLines(db, taskId),
     db.update(tasks).set(NO_PAGE).where(eq(tasks.id, taskId)),
   ]);
+}
+
+export function attachPage(db: Database, taskId: string, link: TaskPageLink, now: Date) {
+  return db
+    .update(tasks)
+    .set({ ...link, updatedAt: now })
+    .where(eq(tasks.id, taskId));
 }
 
 export async function linkTask(

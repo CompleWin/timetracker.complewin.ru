@@ -1,10 +1,15 @@
-import type { AvailableNotionDatabase, NotionProperty } from "@stt/shared";
+import type { AvailableNotionDatabase, NotionDatabaseProperties } from "@stt/shared";
 import { database } from "../db/client.ts";
 import type { Bindings } from "../env.ts";
 import { notFound } from "../http/errors.ts";
 import { notionClient } from "./client.ts";
 import { requireUsableConnection } from "./connections.ts";
-import { projectPropertiesOf, retrieveDataSource, searchDataSources } from "./data-sources.ts";
+import {
+  projectPropertiesOf,
+  retrieveDataSource,
+  searchDataSources,
+  statusFieldOf,
+} from "./data-sources.ts";
 import { listNotionDatabaseRows } from "./databases.ts";
 
 export async function listAvailableDatabases(
@@ -27,13 +32,18 @@ export async function listAvailableDatabases(
   }));
 }
 
-export async function listProjectProperties(
+export async function describeDatabaseProperties(
   env: Bindings,
   userId: string,
   dataSourceId: string,
-): Promise<NotionProperty[]> {
+): Promise<NotionDatabaseProperties> {
   const connection = await requireUsableConnection(database(env), userId);
   const source = await retrieveDataSource(notionClient(env, connection), dataSourceId);
   if (source === undefined) throw notFound();
-  return projectPropertiesOf(source);
+  const statusField = statusFieldOf(source);
+  return {
+    properties: projectPropertiesOf(source),
+    statusProperty: statusField?.property ?? null,
+    statuses: statusField?.statuses ?? [],
+  };
 }

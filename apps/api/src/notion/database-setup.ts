@@ -14,11 +14,14 @@ import { notionClient, type NotionClient } from "./client.ts";
 import { requireUsableConnection, type ConnectedRow } from "./connections.ts";
 import {
   addDataSourceProperties,
+  completeStatusIds,
   projectPropertiesOf,
   retrieveDataSource,
+  statusFieldOf,
   titlePropertyId,
   withDatabaseTitle,
   type DataSource,
+  type StatusField,
 } from "./data-sources.ts";
 import {
   countNotionDatabases,
@@ -28,9 +31,11 @@ import {
   projectPropertyColumns,
   removeNotionDatabase,
   requireNotionDatabase,
+  statusFilterColumns,
   storedProjectProperty,
   toNotionDatabase,
   updateNotionDatabase,
+  type NotionDatabaseChanges,
   type NotionDatabaseRow,
 } from "./databases.ts";
 import {
@@ -53,6 +58,16 @@ export type DatabaseSetup = {
 };
 
 const dataSourceNotFound = () => validationError({ dataSourceId: "Notion data source not found" });
+
+const notStatusOption = () =>
+  validationError({ skippedStatusIds: "Expected status options of this database" });
+
+const RESTARTED_PULL = {
+  pullCursor: null,
+  pullNextCursor: null,
+  pullLatestEdit: null,
+  pulledAt: null,
+};
 
 type DataSourceLoader = () => Promise<DataSource>;
 
@@ -97,6 +112,11 @@ export async function addDatabase(
     settings.projectMode === "property"
       ? projectPropertyOf(source, settings.projectPropertyId)
       : null;
+  const statusField = statusFieldOf(source);
+  const skippedStatusIds = checkedStatusIds(
+    statusField,
+    settings.skippedStatusIds ?? completeStatusIds(statusField),
+  );
   const timeProperties = settings.timeProperties === true;
   const wanted = trackerPropertiesFor({ projectMode: settings.projectMode, timeProperties });
   const propertyIds = await ensureTrackerProperties(client, source, wanted, owner);
@@ -110,6 +130,7 @@ export async function addDatabase(
     propertyIds: { title: titlePropertyId(source), ...propertyIds },
     projectMode: settings.projectMode,
     ...projectPropertyColumns(projectProperty),
+    ...statusFilterColumns(statusField, skippedStatusIds),
     blockPosition: settings.blockPosition,
     timeProperties,
     createdAt: now,
@@ -134,6 +155,7 @@ export async function changeNotionDatabase(
     timeProperties: changes.timeProperties ?? current.timeProperties,
   };
   const projectProperty = await changedProjectProperty(dataSource, current, changes);
+  const statusFilter = await changedStatusFilter(dataSource, current, changes);
   const added = await addTrackerProperties(
     client,
     dataSource,
@@ -143,6 +165,7 @@ export async function changeNotionDatabase(
   const updated = await updateNotionDatabase(db, current, {
     ...next,
     ...projectPropertyColumns(projectProperty),
+    ...statusFilter,
     propertyIds: { ...current.propertyIds, ...added },
     blockPosition: changes.blockPosition,
     isDefault: changes.isDefault,
@@ -172,6 +195,24 @@ async function changedProjectProperty(
   if ((changes.projectMode ?? current.projectMode) !== "property") return null;
   if (changes.projectPropertyId === undefined) return storedProjectProperty(current);
   return projectPropertyOf(await dataSource(), changes.projectPropertyId);
+}
+
+async function changedStatusFilter(
+  dataSource: DataSourceLoader,
+  current: NotionDatabaseRow,
+  { skippedStatusIds }: UpdateNotionDatabaseBody,
+): Promise<NotionDatabaseChanges> {
+  if (skippedStatusIds === undefined) return {};
+  const field = statusFieldOf(await dataSource());
+  const next = checkedStatusIds(field, skippedStatusIds);
+  const returned = (current.skippedStatusIds ?? []).some((id) => !next.includes(id));
+  return { ...statusFilterColumns(field, next), ...(returned && RESTARTED_PULL) };
+}
+
+function checkedStatusIds(field: StatusField | null, wanted: string[]): string[] {
+  const known = new Set(field?.statuses.map(({ id }) => id));
+  if (wanted.some((id) => !known.has(id))) throw notStatusOption();
+  return [...new Set(wanted)];
 }
 
 async function addTrackerProperties(

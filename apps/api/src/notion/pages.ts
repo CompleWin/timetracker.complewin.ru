@@ -14,6 +14,7 @@ const propertyValueSchema = z.looseObject({
   title: z.array(z.object({ plain_text: z.string() })).optional(),
   select: optionSchema.nullish(),
   multi_select: z.array(optionSchema).optional(),
+  status: z.object({ id: z.string() }).nullish(),
 });
 
 export const notionPageJsonSchema = z.object({
@@ -100,6 +101,13 @@ export function multiSelectOptions(
   propertyId: string | null | undefined,
 ): NotionOption[] {
   return (propertyOf(page, propertyId)?.multi_select ?? []).map(toOption);
+}
+
+export function statusOptionId(
+  page: NotionPageSnapshot,
+  propertyId: string | null,
+): string | undefined {
+  return propertyOf(page, propertyId)?.status?.id;
 }
 
 function propertyOf(

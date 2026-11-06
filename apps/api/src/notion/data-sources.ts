@@ -1,4 +1,9 @@
-import { notionProjectPropertyTypes, type NotionProperty } from "@stt/shared";
+import {
+  notionProjectPropertyTypes,
+  type NotionProperty,
+  type NotionStatus,
+  type NotionStatusProperty,
+} from "@stt/shared";
 import { z } from "zod";
 import { notionUnavailable } from "../http/errors.ts";
 import type { NotionClient } from "./client.ts";
@@ -10,8 +15,15 @@ const MAX_SEARCH_PAGES = 5;
 const SEARCH_PAGE_SIZE = 100;
 const EMOJI_ICON = "emoji";
 const TITLE_TYPE = "title";
+const STATUS_TYPE = "status";
+const COMPLETE_GROUP = "complete";
 
 const richTextSchema = z.array(z.object({ plain_text: z.string() }));
+
+const statusConfigSchema = z.object({
+  options: z.array(z.object({ id: z.string(), name: z.string() })),
+  groups: z.array(z.object({ name: z.string(), option_ids: z.array(z.string()) })),
+});
 
 const dataSourceSchema = z.object({
   id: z.string(),
@@ -20,7 +32,12 @@ const dataSourceSchema = z.object({
   parent: z.object({ database_id: z.string() }),
   properties: z.record(
     z.string(),
-    z.object({ id: z.string(), name: z.string(), type: z.string() }),
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      type: z.string(),
+      status: statusConfigSchema.optional(),
+    }),
   ),
 });
 
@@ -31,12 +48,21 @@ const searchSchema = z.object({
   next_cursor: z.string().nullish(),
 });
 
+type DataSourceProperty = SchemaProperty & {
+  status?: z.infer<typeof statusConfigSchema>;
+};
+
 export type DataSource = {
   id: string;
   databaseId: string;
   title: string;
   icon: string | null;
-  properties: SchemaProperty[];
+  properties: DataSourceProperty[];
+};
+
+export type StatusField = {
+  property: NotionStatusProperty;
+  statuses: NotionStatus[];
 };
 
 export async function searchDataSources(client: NotionClient): Promise<DataSource[]> {
@@ -69,9 +95,17 @@ export async function retrieveDataSource(
   client: NotionClient,
   id: string,
 ): Promise<DataSource | undefined> {
-  const request: NotionApiRequest = { method: "GET", path: dataSourcePath(id) };
-  const found = await requestNotionJson(client, request, dataSourceSchema);
+  const found = await requestNotionJson(client, dataSourceRequest(id), dataSourceSchema);
   return found === undefined ? undefined : toDataSource(found);
+}
+
+export function dataSourceRequest(id: string): NotionApiRequest {
+  return { method: "GET", path: dataSourcePath(id) };
+}
+
+export function parseDataSource(body: unknown): DataSource | undefined {
+  const parsed = dataSourceSchema.safeParse(body);
+  return parsed.success ? toDataSource(parsed.data) : undefined;
 }
 
 export async function addDataSourceProperties(
@@ -94,6 +128,25 @@ export function projectPropertiesOf(source: DataSource): NotionProperty[] {
     const projectType = notionProjectPropertyTypes.find((candidate) => candidate === type);
     return projectType === undefined ? [] : [{ id, name, type: projectType }];
   });
+}
+
+export function statusFieldOf(source: DataSource): StatusField | null {
+  const field = source.properties.find(({ type }) => type === STATUS_TYPE);
+  if (field === undefined) return null;
+  const { options, groups } = field.status ?? { options: [], groups: [] };
+  const completeIds = new Set(
+    groups
+      .filter((group) => group.name.toLowerCase() === COMPLETE_GROUP)
+      .flatMap((group) => group.option_ids),
+  );
+  return {
+    property: { id: field.id, name: field.name },
+    statuses: options.map(({ id, name }) => ({ id, name, complete: completeIds.has(id) })),
+  };
+}
+
+export function completeStatusIds(field: StatusField | null): string[] {
+  return (field?.statuses ?? []).filter(({ complete }) => complete).map(({ id }) => id);
 }
 
 export function titlePropertyId(source: DataSource): string {

@@ -14,7 +14,6 @@ import {
 } from "./harness/notion-pull.ts";
 import {
   FUN_DATABASE,
-  SETUP_TIME,
   TASKS_DATABASE,
   cronAt,
   loginForSync,
@@ -141,23 +140,33 @@ describe("расписание pull", () => {
     expect(await fake.queriesDuring(() => cronAt(atMinute(5)))).toHaveLength(1);
   });
 
-  it("15. первый query pull: фильтр on_or_after с моментом добавления базы, сортировка по last_edited_time по возрастанию, page_size 100", async () => {
+  it("15. первый query pull идёт без filter, с сортировкой по last_edited_time по возрастанию и page_size 100", async () => {
     const { added } = await userWithDatabase(fake);
     const query = onlyCall(await fake.queriesDuring(() => cronAt(atMinute(1))));
 
     expect(query.url).toBe(queryUrlOf(added.dataSource));
+    expect(queryBodyOf(query)).not.toHaveProperty("filter");
+    expect(queryBodyOf(query)).toMatchObject({
+      sorts: [{ timestamp: "last_edited_time", direction: "ascending" }],
+      page_size: 100,
+    });
+  });
+
+  it("15. второй проход после пустого первого: фильтр on_or_after = момент первого прохода минус 2 минуты", async () => {
+    await userWithDatabase(fake);
+    await cronAt(atMinute(1));
+    const query = onlyCall(await fake.queriesDuring(() => cronAt(atMinute(6))));
+
     expect(queryBodyOf(query)).toMatchObject({
       filter: {
         timestamp: "last_edited_time",
         last_edited_time: { on_or_after: expect.any(String) },
       },
-      sorts: [{ timestamp: "last_edited_time", direction: "ascending" }],
-      page_size: 100,
     });
-    expect(cursorOf(query)).toBe(Date.parse(SETUP_TIME.now));
+    expect(cursorOf(query)).toBe(minuteMs(-1));
   });
 
-  it("15. две базы: pull отправляет query в обе, у каждой on_or_after = её максимальный last_edited_time минус 2 минуты", async () => {
+  it("15. две базы: первый query каждой без filter, со второго прохода у каждой on_or_after = её максимальный last_edited_time минус 2 минуты", async () => {
     const session = await loginForSync();
     const { tasks, fun } = await fake.connectNotion(session, {
       databases: { tasks: TASKS_DATABASE, fun: FUN_DATABASE },
@@ -165,9 +174,13 @@ describe("расписание pull", () => {
     await linkedPage(session, tasks.dataSource, "Anki", atMinute(12));
     await linkedPage(session, tasks.dataSource, "Шахматы", atMinute(20));
     await linkedPage(session, fun.dataSource, "Ведьмак", atMinute(30));
-    await cronAt(atMinute(40));
+    const firstQueries = await fake.queriesDuring(() => cronAt(atMinute(40)));
     const queries = await fake.queriesDuring(() => cronAt(atMinute(50)));
 
+    expect(firstQueries).toHaveLength(2);
+    for (const query of firstQueries) {
+      expect(queryBodyOf(query)).not.toHaveProperty("filter");
+    }
     expect(queries).toHaveLength(2);
     expect(cursorOf(queryTo(queries, tasks.dataSource))).toBe(minuteMs(18));
     expect(cursorOf(queryTo(queries, fun.dataSource))).toBe(minuteMs(28));

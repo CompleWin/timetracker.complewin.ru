@@ -26,7 +26,7 @@ import {
   type NotionConnection,
   type NotionDatabase,
   type NotionPage,
-  type NotionProperty,
+  type NotionDatabaseProperties,
   type Project,
   type Session,
   type SessionWithTask,
@@ -211,9 +211,9 @@ export async function fetchAvailableNotionDatabases(): Promise<AvailableNotionDa
 
 export async function fetchNotionDatabaseProperties(
   dataSourceId: string,
-): Promise<NotionProperty[]> {
+): Promise<NotionDatabaseProperties> {
   const path = `/api/notion/available-databases/${encodeURIComponent(dataSourceId)}/properties`;
-  return notionPropertiesResponse.parse(await request("GET", path)).properties;
+  return notionPropertiesResponse.parse(await request("GET", path));
 }
 
 export async function addNotionDatabase(body: AddNotionDatabaseBody): Promise<NotionDatabase> {

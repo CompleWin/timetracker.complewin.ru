@@ -116,11 +116,14 @@ describe("проект из select-поля", () => {
     expect(updates.filter((call) => sendsProperty(call, user.area.id))).toEqual([]);
   });
 
-  it("18. пустое значение: задача остаётся без проекта", async () => {
+  it("18. пустое значение: задача переносится в проект с названием базы", async () => {
     const user = await sportTaskWithPage(BY_SELECT);
     setAreaInNotion(user, selectValue(null), PULL_RUN);
+    await cronAt(PULL_RUN);
 
-    expect(await projectIdAfterPull(user)).toBeNull();
+    expect(await projectOfTask(user.session, user.task.id, PULL_RUN)).toMatchObject({
+      name: TASKS_DATABASE.title,
+    });
   });
 });
 

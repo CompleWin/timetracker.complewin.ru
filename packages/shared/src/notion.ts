@@ -27,6 +27,18 @@ export const notionPropertySchema = z.object({
 
 export type NotionProperty = z.infer<typeof notionPropertySchema>;
 
+export const notionStatusPropertySchema = z.object({ id: z.string(), name: z.string() });
+
+export type NotionStatusProperty = z.infer<typeof notionStatusPropertySchema>;
+
+export const notionStatusSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  complete: z.boolean(),
+});
+
+export type NotionStatus = z.infer<typeof notionStatusSchema>;
+
 export const notionDatabaseSchema = z.object({
   id: z.string(),
   dataSourceId: z.string(),
@@ -37,6 +49,8 @@ export const notionDatabaseSchema = z.object({
   blockPosition: z.enum(notionBlockPositions),
   timeProperties: z.boolean(),
   isDefault: z.boolean(),
+  statusProperty: notionStatusPropertySchema.nullable(),
+  skippedStatusIds: z.array(z.string()),
   createdAt: z.string(),
 });
 
@@ -73,7 +87,11 @@ export const availableNotionDatabasesResponse = z.object({
 
 export const notionPropertiesResponse = z.object({
   properties: z.array(notionPropertySchema),
+  statusProperty: notionStatusPropertySchema.nullable(),
+  statuses: z.array(notionStatusSchema),
 });
+
+export type NotionDatabaseProperties = z.infer<typeof notionPropertiesResponse>;
 
 export const notionDatabaseResponse = z.object({ database: notionDatabaseSchema });
 
@@ -85,6 +103,7 @@ const notionDatabaseSettings = z.object({
   blockPosition: z.enum(notionBlockPositions),
   timeProperties: z.boolean().optional(),
   isDefault: z.boolean().optional(),
+  skippedStatusIds: z.array(z.string()).optional(),
 });
 
 type ProjectPropertyChoice = {

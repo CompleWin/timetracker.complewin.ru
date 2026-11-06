@@ -113,16 +113,13 @@ export function activeProjects(db: Database, userId: string): Promise<ProjectRef
     .where(and(eq(projects.userId, userId), isNull(projects.archivedAt)));
 }
 
-export async function projectNamed(
+export async function bindProjectToDatabase(
   db: Database,
-  userId: string,
-  { name, color }: Pick<NewProject, "name" | "color">,
+  id: string,
+  notionDatabaseId: string,
   now: Date,
-): Promise<ProjectRef> {
-  const found = (await activeProjects(db, userId)).find((project) =>
-    sameProjectName(project.name, name),
-  );
-  return found ?? createProject(db, userId, { name, color, notionDatabaseId: null }, now);
+): Promise<void> {
+  await db.update(projects).set({ notionDatabaseId, updatedAt: now }).where(eq(projects.id, id));
 }
 
 export function sameProjectName(left: string, right: string): boolean {

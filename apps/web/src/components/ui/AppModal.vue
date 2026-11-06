@@ -45,5 +45,6 @@ onBeforeUnmount(() => {
     >
       <slot name="actions" />
     </div>
+    <p v-if="$slots.note" class="mt-3 text-meta text-fg-subtle"><slot name="note" /></p>
   </dialog>
 </template>
