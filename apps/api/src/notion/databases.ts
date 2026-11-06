@@ -1,4 +1,4 @@
-import type { NotionDatabase, NotionProperty } from "@stt/shared";
+import type { NotionDatabase, NotionProperty, NotionStatusProperty } from "@stt/shared";
 import { and, count, eq } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
@@ -11,6 +11,7 @@ import {
   unlinkDatabaseTasks,
   unlinkUserTasks,
 } from "../sync/page-links.ts";
+import type { StatusField } from "./data-sources.ts";
 
 export type NotionDatabaseRow = typeof notionDatabases.$inferSelect;
 
@@ -24,6 +25,11 @@ export type NotionDatabaseChanges = Partial<
 type ProjectPropertyColumns = Pick<
   NotionDatabaseRow,
   "projectPropId" | "projectPropName" | "projectPropType"
+>;
+
+type StatusFilterColumns = Pick<
+  NotionDatabaseRow,
+  "statusPropId" | "statusPropName" | "skippedStatusIds"
 >;
 
 export async function listNotionDatabaseRows(
@@ -151,6 +157,22 @@ export function storedProjectProperty(row: NotionDatabaseRow): NotionProperty | 
   return id !== null && name !== null && type !== null ? { id, name, type } : null;
 }
 
+export function statusFilterColumns(
+  field: StatusField | null,
+  skippedStatusIds: string[],
+): StatusFilterColumns {
+  return {
+    statusPropId: field?.property.id ?? null,
+    statusPropName: field?.property.name ?? null,
+    skippedStatusIds,
+  };
+}
+
+function storedStatusProperty(row: NotionDatabaseRow): NotionStatusProperty | null {
+  const { statusPropId: id, statusPropName: name } = row;
+  return id !== null && name !== null ? { id, name } : null;
+}
+
 export function toNotionDatabase(row: NotionDatabaseRow): NotionDatabase {
   return {
     id: row.id,
@@ -162,6 +184,8 @@ export function toNotionDatabase(row: NotionDatabaseRow): NotionDatabase {
     blockPosition: row.blockPosition,
     timeProperties: row.timeProperties,
     isDefault: row.isDefault,
+    statusProperty: storedStatusProperty(row),
+    skippedStatusIds: row.skippedStatusIds ?? [],
     createdAt: row.createdAt.toISOString(),
   };
 }

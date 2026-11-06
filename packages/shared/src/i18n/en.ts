@@ -145,17 +145,24 @@ export const en: Messages = {
   "notionDatabases.timePropertiesKept":
     "The created fields will stay in Notion. You can delete them manually.",
   "notionDatabases.isDefault": "Default database",
+  "notionDatabases.importStatuses": "Import tasks with statuses",
+  "notionDatabases.importStatusesNote":
+    "Tasks with other statuses can be added manually with “Add from Notion”.",
   "notionDatabases.hint.projectMode":
     "Where the tracker writes the task's project on its Notion page. “Separate field ⏱ Project” adds its own field to the database. “Take from a database field” writes to your field with options. “Don't write the project” suits a database where all tasks belong to one project.",
   "notionDatabases.hint.projectProperty":
-    "Your Select or Multi-select field where the tracker writes the project name. It is also used to find the project when you add a task from Notion.",
+    "Your Select or Multi-select field where the tracker writes the project name. It is also used to find the project when you add a task from Notion. If the field is empty, the task goes to the project named after the database.",
   "notionDatabases.hint.blockPosition":
     "The “⏱ Total: …” block inside the task page: a time summary and a log of sessions with notes. Here you choose where it goes and whether you need it.",
   "notionDatabases.hint.timeProperties":
     "These fields let you sort tasks and sum up time in database views. Without them, time is shown only in the block on the page.",
   "notionDatabases.hint.isDefault":
     "Tasks without a project and tasks of projects with no database chosen go here. If there is no default database, such tasks don't reach Notion.",
+  "notionDatabases.hint.importStatuses":
+    "The tracker creates tasks from database records with these statuses. Records without a status are always imported. Tasks already created stay when their status changes.",
   "notionDatabases.submit": "Add",
+  "notionDatabases.addNote":
+    "Tasks from the database will appear in the tracker within a few minutes. Nothing changes in Notion until you start tracking a task.",
   "notionDatabases.summary.ownProject": 'Project in the "{field}" field',
   "notionDatabases.summary.propertyProject": 'Project from the "{field}" field',
   "notionDatabases.summary.block.start": "time block at the top of the page",

@@ -132,12 +132,12 @@ describe("проект из привязки к базе", () => {
     expect(task).toMatchObject({ projectId: funId });
   });
 
-  it("8. режим none, к базе привязаны два проекта: projectId = null", async () => {
+  it("8. режим none, к базе привязаны два проекта: задача попадает в проект с названием базы", async () => {
     const user = await userWithDatabase(fake, FUN_WITHOUT_PROJECT);
-    await bindProjects(user, ["Развлечения", "Кино"]);
+    const [funId] = await bindProjects(user, ["Развлечения", "Кино"]);
     const task = await linkPage(user.session, plainPage(user, "Ведьмак").id, {}, LINK_TIME);
 
-    expect(task).toMatchObject({ projectId: null });
+    expect(task).toMatchObject({ projectId: funId });
   });
 });
 

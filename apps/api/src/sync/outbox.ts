@@ -12,7 +12,15 @@ import {
   type SQL,
 } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
-import { notionConnections, notionDatabases, projects, syncOutbox, tasks } from "../db/schema.ts";
+import { idChunks } from "../db/bulk.ts";
+import {
+  notionConnections,
+  notionDatabases,
+  projects,
+  syncOutbox,
+  tasks,
+  timeEntries,
+} from "../db/schema.ts";
 
 export const FAILED_ATTEMPTS = 10;
 
@@ -38,7 +46,19 @@ export function enqueueProjectTasks(
   projectId: string,
   now: Date,
 ): Promise<string[]> {
-  return enqueueWhere(db, userId, eq(tasks.projectId, projectId), now, "event");
+  const pushable = or(isNull(tasks.notionPageId), isNotNull(tasks.notionSyncedAt));
+  return enqueueWhere(db, userId, and(eq(tasks.projectId, projectId), pushable), now, "event");
+}
+
+export async function enqueueTasksWithSessions(
+  db: Database,
+  userId: string,
+  taskIds: string[],
+  now: Date,
+): Promise<void> {
+  for (const ids of idChunks(taskIds)) {
+    await enqueueWhere(db, userId, and(inArray(tasks.id, ids), hasSessions(db)), now, "event");
+  }
 }
 
 export function enqueueBlockInheritingTasks(
@@ -50,6 +70,7 @@ export function enqueueBlockInheritingTasks(
   const inheriting = and(
     eq(tasks.notionDatabaseId, databaseId),
     isNotNull(tasks.notionPageId),
+    isNotNull(tasks.notionSyncedAt),
     isNull(tasks.notionBlockPosition),
   );
   return enqueueWhere(db, userId, inheriting, now, "event");
@@ -130,6 +151,15 @@ function freshEvent(now: Date) {
     lastError: null,
     nextTryAt: sql`case when ${syncOutbox.attempts} >= ${FAILED_ATTEMPTS} then ${now.getTime()} else ${syncOutbox.nextTryAt} end`,
   };
+}
+
+function hasSessions(db: Database): SQL {
+  return exists(
+    db
+      .select({ id: timeEntries.id })
+      .from(timeEntries)
+      .where(and(eq(timeEntries.taskId, tasks.id), isNull(timeEntries.deletedAt))),
+  );
 }
 
 function hasConnection(db: Database): SQL {

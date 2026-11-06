@@ -7,11 +7,13 @@ import {
   type NotionDatabase,
   type NotionProjectMode,
   type NotionProperty,
+  type NotionStatus,
 } from "@stt/shared";
 import { RefreshCw } from "@lucide/vue";
 import { computed, onMounted, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
+import NotionStatusChoice from "./NotionStatusChoice.vue";
 import RadioChips from "./RadioChips.vue";
 import AppButton from "./ui/AppButton.vue";
 import AppCheckbox from "./ui/AppCheckbox.vue";
@@ -29,6 +31,8 @@ const dataSourceId = ref(props.database?.dataSourceId ?? "");
 const projectMode = ref<NotionProjectMode>(props.database?.projectMode ?? "own");
 const properties = ref<NotionProperty[]>([]);
 const projectPropertyId = ref(props.database?.projectProperty?.id ?? "");
+const statuses = ref<NotionStatus[]>([]);
+const skippedStatusIds = ref(props.database?.skippedStatusIds ?? []);
 const blockPosition = ref<NotionBlockPosition>(props.database?.blockPosition ?? "start");
 const timeProperties = ref(props.database?.timeProperties ?? false);
 const isDefault = ref(props.database?.isDefault ?? !props.hasDefault);
@@ -68,7 +72,9 @@ onMounted(async () => {
   if (isNew.value) await refreshAvailable();
 });
 
-watch([dataSourceId, projectMode], loadPropertiesWhenNeeded, { immediate: true });
+watch(dataSourceId, loadProperties, { immediate: true });
+
+watch(projectMode, chooseProjectProperty);
 
 watch([dataSourceId, projectMode, projectPropertyId, timeProperties], () => {
   formError.value = undefined;
@@ -81,9 +87,25 @@ async function refreshAvailable(): Promise<void> {
   }
 }
 
-async function loadPropertiesWhenNeeded(): Promise<void> {
-  if (!takesProperty.value || dataSourceId.value === "") return;
-  properties.value = await api.fetchNotionDatabaseProperties(dataSourceId.value);
+async function loadProperties(): Promise<void> {
+  const source = dataSourceId.value;
+  properties.value = [];
+  statuses.value = [];
+  if (source === "") return;
+  const loaded = await api.fetchNotionDatabaseProperties(source).catch(() => undefined);
+  if (loaded === undefined || source !== dataSourceId.value) return;
+  properties.value = loaded.properties;
+  statuses.value = loaded.statuses;
+  if (isNew.value) skippedStatusIds.value = completeStatusIds(loaded.statuses);
+  chooseProjectProperty();
+}
+
+function completeStatusIds(options: NotionStatus[]): string[] {
+  return options.filter(({ complete }) => complete).map(({ id }) => id);
+}
+
+function chooseProjectProperty(): void {
+  if (!takesProperty.value) return;
   if (!properties.value.some((property) => property.id === projectPropertyId.value)) {
     projectPropertyId.value = properties.value[0]?.id ?? "";
   }
@@ -110,6 +132,7 @@ function saveDatabase(): Promise<NotionDatabase> {
     blockPosition: blockPosition.value,
     timeProperties: timeProperties.value,
     isDefault: isDefault.value,
+    ...(statuses.value.length > 0 && { skippedStatusIds: skippedStatusIds.value }),
   };
   return props.database === undefined
     ? api.addNotionDatabase({ dataSourceId: dataSourceId.value, ...settings })
@@ -171,6 +194,11 @@ function errorText(error: unknown): string | undefined {
           {{ property.name }}
         </option>
       </AppField>
+      <NotionStatusChoice
+        v-if="statuses.length > 0"
+        v-model="skippedStatusIds"
+        :statuses="statuses"
+      />
       <RadioChips
         v-model="blockPosition"
         :legend="t('notionDatabases.blockPosition')"
@@ -202,5 +230,6 @@ function errorText(error: unknown): string | undefined {
         {{ t(isNew ? "notionDatabases.submit" : "form.save") }}
       </AppButton>
     </template>
+    <template v-if="isNew" #note>{{ t("notionDatabases.addNote") }}</template>
   </AppModal>
 </template>
