@@ -38,7 +38,7 @@ const noteId = useId();
 const control = useTemplateRef<HTMLElement>("control");
 
 const CONTROL =
-  "w-full border text-input text-fg transition-colors duration-150 placeholder:text-fg-faint";
+  "w-full border text-input text-fg transition-colors duration-150 placeholder:text-fg-faint disabled:cursor-not-allowed disabled:opacity-50";
 
 const SINGLE_LINE = "h-[46px]";
 

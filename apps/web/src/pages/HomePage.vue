@@ -239,5 +239,6 @@ async function onSaved(): Promise<void> {
     :projects="activeProjects"
     @close="dialog = null"
     @saved="onSaved"
+    @created="reload"
   />
 </template>

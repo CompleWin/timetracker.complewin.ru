@@ -41,6 +41,9 @@ export const en: Messages = {
   "tasks.new": "New task",
   "tasks.edit": "Edit task",
   "tasks.project": "Project",
+  "tasks.startError.tooManyRunning":
+    "Task created, but the timer did not start: 20 timers are already running",
+  "tasks.startError.failed": "Task created, but the timer did not start",
   "tasks.total": "Total: {duration}",
   "tasks.today": "today {duration} · {sessions}",
   "tasks.archivedNotice":

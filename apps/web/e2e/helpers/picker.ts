@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import { button, group } from "./ui.ts";
+import { button, dialog, field, group, menuItem } from "./ui.ts";
 
 type Scope = Page | Locator;
 
@@ -31,6 +31,10 @@ export function stopTimerButton(scope: Scope, title: string): Locator {
   return button(scope, `Остановить таймер: ${title}`);
 }
 
+export function alreadyRunningButton(scope: Scope, title: string): Locator {
+  return button(scope, `Уже идёт: ${title}`);
+}
+
 export async function openPicker(page: Page, triggerName = PICKER_TRIGGER): Promise<void> {
   const trigger = pickerTrigger(page, triggerName);
   await trigger.click();
@@ -51,6 +55,32 @@ export async function startFromPicker(page: Page, title: string): Promise<void> 
   await searchTasks(page, title);
   await startTimerButton(foundTasks(page), title).click();
   await expectPickerClosed(page);
+}
+
+export async function openCreateDialog(page: Page, item: string): Promise<Locator> {
+  await openPicker(page);
+  await button(page, "Создать").click();
+  await menuItem(page, item).click();
+  const form = dialog(page, item);
+  await expect(form).toBeVisible();
+  return form;
+}
+
+export async function submitNewTask(page: Page, title: string, project: string): Promise<Locator> {
+  const form = await openCreateDialog(page, "Новая задача");
+  await field(form, "Название").fill(title);
+  await field(form, "Проект").selectOption({ label: project });
+  await button(form, "Создать").click();
+  return form;
+}
+
+export async function createTaskInDialog(
+  page: Page,
+  title: string,
+  project: string,
+): Promise<void> {
+  const form = await submitNewTask(page, title, project);
+  await expect(form).toBeHidden();
 }
 
 export async function expectStartRows(scope: Locator, titles: string[]): Promise<void> {
