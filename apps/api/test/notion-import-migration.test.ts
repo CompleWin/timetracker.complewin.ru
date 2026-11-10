@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { TestSession } from "./harness/index.ts";
+import { atMinute } from "./harness/clock.ts";
 import { updateDatabase, type TestNotionDatabase } from "./harness/notion-databases.ts";
 import {
   DONE,
@@ -29,10 +30,11 @@ import {
   type SyncedDatabase,
 } from "./harness/notion-sync.ts";
 import { getNotionConnection, onlyCall } from "./harness/notion.ts";
+import { linkedTask } from "./harness/notion-task-pages.ts";
 import { createProject, type TestProject } from "./harness/projects.ts";
 import { requireStatus } from "./harness/rest.ts";
 import { replayAutoImportMigrations } from "./harness/schema-replay.ts";
-import { createTask, type TestTask } from "./harness/tasks.ts";
+import { updateTask, type TestTask } from "./harness/tasks.ts";
 
 type UserWithTwoTasks = {
   session: TestSession;
@@ -41,6 +43,8 @@ type UserWithTwoTasks = {
   withoutProject: TestTask;
   inProject: TestTask;
 };
+
+const LEFT_PROJECT = atMinute(1);
 
 let fake: FakeNotionPull;
 
@@ -57,10 +61,18 @@ async function userWithPushedTasks(database: DatabaseSetup): Promise<UserWithTwo
   const session = await loginForSync();
   const { tasks } = await fake.connectNotion(session, { databases: { tasks: database } });
   const work = await createProject(session, { name: "Работа" }, SETUP_TIME);
-  const withoutProject = await createTask(session, { title: "Без проекта" }, SETUP_TIME);
-  const inProject = await createTask(session, { title: "Отчёт", projectId: work.id }, SETUP_TIME);
+  const linked = await linkedTask(fake, session, tasks, { title: "Без проекта" });
+  const inProject = await linkedTask(
+    fake,
+    session,
+    tasks,
+    { title: "Отчёт" },
+    { projectId: work.id },
+  );
   await cronAt(SETUP_TIME);
-  return { session, tasks, work, withoutProject, inProject };
+  await updateTask(session, linked.task.id, { projectId: null }, LEFT_PROJECT);
+  await cronAt(LEFT_PROJECT);
+  return { session, tasks, work, withoutProject: linked.task, inProject: inProject.task };
 }
 
 function pageUpdatesDuring(action: () => Promise<unknown>) {

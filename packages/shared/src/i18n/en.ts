@@ -52,6 +52,7 @@ export const en: Messages = {
   "tasks.lastYesterday": "Last time: yesterday, {time}",
   "tasks.lastAt": "Last time: {dateTime}",
   "tasks.neverStarted": "Never started",
+  "tasks.fromNotion": "Task from Notion",
   "tasks.openInNotion": "Open in Notion",
   "tasks.blockPosition": "Time block in Notion",
   "tasks.blockPosition.inherit": "As in database settings",
@@ -119,7 +120,6 @@ export const en: Messages = {
   "notionPages.addItem": "Add from Notion: {title}",
   "notionPages.linked": "Already in the tracker",
   "notionDatabases.title": "Notion databases",
-  "notionDatabases.default": "Default",
   "notionDatabases.configure": "Configure",
   "notionDatabases.configureItem": "Configure database {title}",
   "notionDatabases.remove": "Remove",
@@ -144,7 +144,6 @@ export const en: Messages = {
     "The tracker will add the fields “{spentHours}”, “{spent}”, “{running}” and “{lastTracked}” to the database if they aren't there. It doesn't change your fields.",
   "notionDatabases.timePropertiesKept":
     "The created fields will stay in Notion. You can delete them manually.",
-  "notionDatabases.isDefault": "Default database",
   "notionDatabases.importStatuses": "Import tasks with statuses",
   "notionDatabases.importStatusesNote":
     "Tasks with other statuses can be added manually with “Add from Notion”.",
@@ -156,8 +155,6 @@ export const en: Messages = {
     "The “⏱ Total: …” block inside the task page: a time summary and a log of sessions with notes. Here you choose where it goes and whether you need it.",
   "notionDatabases.hint.timeProperties":
     "These fields let you sort tasks and sum up time in database views. Without them, time is shown only in the block on the page.",
-  "notionDatabases.hint.isDefault":
-    "Tasks without a project and tasks of projects with no database chosen go here. If there is no default database, such tasks don't reach Notion.",
   "notionDatabases.hint.importStatuses":
     "The tracker creates tasks from database records with these statuses. Records without a status are always imported. Tasks already created stay when their status changes.",
   "notionDatabases.submit": "Add",
@@ -177,9 +174,6 @@ export const en: Messages = {
   "notionSync.lastRun": "Last run: {dateTime}",
   "notionSync.errors": "Sync errors",
   "notionSync.retry": "Retry",
-  "notionSync.export": "Export tasks to Notion",
-  "notionSync.queued": "Added to the queue: {count}",
-  "projects.notionDatabaseDefault": "Same as default",
   "timers.running": "Running now",
   "timers.runningCount": "Running now · {count}",
   "timers.stopAll": "Stop all",

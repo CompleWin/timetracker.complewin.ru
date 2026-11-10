@@ -92,6 +92,13 @@
       "when": 1793966046871,
       "tag": "0012_notion_auto_import",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1794329511097,
+      "tag": "0013_notion_pages_only",
+      "breakpoints": true
     }
   ]
 }

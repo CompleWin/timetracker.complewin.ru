@@ -20,6 +20,7 @@ import AppIconButton from "./ui/AppIconButton.vue";
 import AppIsland from "./ui/AppIsland.vue";
 import AppPulseDot from "./ui/AppPulseDot.vue";
 import AppSectionLabel from "./ui/AppSectionLabel.vue";
+import NotionMark from "./ui/NotionMark.vue";
 import ProjectMarker from "./ui/ProjectMarker.vue";
 
 const props = defineProps<{
@@ -88,7 +89,10 @@ const lastStart = computed(() => {
         </AppIconButton>
       </div>
     </div>
-    <h1 class="mt-1 text-h2 break-words">{{ task.title }}</h1>
+    <div class="mt-1 flex items-center gap-1.5">
+      <h1 class="min-w-0 text-h2 break-words">{{ task.title }}</h1>
+      <NotionMark v-if="task.notionPageUrl !== null" size="heading" />
+    </div>
     <div class="mt-3.5 flex flex-wrap items-center gap-x-3.5 gap-y-2">
       <span
         class="inline-flex h-[30px] items-center rounded-full bg-primary-soft px-3.5 text-small text-primary-ink"

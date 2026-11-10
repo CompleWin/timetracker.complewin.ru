@@ -9,11 +9,9 @@ import { updateNotionDatabase, type NotionDatabaseRow } from "../notion/database
 import { trackerPropertiesFor } from "../notion/tracker-properties.ts";
 import { updateTask } from "../tasks/tasks.ts";
 import { IDLE_TIMER, taskTimers } from "../timers/time-entries.ts";
-import { linkTask, markSynced, unlinkTask } from "./page-links.ts";
+import { markSynced, unlinkTask } from "./page-links.ts";
 import { syncTimeBlock } from "./time-block.ts";
 import {
-  createdPage,
-  createPage,
   ensureAccepted,
   isBadRequest,
   isMissingProperty,
@@ -29,9 +27,7 @@ import {
   changedPageProperties,
   desiredPage,
   hasChanges,
-  newPageProperties,
   projectChanged,
-  sentOnCreate,
   sentOnUpdate,
   usesMultiSelect,
   type SentPage,
@@ -51,7 +47,6 @@ type LoadedTask = {
   notionDatabaseId: string | null;
   notionPageId: string | null;
   notionSent: SentPage | null;
-  projectDatabaseId: string | null;
   snapshot: TaskSnapshot;
 };
 
@@ -61,21 +56,15 @@ type PageSender = (target: NotionDatabaseRow) => Promise<PageReply>;
 
 export async function pushTask(run: SyncRun, taskId: string): Promise<void> {
   const task = await loadTask(run, taskId);
-  const target = task === undefined ? undefined : targetDatabase(run, task);
-  if (task === undefined || target === undefined) return;
-  const pageAlive = isLinked(task)
-    ? await updateTaskPage(run, task, target)
-    : await createTaskPage(run, task, target);
-  if (pageAlive) await syncTimeBlock(run, taskId);
+  if (task === undefined || !isLinked(task)) return;
+  const target = run.databases.find((database) => database.id === task.notionDatabaseId);
+  if (target === undefined) return;
+  if (await updateTaskPage(run, task, target)) await syncTimeBlock(run, taskId);
 }
 
 async function loadTask(run: SyncRun, taskId: string): Promise<LoadedTask | undefined> {
   const [row] = await run.db
-    .select({
-      task: tasks,
-      projectName: projects.name,
-      projectDatabaseId: projects.notionDatabaseId,
-    })
+    .select({ task: tasks, projectName: projects.name })
     .from(tasks)
     .leftJoin(projects, eq(projects.id, tasks.projectId))
     .where(eq(tasks.id, taskId));
@@ -87,7 +76,6 @@ async function loadTask(run: SyncRun, taskId: string): Promise<LoadedTask | unde
     notionDatabaseId: row.task.notionDatabaseId,
     notionPageId: row.task.notionPageId,
     notionSent: row.task.notionSent,
-    projectDatabaseId: row.projectDatabaseId,
     snapshot: {
       title: row.task.title,
       project: row.projectName,
@@ -98,32 +86,8 @@ async function loadTask(run: SyncRun, taskId: string): Promise<LoadedTask | unde
   };
 }
 
-function targetDatabase(run: SyncRun, task: LoadedTask): NotionDatabaseRow | undefined {
-  const byId = (id: string | null) => run.databases.find((database) => database.id === id);
-  return (
-    byId(task.notionDatabaseId) ??
-    byId(task.projectDatabaseId) ??
-    run.databases.find((database) => database.isDefault)
-  );
-}
-
 function isLinked(task: LoadedTask): task is LinkedTask {
   return task.notionPageId !== null && task.notionSent !== null;
-}
-
-async function createTaskPage(
-  run: SyncRun,
-  task: LoadedTask,
-  target: NotionDatabaseRow,
-): Promise<boolean> {
-  const desired = desiredPage(task.snapshot, target, run.owner.locale);
-  const { reply, target: usedTarget } = await sendWithFreshProperties(run, target, (current) =>
-    createPage(run.client, current.dataSourceId, newPageProperties(current, desired)),
-  );
-  const page = createdPage(reply);
-  const link = { pageId: page.id, pageUrl: page.url, databaseId: usedTarget.id };
-  await linkTask(run.db, task.id, link, sentOnCreate(usedTarget, desired), run.now);
-  return true;
 }
 
 async function updateTaskPage(
@@ -135,15 +99,14 @@ async function updateTaskPage(
     return await patchTaskPage(run, task, target);
   } catch (error) {
     if (!(error instanceof PageGone)) throw error;
-    return recreateTaskPage(run, task);
+    await dropDeletedPage(run, task.id);
+    return false;
   }
 }
 
-async function recreateTaskPage(run: SyncRun, task: LinkedTask): Promise<boolean> {
-  await unlinkTask(run.db, task.id);
-  const unlinked = { ...task, notionDatabaseId: null, notionPageId: null, notionSent: null };
-  const target = targetDatabase(run, unlinked);
-  return target !== undefined && (await createTaskPage(run, unlinked, target));
+async function dropDeletedPage(run: SyncRun, taskId: string): Promise<void> {
+  await unlinkTask(run.db, taskId);
+  await updateTask(run.db, run.owner.id, taskId, { archived: true }, run.now);
 }
 
 async function patchTaskPage(
@@ -193,17 +156,6 @@ async function currentMultiSelect(
 async function isTrashed(run: SyncRun, pageId: string): Promise<boolean> {
   const page = await retrievePage(run.client, pageId);
   return page.in_trash === true;
-}
-
-async function sendWithFreshProperties(
-  run: SyncRun,
-  target: NotionDatabaseRow,
-  send: PageSender,
-): Promise<{ reply: PageReply; target: NotionDatabaseRow }> {
-  const reply = await send(target);
-  if (!isMissingProperty(reply)) return { reply, target };
-  const refreshed = await refreshProperties(run, target);
-  return { reply: await send(refreshed), target: refreshed };
 }
 
 async function refreshProperties(

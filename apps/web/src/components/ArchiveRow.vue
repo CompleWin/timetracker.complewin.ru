@@ -5,6 +5,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { currentLocale } from "../i18n.ts";
 import AppButton from "./ui/AppButton.vue";
+import NotionMark from "./ui/NotionMark.vue";
 import ProjectMarker from "./ui/ProjectMarker.vue";
 
 export type MarkerPlace = "name" | "meta";
@@ -15,6 +16,7 @@ const props = defineProps<{
   meta: string;
   color: ProjectColor | null;
   markerAt: MarkerPlace;
+  fromNotion?: boolean;
 }>();
 const emit = defineEmits<{ restore: [] }>();
 
@@ -28,7 +30,10 @@ const total = computed(() => formatDuration(props.totalSec, currentLocale()));
     <div class="min-w-0 flex-[1_1_260px]">
       <div class="flex items-center gap-2.5">
         <ProjectMarker v-if="markerAt === 'name' && color !== null" :color />
-        <span class="min-w-0 text-body font-semibold break-words">{{ name }}</span>
+        <span class="flex min-w-0 items-center gap-1.5">
+          <span class="min-w-0 text-body font-semibold break-words">{{ name }}</span>
+          <NotionMark v-if="fromNotion" />
+        </span>
         <span class="font-code text-meta whitespace-nowrap text-fg-subtle">{{ total }}</span>
       </div>
       <p

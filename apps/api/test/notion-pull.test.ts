@@ -21,9 +21,8 @@ import {
   readTask,
   titlePropertyId,
   titleValue,
-  userWithTaskPage,
-  type UserWithTaskPage,
 } from "./harness/notion-sync.ts";
+import { userWithTaskPage, type UserWithTaskPage } from "./harness/notion-task-pages.ts";
 import type { FakeDataSource } from "./harness/notion-workspace.ts";
 import { onlyCall } from "./harness/notion.ts";
 import { updateTask } from "./harness/tasks.ts";

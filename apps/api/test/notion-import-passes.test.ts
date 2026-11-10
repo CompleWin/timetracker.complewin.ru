@@ -27,9 +27,9 @@ import {
   type FakeNotionPull,
   type UserWithDatabase,
 } from "./harness/notion-pull.ts";
-import { SETUP_TIME, cronAt, loginForSync, type DatabaseSetup } from "./harness/notion-sync.ts";
+import { cronAt, loginForSync, type DatabaseSetup } from "./harness/notion-sync.ts";
+import { linkedTask } from "./harness/notion-task-pages.ts";
 import { checkNotionConnection, expectConnection, onlyCall } from "./harness/notion.ts";
-import { createTask } from "./harness/tasks.ts";
 
 const BULK_TIMEOUT_MS = 120_000;
 const PAGES_PER_QUERY = 100;
@@ -223,11 +223,11 @@ describe("две базы с новыми страницами", () => {
   });
 
   it("23. push в запуске, где pull закончился раньше, выполняется", async () => {
-    const { session } = await userWithTwoBases();
-    await createTask(session, { title: "Из трекера" }, SETUP_TIME);
-    const creations = await fake.creationsDuring(() => cronAt(IMPORT_RUN));
+    const { session, tasks } = await userWithTwoBases();
+    const { page } = await linkedTask(fake, session, tasks, { title: "Связанная" });
+    const updates = await fake.updatesDuring(page, () => cronAt(IMPORT_RUN));
 
-    expect(creations).toHaveLength(1);
+    expect(updates).toHaveLength(1);
   });
 });
 
@@ -251,7 +251,7 @@ describe("подключение и лимиты", () => {
     async () => {
       const user = await userWithDatabase(fake, TASKS_BASE);
       for (let number = 1; number <= QUEUED_TASKS; number += 1) {
-        await createTask(user.session, { title: `Задача ${number}` }, SETUP_TIME);
+        await linkedTask(fake, user.session, user.added, { title: `Задача ${number}` });
       }
       const page = pageIn(fake, user.added, "Anki");
       const firstRun = await fake.requestsDuring(() => cronAt(IMPORT_RUN));
@@ -260,7 +260,7 @@ describe("подключение и лимиты", () => {
 
       expect(firstRun.length).toBeLessThanOrEqual(REQUESTS_PER_RUN);
       expect(imported).toMatchObject({ title: "Anki" });
-      expect(fake.pages.creations()).toHaveLength(QUEUED_TASKS);
+      expect(fake.pages.updates()).toHaveLength(QUEUED_TASKS);
     },
   );
 });

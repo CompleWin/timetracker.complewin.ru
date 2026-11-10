@@ -15,7 +15,7 @@ import type { StatusField } from "./data-sources.ts";
 
 export type NotionDatabaseRow = typeof notionDatabases.$inferSelect;
 
-export type NewNotionDatabase = Omit<typeof notionDatabases.$inferInsert, "id" | "isDefault"> &
+export type NewNotionDatabase = Omit<typeof notionDatabases.$inferInsert, "id"> &
   Pick<NotionDatabaseRow, "timeProperties">;
 
 export type NotionDatabaseChanges = Partial<
@@ -82,26 +82,14 @@ export async function countNotionDatabases(db: Database, userId: string): Promis
   return row?.total ?? 0;
 }
 
-export async function hasDefaultDatabase(db: Database, userId: string): Promise<boolean> {
-  const row = await db.query.notionDatabases.findFirst({
-    columns: { id: true },
-    where: and(eq(notionDatabases.userId, userId), eq(notionDatabases.isDefault, true)),
-  });
-  return row !== undefined;
-}
-
 export async function insertNotionDatabase(
   db: Database,
   values: NewNotionDatabase,
-  isDefault: boolean,
 ): Promise<NotionDatabaseRow> {
-  const insert = db
+  const [row] = await db
     .insert(notionDatabases)
-    .values({ id: crypto.randomUUID(), ...values, isDefault })
+    .values({ id: crypto.randomUUID(), ...values })
     .returning();
-  const [row] = isDefault
-    ? (await db.batch([clearDefault(db, values.userId), insert]))[1]
-    : await insert;
   if (row === undefined) throw new Error(`Notion database "${values.title}" was not added`);
   return row;
 }
@@ -111,15 +99,11 @@ export async function updateNotionDatabase(
   current: NotionDatabaseRow,
   changes: NotionDatabaseChanges,
 ): Promise<NotionDatabaseRow> {
-  const update = db
+  const [row] = await db
     .update(notionDatabases)
     .set(changes)
     .where(eq(notionDatabases.id, current.id))
     .returning();
-  const [row] =
-    changes.isDefault === true
-      ? (await db.batch([clearDefault(db, current.userId), update]))[1]
-      : await update;
   if (row === undefined) throw new Error(`Notion database ${current.id} was not updated`);
   return row;
 }
@@ -183,16 +167,8 @@ export function toNotionDatabase(row: NotionDatabaseRow): NotionDatabase {
     projectProperty: storedProjectProperty(row),
     blockPosition: row.blockPosition,
     timeProperties: row.timeProperties,
-    isDefault: row.isDefault,
     statusProperty: storedStatusProperty(row),
     skippedStatusIds: row.skippedStatusIds ?? [],
     createdAt: row.createdAt.toISOString(),
   };
-}
-
-function clearDefault(db: Database, userId: string) {
-  return db
-    .update(notionDatabases)
-    .set({ isDefault: false })
-    .where(and(eq(notionDatabases.userId, userId), eq(notionDatabases.isDefault, true)));
 }

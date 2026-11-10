@@ -41,7 +41,7 @@ async function connectWithTemplate(
 }
 
 describe("автонастройка из шаблона", () => {
-  it("16. callback с duplicated_template_id добавляет первую базу шаблона с own, start, timeProperties = true и isDefault = true", async () => {
+  it("16. callback с duplicated_template_id добавляет первую базу шаблона с own, start и timeProperties = true", async () => {
     const { session } = await loginAs({ locale: "ru" });
     const tasks = workspace.dataSource({
       title: ["Задачи"],
@@ -61,7 +61,6 @@ describe("автонастройка из шаблона", () => {
           projectProperty: null,
           blockPosition: "start",
           timeProperties: true,
-          isDefault: true,
         },
       ],
     });

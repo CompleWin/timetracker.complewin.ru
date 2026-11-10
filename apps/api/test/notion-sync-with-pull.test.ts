@@ -1,12 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { atMinute } from "./harness/clock.ts";
 import { queryUrlOf } from "./harness/notion-pull.ts";
-import {
-  cronAt,
-  fakeNotionSync,
-  userWithTaskPage,
-  type FakeNotionSync,
-} from "./harness/notion-sync.ts";
+import { cronAt, fakeNotionSync, type FakeNotionSync } from "./harness/notion-sync.ts";
+import { userWithTaskPage } from "./harness/notion-task-pages.ts";
 import { onlyCall } from "./harness/notion.ts";
 
 let fake: FakeNotionSync;

@@ -10,11 +10,13 @@ import RunningNote from "./RunningNote.vue";
 import TimerClock from "./TimerClock.vue";
 import AppIconButton from "./ui/AppIconButton.vue";
 import AppPulseDot from "./ui/AppPulseDot.vue";
+import NotionMark from "./ui/NotionMark.vue";
 import ProjectMarker from "./ui/ProjectMarker.vue";
 
 const props = defineProps<{
   session: SessionWithTask;
   project: Project | null;
+  fromNotion: boolean;
   now: number;
   timeZone: string | null;
 }>();
@@ -33,12 +35,15 @@ const since = computed(() =>
   >
     <AppPulseDot :size="10" />
     <div class="min-w-0">
-      <RouterLink
-        :to="`/tasks/${session.task.id}`"
-        class="text-task leading-snug font-semibold break-words text-fg no-underline hover:text-primary"
-      >
-        {{ session.task.title }}
-      </RouterLink>
+      <div class="flex items-center gap-1.5">
+        <RouterLink
+          :to="`/tasks/${session.task.id}`"
+          class="min-w-0 text-task leading-snug font-semibold break-words text-fg no-underline hover:text-primary"
+        >
+          {{ session.task.title }}
+        </RouterLink>
+        <NotionMark v-if="fromNotion" />
+      </div>
       <div class="flex flex-wrap items-center gap-x-1.5 text-meta text-fg-subtle">
         <span class="inline-flex min-w-0 items-center gap-1.5">
           <ProjectMarker v-if="project" :color="project.color" :size="8" />

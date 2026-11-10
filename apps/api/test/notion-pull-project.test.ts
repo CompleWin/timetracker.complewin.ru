@@ -22,12 +22,12 @@ import {
   propertyNamed,
   readTask,
   type DatabaseSetup,
-  type UserWithTaskPage,
 } from "./harness/notion-sync.ts";
+import { linkedTask, type UserWithTaskPage } from "./harness/notion-task-pages.ts";
 import type { FakeProperty } from "./harness/notion-workspace.ts";
 import { onlyCall } from "./harness/notion.ts";
 import { createProject, type TestProject } from "./harness/projects.ts";
-import { createTask, updateTask } from "./harness/tasks.ts";
+import { updateTask } from "./harness/tasks.ts";
 
 const AREA = "Сфера";
 const SPORT: NotionOption = { name: "Спорт", color: "green" };
@@ -47,8 +47,19 @@ const BY_MULTI_SELECT: DatabaseSetup = {
   projectProperty: AREA,
 };
 
+type AreaField = {
+  database: DatabaseSetup;
+  sportValue: PageValue;
+};
+
 type SportTask = UserWithTaskPage & {
   area: FakeProperty;
+};
+
+const SELECT_AREA: AreaField = { database: BY_SELECT, sportValue: selectValue(SPORT) };
+const MULTI_SELECT_AREA: AreaField = {
+  database: BY_MULTI_SELECT,
+  sportValue: multiSelectValue([SPORT.name]),
 };
 
 type ProjectConflict = {
@@ -64,14 +75,17 @@ beforeEach(() => {
   fake = fakeNotionPull();
 });
 
-async function sportTaskWithPage(database: DatabaseSetup): Promise<SportTask> {
+async function sportTaskWithPage({ database, sportValue }: AreaField): Promise<SportTask> {
   const session = await loginForSync();
   const { tasks } = await fake.connectNotion(session, { databases: { tasks: database } });
-  const sport = await createProject(session, SPORT, SETUP_TIME);
-  const task = await createTask(session, { title: TASK_TITLE, projectId: sport.id }, SETUP_TIME);
+  const area = propertyNamed(tasks.dataSource, AREA);
+  await createProject(session, SPORT, SETUP_TIME);
+  const linked = await linkedTask(fake, session, tasks, {
+    title: TASK_TITLE,
+    values: { [area.id]: sportValue },
+  });
   await cronAt(SETUP_TIME);
-  const page = await fake.pageOfTask(session, task.id);
-  return { session, tasks, task, page, area: propertyNamed(tasks.dataSource, AREA) };
+  return { session, tasks, ...linked, area };
 }
 
 function setAreaInNotion(user: SportTask, value: PageValue, editedAt: { now: string }): void {
@@ -84,7 +98,7 @@ async function projectIdAfterPull(user: SportTask): Promise<string | null> {
 }
 
 async function projectConflict(trackerAt: string, notionAt: string): Promise<ProjectConflict> {
-  const user = await sportTaskWithPage(BY_SELECT);
+  const user = await sportTaskWithPage(SELECT_AREA);
   const work = await createProject(user.session, WORK, SETUP_TIME);
   const study = await createProject(user.session, STUDY, SETUP_TIME);
   await updateTask(user.session, user.task.id, { projectId: work.id }, atClock(trackerAt));
@@ -95,7 +109,7 @@ async function projectConflict(trackerAt: string, notionAt: string): Promise<Pro
 
 describe("проект из select-поля", () => {
   it("18. значение сменилось со «Спорт» на «Учёба», в трекере проект не менялся: после cron задача в созданном проекте «Учёба»", async () => {
-    const user = await sportTaskWithPage(BY_SELECT);
+    const user = await sportTaskWithPage(SELECT_AREA);
     setAreaInNotion(user, selectValue(STUDY), PULL_RUN);
     await cronAt(PULL_RUN);
 
@@ -106,7 +120,7 @@ describe("проект из select-поля", () => {
   });
 
   it("18. принятый из Notion проект ни этот, ни следующий cron обратно не отправляют", async () => {
-    const user = await sportTaskWithPage(BY_SELECT);
+    const user = await sportTaskWithPage(SELECT_AREA);
     setAreaInNotion(user, selectValue(STUDY), PULL_RUN);
     const updates = await fake.updatesDuring(user.page, async () => {
       await cronAt(PULL_RUN);
@@ -117,7 +131,7 @@ describe("проект из select-поля", () => {
   });
 
   it("18. пустое значение: задача переносится в проект с названием базы", async () => {
-    const user = await sportTaskWithPage(BY_SELECT);
+    const user = await sportTaskWithPage(SELECT_AREA);
     setAreaInNotion(user, selectValue(null), PULL_RUN);
     await cronAt(PULL_RUN);
 
@@ -129,7 +143,7 @@ describe("проект из select-поля", () => {
 
 describe("проект из multi_select-поля", () => {
   it("19. последнее отправленное «Спорт», значения [SFEDU, Спорт]: проект не меняется", async () => {
-    const user = await sportTaskWithPage(BY_MULTI_SELECT);
+    const user = await sportTaskWithPage(MULTI_SELECT_AREA);
     await createProject(user.session, STUDY, SETUP_TIME);
     setAreaInNotion(user, multiSelectValue(["SFEDU", SPORT.name]), PULL_RUN);
 
@@ -137,7 +151,7 @@ describe("проект из multi_select-поля", () => {
   });
 
   it("19. последнее отправленное «Спорт», проект «Учёба» существует, значения [SFEDU, Учёба]: задача переносится в «Учёба»", async () => {
-    const user = await sportTaskWithPage(BY_MULTI_SELECT);
+    const user = await sportTaskWithPage(MULTI_SELECT_AREA);
     const study = await createProject(user.session, STUDY, SETUP_TIME);
     setAreaInNotion(user, multiSelectValue(["SFEDU", STUDY.name]), PULL_RUN);
 

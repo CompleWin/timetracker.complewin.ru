@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatDateTime, type SyncStatus } from "@stt/shared";
-import { computed, ref, useId } from "vue";
+import { computed, useId } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import { currentLocale } from "../i18n.ts";
@@ -16,7 +16,6 @@ const { t } = useI18n();
 const account = useSessionStore();
 const titleId = useId();
 const errorsId = useId();
-const queued = ref<number | null>(null);
 
 const lastRun = computed(() => {
   const lastRunAt = props.status.lastRunAt;
@@ -27,11 +26,6 @@ const lastRun = computed(() => {
 
 async function retry(): Promise<void> {
   await api.retrySync();
-  emit("changed");
-}
-
-async function exportTasks(): Promise<void> {
-  queued.value = await api.exportTasksToNotion();
   emit("changed");
 }
 </script>
@@ -59,14 +53,6 @@ async function exportTasks(): Promise<void> {
         <AppButton variant="outline-primary" size="sm" class="self-start" @click="retry">
           {{ t("notionSync.retry") }}
         </AppButton>
-      </div>
-      <div class="flex flex-col items-start gap-2">
-        <AppButton variant="outline-primary" size="sm" @click="exportTasks">
-          {{ t("notionSync.export") }}
-        </AppButton>
-        <p v-if="queued !== null" role="status" class="text-meta text-fg-subtle">
-          {{ t("notionSync.queued", { count: queued }) }}
-        </p>
       </div>
     </div>
   </AppIsland>

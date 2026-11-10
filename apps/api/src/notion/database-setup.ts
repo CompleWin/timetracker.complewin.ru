@@ -26,7 +26,6 @@ import {
 import {
   countNotionDatabases,
   findDatabaseOfDataSource,
-  hasDefaultDatabase,
   insertNotionDatabase,
   projectPropertyColumns,
   removeNotionDatabase,
@@ -120,7 +119,6 @@ export async function addDatabase(
   const timeProperties = settings.timeProperties === true;
   const wanted = trackerPropertiesFor({ projectMode: settings.projectMode, timeProperties });
   const propertyIds = await ensureTrackerProperties(client, source, wanted, owner);
-  const isDefault = settings.isDefault === true || !(await hasDefaultDatabase(db, owner.id));
   const values = {
     userId: owner.id,
     connectionId,
@@ -135,7 +133,7 @@ export async function addDatabase(
     timeProperties,
     createdAt: now,
   };
-  return insertNotionDatabase(db, values, isDefault);
+  return insertNotionDatabase(db, values);
 }
 
 export async function changeNotionDatabase(
@@ -168,7 +166,6 @@ export async function changeNotionDatabase(
     ...statusFilter,
     propertyIds: { ...current.propertyIds, ...added },
     blockPosition: changes.blockPosition,
-    isDefault: changes.isDefault,
   });
   if (updated.blockPosition !== current.blockPosition) {
     await enqueueBlockInheritingTasks(db, owner.id, id, now);

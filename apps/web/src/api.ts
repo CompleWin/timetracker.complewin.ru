@@ -2,7 +2,6 @@ import {
   availableNotionDatabasesResponse,
   notionConnectionResponse,
   notionDatabaseResponse,
-  notionExportResponse,
   notionPagesResponse,
   notionPropertiesResponse,
   projectResponse,
@@ -239,10 +238,6 @@ export async function fetchSyncStatus(): Promise<SyncStatus> {
 
 export async function retrySync(): Promise<void> {
   await request("POST", "/api/notion/sync/retry");
-}
-
-export async function exportTasksToNotion(): Promise<number> {
-  return notionExportResponse.parse(await request("POST", "/api/notion/export")).queued;
 }
 
 export type NotionPageSearch = {

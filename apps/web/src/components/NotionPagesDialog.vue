@@ -15,9 +15,7 @@ const props = defineProps<{ databases: NotionDatabase[]; projects: Project[] }>(
 const emit = defineEmits<{ close: []; linked: [] }>();
 
 const { t } = useI18n();
-const databaseId = ref(
-  (props.databases.find((database) => database.isDefault) ?? props.databases[0])?.id ?? "",
-);
+const databaseId = ref(props.databases[0]?.id ?? "");
 const query = ref("");
 const includeCompleted = ref(false);
 const projectId = ref("");

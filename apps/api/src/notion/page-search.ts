@@ -73,9 +73,8 @@ async function searchedDatabase(
   databaseId: string | undefined,
 ): Promise<NotionDatabaseRow> {
   const databases = await listNotionDatabaseRows(db, userId);
-  const found = databases.find((row) =>
-    databaseId === undefined ? row.isDefault : row.id === databaseId,
-  );
+  const found =
+    databaseId === undefined ? databases[0] : databases.find((row) => row.id === databaseId);
   if (found === undefined) throw validationError({ databaseId: "Expected an added database" });
   return found;
 }

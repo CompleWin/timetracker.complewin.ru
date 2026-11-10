@@ -39,12 +39,9 @@ export const projectsResponse = z.object({ projects: z.array(projectSchema) });
 
 const projectName = z.string().trim().min(1).max(PROJECT_NAME_MAX_LENGTH);
 
-const notionDatabaseReference = z.uuid().nullable();
-
 export const createProjectBody = z.object({
   name: projectName,
   color: z.enum(projectColors).default("default"),
-  notionDatabaseId: notionDatabaseReference.default(null),
 });
 
 export type CreateProjectBody = z.input<typeof createProjectBody>;
@@ -54,7 +51,6 @@ export const updateProjectBody = atLeastOneField(
     name: projectName.optional(),
     color: z.enum(projectColors).optional(),
     archived: z.boolean().optional(),
-    notionDatabaseId: notionDatabaseReference.optional(),
   }),
 );
 

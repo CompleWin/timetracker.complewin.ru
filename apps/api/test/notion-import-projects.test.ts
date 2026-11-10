@@ -41,6 +41,7 @@ import {
   type DatabaseSetup,
   type SyncedDatabase,
 } from "./harness/notion-sync.ts";
+import { projectBoundTo, projectsBoundTo } from "./harness/notion-task-pages.ts";
 import { onlyCall } from "./harness/notion.ts";
 import { archiveProject, createProject, updateProject } from "./harness/projects.ts";
 
@@ -73,9 +74,7 @@ beforeEach(() => {
 });
 
 async function bindProjects({ session, added }: UserWithDatabase, names: string[]): Promise<void> {
-  for (const name of names) {
-    await createProject(session, { name, notionDatabaseId: added.database.id }, SETUP_TIME);
-  }
+  await projectsBoundTo(fake, session, added, names);
 }
 
 async function importedProjectName(
@@ -219,11 +218,7 @@ describe("проект с названием базы", () => {
     const { tasks, fun } = await fake.connectNotion(session, {
       databases: { tasks: TASKS_BASE, fun: FUN_DATABASE },
     });
-    const bound = await createProject(
-      session,
-      { name: TASKS_TITLE, notionDatabaseId: fun.database.id },
-      SETUP_TIME,
-    );
+    const bound = await projectBoundTo(fake, session, fun, TASKS_TITLE);
     const page = pageIn(fake, tasks, "Anki");
     await cronAt(IMPORT_RUN);
 

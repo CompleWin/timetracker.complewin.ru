@@ -1,26 +1,7 @@
-import {
-  and,
-  eq,
-  exists,
-  gte,
-  inArray,
-  isNotNull,
-  isNull,
-  lt,
-  or,
-  sql,
-  type SQL,
-} from "drizzle-orm";
+import { and, eq, exists, gte, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { idChunks } from "../db/bulk.ts";
-import {
-  notionConnections,
-  notionDatabases,
-  projects,
-  syncOutbox,
-  tasks,
-  timeEntries,
-} from "../db/schema.ts";
+import { notionConnections, syncOutbox, tasks, timeEntries } from "../db/schema.ts";
 
 export const FAILED_ATTEMPTS = 10;
 
@@ -46,8 +27,8 @@ export function enqueueProjectTasks(
   projectId: string,
   now: Date,
 ): Promise<string[]> {
-  const pushable = or(isNull(tasks.notionPageId), isNotNull(tasks.notionSyncedAt));
-  return enqueueWhere(db, userId, and(eq(tasks.projectId, projectId), pushable), now, "event");
+  const pushed = isNotNull(tasks.notionSyncedAt);
+  return enqueueWhere(db, userId, and(eq(tasks.projectId, projectId), pushed), now, "event");
 }
 
 export async function enqueueTasksWithSessions(
@@ -74,19 +55,6 @@ export function enqueueBlockInheritingTasks(
     isNull(tasks.notionBlockPosition),
   );
   return enqueueWhere(db, userId, inheriting, now, "event");
-}
-
-export function enqueueUnlinkedActiveTasks(
-  db: Database,
-  userId: string,
-  now: Date,
-): Promise<string[]> {
-  const unlinkedActive = and(
-    isNull(tasks.notionPageId),
-    isNull(tasks.archivedAt),
-    isNull(projects.archivedAt),
-  );
-  return enqueueWhere(db, userId, unlinkedActive, now, "event");
 }
 
 export function enqueueStaleTasks(
@@ -134,8 +102,9 @@ async function enqueueWhere(
       createdAt: sql<number>`${now.getTime()}`.as("created_at"),
     })
     .from(tasks)
-    .leftJoin(projects, eq(projects.id, tasks.projectId))
-    .where(and(eq(tasks.userId, userId), condition, hasConnection(db), hasTargetDatabase(db)));
+    .where(
+      and(eq(tasks.userId, userId), isNotNull(tasks.notionPageId), condition, hasConnection(db)),
+    );
   const insert = db.insert(syncOutbox).select(candidates);
   const queued =
     mode === "event"
@@ -173,19 +142,5 @@ function hasConnection(db: Database): SQL {
           isNotNull(notionConnections.accessTokenEnc),
         ),
       ),
-  );
-}
-
-function hasTargetDatabase(db: Database): SQL | undefined {
-  const defaultDatabase = exists(
-    db
-      .select({ id: notionDatabases.id })
-      .from(notionDatabases)
-      .where(and(eq(notionDatabases.userId, tasks.userId), eq(notionDatabases.isDefault, true))),
-  );
-  return or(
-    isNotNull(tasks.notionDatabaseId),
-    isNotNull(projects.notionDatabaseId),
-    defaultDatabase,
   );
 }

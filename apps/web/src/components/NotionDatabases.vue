@@ -7,13 +7,12 @@ import {
   type NotionDatabase,
   type Project,
 } from "@stt/shared";
-import { computed, ref, useId } from "vue";
+import { ref, useId } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import { currentLocale } from "../i18n.ts";
 import { joinMeta } from "../meta-line.ts";
 import NotionDatabaseDialog from "./NotionDatabaseDialog.vue";
-import AppBadge from "./ui/AppBadge.vue";
 import AppButton from "./ui/AppButton.vue";
 import AppConfirmDialog from "./ui/AppConfirmDialog.vue";
 import AppIsland from "./ui/AppIsland.vue";
@@ -33,8 +32,6 @@ const blockKeys = {
   end: "notionDatabases.summary.block.end",
   none: "notionDatabases.summary.block.none",
 } as const satisfies Record<NotionBlockPosition, MessageKey>;
-
-const hasDefault = computed(() => props.databases.some((database) => database.isDefault));
 
 function summary(database: NotionDatabase): string {
   const locale = currentLocale();
@@ -95,10 +92,7 @@ async function removeConfirmed(): Promise<void> {
         class="flex min-h-16 flex-wrap items-center gap-x-3.5 gap-y-2 border-t border-line py-2.5"
       >
         <div class="min-w-0 flex-[1_1_260px]">
-          <div class="flex flex-wrap items-center gap-2.5">
-            <span class="min-w-0 text-body font-semibold break-words">{{ database.title }}</span>
-            <AppBadge v-if="database.isDefault">{{ t("notionDatabases.default") }}</AppBadge>
-          </div>
+          <p class="text-body font-semibold break-words">{{ database.title }}</p>
           <p class="mt-0.5 text-meta break-words text-fg-subtle">{{ summary(database) }}</p>
         </div>
         <div class="flex gap-2">
@@ -124,7 +118,6 @@ async function removeConfirmed(): Promise<void> {
     <NotionDatabaseDialog
       v-if="dialog"
       :database="dialog.kind === 'configure' ? dialog.database : undefined"
-      :has-default="hasDefault"
       @close="dialog = null"
       @saved="onSaved"
     />

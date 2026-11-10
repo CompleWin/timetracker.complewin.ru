@@ -6,17 +6,15 @@ import type { BlockPosition, Locale } from "./notion-databases.ts";
 import {
   SETUP_TIME,
   TASKS_DATABASE,
-  TASK_TITLE,
   cronAt,
   fakeNotionSync,
   loginForSync,
   type DatabaseSetup,
   type FakeNotionSync,
-  type UserWithQueuedTask,
-  type UserWithTaskPage,
 } from "./notion-sync.ts";
+import { connectWithLinkedTask, type UserWithTaskPage } from "./notion-task-pages.ts";
 import { requireStatus, type SessionOpts } from "./rest.ts";
-import { createTask, taskPath } from "./tasks.ts";
+import { taskPath } from "./tasks.ts";
 import type { TestTimerSession } from "./timers.ts";
 
 export type FakeNotionTimeBlocks = {
@@ -48,29 +46,18 @@ export async function setTimezone(session: TestSession, timezone: string): Promi
   requireStatus(response, 200, "PATCH /api/me");
 }
 
-export async function moscowUserWithQueuedTask(
+export async function moscowUserWithLinkedTask(
   fake: FakeNotionSync,
   locale: Locale = "ru",
   database: DatabaseSetup = BLOCK_AT_START,
-): Promise<UserWithQueuedTask> {
+): Promise<UserWithTaskPage> {
   const session = await loginForSync(locale);
   await setTimezone(session, MOSCOW);
-  const { tasks } = await fake.connectNotion(session, { databases: { tasks: database } });
-  const task = await createTask(session, { title: TASK_TITLE }, SETUP_TIME);
-  return { session, tasks, task };
-}
-
-export async function withTaskPage(
-  fake: FakeNotionSync,
-  queued: UserWithQueuedTask,
-  time: { now: string } = SETUP_TIME,
-): Promise<UserWithTaskPage> {
-  await cronAt(time);
-  return { ...queued, page: await fake.pageOfTask(queued.session, queued.task.id) };
+  return connectWithLinkedTask(fake, session, database);
 }
 
 export async function addSessions(
-  user: UserWithQueuedTask,
+  user: UserWithTaskPage,
   inputs: ManualSessionInput[],
   time: { now: string } = AFTER_SESSIONS,
 ): Promise<TestTimerSession[]> {
@@ -85,9 +72,10 @@ export async function userWithSessionLog(
   fake: FakeNotionSync,
   inputs: ManualSessionInput[],
 ): Promise<UserWithSessionLog> {
-  const queued = await moscowUserWithQueuedTask(fake);
-  const sessions = await addSessions(queued, inputs);
-  return { ...(await withTaskPage(fake, queued, AFTER_SESSIONS)), sessions };
+  const user = await moscowUserWithLinkedTask(fake);
+  const sessions = await addSessions(user, inputs);
+  await cronAt(AFTER_SESSIONS);
+  return { ...user, sessions };
 }
 
 export function requestBlockPosition(
