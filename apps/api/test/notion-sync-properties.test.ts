@@ -3,6 +3,7 @@ import type { ExternalCall } from "./harness/index.ts";
 import { atMinute } from "./harness/clock.ts";
 import { addSession, editSession } from "./harness/manual-sessions.ts";
 import { TIME_FIELDS, type Locale } from "./harness/notion-databases.ts";
+import { multiSelectValue } from "./harness/notion-pull.ts";
 import {
   TASKS_DATABASE,
   cronAt,
@@ -14,14 +15,17 @@ import {
   titlePropertyId,
   titleValue,
   trackerPropertyId,
-  userWithQueuedTask,
-  userWithTaskPage,
   type FakeNotionSync,
-  type UserWithTaskPage,
 } from "./harness/notion-sync.ts";
+import {
+  linkedTask,
+  userWithLinkedTask,
+  userWithTaskPage,
+  type UserWithTaskPage,
+} from "./harness/notion-task-pages.ts";
 import { onlyCall } from "./harness/notion.ts";
 import { createProject } from "./harness/projects.ts";
-import { createTask, updateTask } from "./harness/tasks.ts";
+import { updateTask } from "./harness/tasks.ts";
 import { startTimer, stopTimer } from "./harness/timers.ts";
 
 const AREA = "Направление";
@@ -33,10 +37,10 @@ beforeEach(() => {
 });
 
 async function runningTaskWithPage(): Promise<UserWithTaskPage> {
-  const queued = await userWithQueuedTask(fake);
-  await startTimer(queued.session, queued.task.id, atMinute(0));
+  const user = await userWithLinkedTask(fake);
+  await startTimer(user.session, user.task.id, atMinute(0));
   await cronAt(atMinute(0));
-  return { ...queued, page: await fake.pageOfTask(queued.session, queued.task.id) };
+  return user;
 }
 
 function propertyKeysOf(call: ExternalCall): string[] {
@@ -50,12 +54,8 @@ describe("значения полей с временем", () => {
   ])(
     "5. сессия 2 ч 30 мин у пользователя с locale %s: spentHours = 2.5, spent = «%s»",
     async (locale, spent) => {
-      const session = await loginForSync(locale);
-      const { tasks } = await fake.connectNotion(session, {
-        databases: { tasks: TASKS_DATABASE },
-      });
+      const { session, tasks, task, page } = await userWithLinkedTask(fake, TASKS_DATABASE, locale);
       const source = tasks.dataSource;
-      const task = await createTask(session, { title: "Anki" }, atMinute(0));
       const recorded = await addSession(
         session,
         task.id,
@@ -64,7 +64,7 @@ describe("значения полей с временем", () => {
       );
       await cronAt(atMinute(160));
 
-      expect(pagePropertiesOf(onlyCall(fake.pages.creations()))).toMatchObject({
+      expect(pagePropertiesOf(onlyCall(fake.pages.updates(page)))).toMatchObject({
         [trackerPropertyId(source, "spentHours")]: { number: 2.5 },
         [trackerPropertyId(source, "spent")]: richTextValue(spent),
         [trackerPropertyId(source, "lastTracked")]: { date: { start: recorded.startedAt } },
@@ -152,19 +152,26 @@ describe("проект на странице", () => {
     const source = tasks.dataSource;
     const work = await createProject(session, { name: "Работа" }, atMinute(0));
     const study = await createProject(session, { name: "Учёба" }, atMinute(0));
-    const task = await createTask(session, { title: "Отчёт", projectId: work.id }, atMinute(0));
+    const { task, page } = await linkedTask(
+      fake,
+      session,
+      tasks,
+      { title: "Отчёт" },
+      { projectId: work.id },
+    );
     await cronAt(atMinute(0));
     await updateTask(session, task.id, { title: "Курсовая", projectId: study.id }, atMinute(1));
     await cronAt(atMinute(1));
     const allowedKeys = [
       titlePropertyId(source),
       ...TIME_FIELDS.map((field) => trackerPropertyId(source, field)),
-    ].toSorted();
+    ];
+    const updates = fake.pages.updates(page);
 
-    expect(propertyKeysOf(onlyCall(fake.pages.creations()))).toEqual(allowedKeys);
-    expect(allowedKeys).toEqual(
-      expect.arrayContaining(propertyKeysOf(onlyCall(fake.pages.updates()))),
-    );
+    expect(updates).toHaveLength(2);
+    for (const update of updates) {
+      expect(allowedKeys).toEqual(expect.arrayContaining(propertyKeysOf(update)));
+    }
   });
 
   it("11. multi_select со значениями [SFEDU, Спорт] при переносе задачи из «Спорт» в «Учёба»: в PATCH уходит [SFEDU, Учёба]", async () => {
@@ -179,12 +186,13 @@ describe("проект на странице", () => {
       },
     });
     const area = propertyNamed(tasks.dataSource, AREA);
-    const sport = await createProject(session, { name: "Спорт" }, atMinute(0));
+    await createProject(session, { name: "Спорт" }, atMinute(0));
     const study = await createProject(session, { name: "Учёба" }, atMinute(0));
-    const task = await createTask(session, { title: "Зачёт", projectId: sport.id }, atMinute(0));
+    const { task, page } = await linkedTask(fake, session, tasks, {
+      title: "Зачёт",
+      values: { [area.id]: multiSelectValue(["SFEDU", "Спорт"]) },
+    });
     await cronAt(atMinute(0));
-    const page = await fake.pageOfTask(session, task.id);
-    fake.pages.setMultiSelect(page, area, ["SFEDU", "Спорт"]);
     await updateTask(session, task.id, { projectId: study.id }, atMinute(1));
     const update = onlyCall(await fake.updatesDuring(page, () => cronAt(atMinute(1))));
 
@@ -197,13 +205,13 @@ describe("проект на странице", () => {
 describe("база без полей с временем", () => {
   const withoutTimeFields = { ...TASKS_DATABASE, timeProperties: false };
 
-  it("21. timeProperties = false: в POST /v1/pages нет spentHours, spent, running и lastTracked", async () => {
-    const { tasks } = await userWithTaskPage(fake, withoutTimeFields);
+  it("21. timeProperties = false: в PATCH страницы после link нет spentHours, spent, running и lastTracked", async () => {
+    const { tasks, page } = await userWithTaskPage(fake, withoutTimeFields);
     const source = tasks.dataSource;
 
-    expect(propertyKeysOf(onlyCall(fake.pages.creations()))).toEqual(
-      [titlePropertyId(source), trackerPropertyId(source, "project")].toSorted(),
-    );
+    expect(propertyKeysOf(onlyCall(fake.pages.updates(page)))).toEqual([
+      trackerPropertyId(source, "project"),
+    ]);
   });
 
   it("21. timeProperties = false: запуск и остановка таймера задачи со страницей PATCH страницы не отправляют", async () => {

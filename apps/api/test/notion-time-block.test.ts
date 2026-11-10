@@ -3,7 +3,8 @@ import { atClock, atMinute } from "./harness/clock.ts";
 import type { SessionInterval } from "./harness/manual-sessions.ts";
 import { lineTexts, richTextContents, textOf, type TimeBlock } from "./harness/notion-blocks.ts";
 import type { Locale } from "./harness/notion-databases.ts";
-import { SETUP_TIME, type UserWithQueuedTask } from "./harness/notion-sync.ts";
+import { SETUP_TIME, cronAt } from "./harness/notion-sync.ts";
+import type { UserWithTaskPage } from "./harness/notion-task-pages.ts";
 import {
   AFTER_SESSIONS,
   FIRST_LINE,
@@ -12,8 +13,7 @@ import {
   SECOND_SESSION,
   addSessions,
   fakeNotionTimeBlocks,
-  moscowUserWithQueuedTask,
-  withTaskPage,
+  moscowUserWithLinkedTask,
   type FakeNotionTimeBlocks,
 } from "./harness/notion-time-block.ts";
 import { jsonBodyOf, onlyCall } from "./harness/notion.ts";
@@ -33,21 +33,22 @@ beforeEach(() => {
   fake = fakeNotionTimeBlocks();
 });
 
-function userWithQueuedTask(locale: Locale = "ru"): Promise<UserWithQueuedTask> {
-  return moscowUserWithQueuedTask(fake.sync, locale);
+function userWithLinkedTask(locale: Locale = "ru"): Promise<UserWithTaskPage> {
+  return moscowUserWithLinkedTask(fake.sync, locale);
 }
 
 async function timeBlockAfterCron(
-  queued: UserWithQueuedTask,
+  user: UserWithTaskPage,
   time: { now: string } = AFTER_SESSIONS,
 ): Promise<TimeBlock> {
-  const { page } = await withTaskPage(fake.sync, queued, time);
-  return fake.blocks.timeBlockOn(page);
+  await cronAt(time);
+  return fake.blocks.timeBlockOn(user.page);
 }
 
 describe("создание блока", () => {
   it("1. база с blockPosition start: cron отправляет PATCH /v1/blocks/{pageId}/children с position start и notifications silent", async () => {
-    const { page } = await withTaskPage(fake.sync, await userWithQueuedTask());
+    const { page } = await userWithLinkedTask();
+    await cronAt(SETUP_TIME);
 
     expect(jsonBodyOf(onlyCall(fake.blocks.calls().appends(page.id)))).toMatchObject({
       position: { type: "start" },
@@ -57,7 +58,7 @@ describe("создание блока", () => {
   });
 
   it("1. внутри callout с иконкой ⏱, цветом gray_background и сводкой «Всего: … · сессий: … · обновлено …», в нём toggle «Журнал сессий»", async () => {
-    const { callout, toggle } = await timeBlockAfterCron(await userWithQueuedTask(), SETUP_TIME);
+    const { callout, toggle } = await timeBlockAfterCron(await userWithLinkedTask(), SETUP_TIME);
 
     expect(callout.content).toMatchObject({ icon: { emoji: "⏱" }, color: "gray_background" });
     expect(textOf(callout)).toMatch(/^Всего: .+ · сессий: \d+ · обновлено .+$/);
@@ -65,9 +66,9 @@ describe("создание блока", () => {
   });
 
   it("2. две завершённые сессии, одна с заметкой: один PATCH в toggle с двумя строками по хронологии, строка без заметки без « — »", async () => {
-    const queued = await userWithQueuedTask();
-    await addSessions(queued, [{ ...SECOND_SESSION, note: NOTE }, FIRST_SESSION]);
-    const timeBlock = await timeBlockAfterCron(queued);
+    const user = await userWithLinkedTask();
+    await addSessions(user, [{ ...SECOND_SESSION, note: NOTE }, FIRST_SESSION]);
+    const timeBlock = await timeBlockAfterCron(user);
     const append = onlyCall(fake.blocks.calls().appends(timeBlock.toggle.id));
 
     expect(jsonBodyOf(append)).toMatchObject({
@@ -80,18 +81,18 @@ describe("создание блока", () => {
 
 describe("строка журнала", () => {
   it("6. сессия 23:30–00:15 в зоне Europe/Moscow даёт строку «31.10 23:30–01.11 00:15 · 45 мин»", async () => {
-    const queued = await userWithQueuedTask();
-    await addSessions(queued, [NIGHT_IN_MOSCOW], SETUP_TIME);
+    const user = await userWithLinkedTask();
+    await addSessions(user, [NIGHT_IN_MOSCOW], SETUP_TIME);
 
-    expect(lineTexts(await timeBlockAfterCron(queued, SETUP_TIME))).toEqual([
+    expect(lineTexts(await timeBlockAfterCron(user, SETUP_TIME))).toEqual([
       "31.10 23:30–01.11 00:15 · 45 мин",
     ]);
   });
 
   it("7. заметка из 4500 символов: первый кусок rich text кончается на « — », за ним заметка кусками 2000, 2000 и 500", async () => {
-    const queued = await userWithQueuedTask();
-    await addSessions(queued, [{ ...FIRST_SESSION, note: LONG_NOTE }]);
-    const [line] = (await timeBlockAfterCron(queued)).lines;
+    const user = await userWithLinkedTask();
+    await addSessions(user, [{ ...FIRST_SESSION, note: LONG_NOTE }]);
+    const [line] = (await timeBlockAfterCron(user)).lines;
     const [prefix, ...noteChunks] = line ? richTextContents(line) : [];
 
     expect(prefix).toBe(`${FIRST_LINE} — `);
@@ -102,9 +103,9 @@ describe("строка журнала", () => {
 
 describe("сводка", () => {
   it("8. при идущем таймере сводка считает идущую сессию и заканчивается на « · ▶ идёт»", async () => {
-    const queued = await userWithQueuedTask();
-    await startTimer(queued.session, queued.task.id, atClock("01:00"));
-    const { callout, lines } = await timeBlockAfterCron(queued, atClock("01:00"));
+    const user = await userWithLinkedTask();
+    await startTimer(user.session, user.task.id, atClock("01:00"));
+    const { callout, lines } = await timeBlockAfterCron(user, atClock("01:00"));
 
     expect(textOf(callout)).toContain(" · сессий: 1 · ");
     expect(textOf(callout)).toMatch(/ · ▶ идёт$/);
@@ -112,7 +113,7 @@ describe("сводка", () => {
   });
 
   it("9. время «обновлено» выводится в часовом поясе пользователя Europe/Moscow", async () => {
-    const { callout } = await timeBlockAfterCron(await userWithQueuedTask(), atMinute(5));
+    const { callout } = await timeBlockAfterCron(await userWithLinkedTask(), atMinute(5));
 
     expect(textOf(callout)).toBe("Всего: 0 мин · сессий: 0 · обновлено 01.01.2030 03:05");
   });
@@ -120,9 +121,9 @@ describe("сводка", () => {
 
 describe("английский язык", () => {
   it("15. locale en: сводка начинается с «Total: », toggle «Session log», строка «Oct 31 23:30–Nov 1 00:15 · 45 min»", async () => {
-    const queued = await userWithQueuedTask("en");
-    await addSessions(queued, [NIGHT_IN_MOSCOW], SETUP_TIME);
-    const timeBlock = await timeBlockAfterCron(queued, SETUP_TIME);
+    const user = await userWithLinkedTask("en");
+    await addSessions(user, [NIGHT_IN_MOSCOW], SETUP_TIME);
+    const timeBlock = await timeBlockAfterCron(user, SETUP_TIME);
 
     expect(textOf(timeBlock.callout)).toMatch(/^Total: /);
     expect(textOf(timeBlock.toggle)).toBe("Session log");

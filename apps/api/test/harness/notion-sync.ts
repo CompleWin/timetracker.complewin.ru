@@ -6,13 +6,17 @@ import {
   addDatabase,
   callsFromNowOn,
   trackerFieldName,
-  updateDatabase,
   type DatabaseSettings,
   type Locale,
   type TestNotionDatabase,
   type TrackerField,
 } from "./notion-databases.ts";
-import { fakeNotionPages, type FakeNotionPages, type FakePage } from "./notion-pages.ts";
+import {
+  fakeNotionPages,
+  type FakeNotionPages,
+  type FakePage,
+  type PageValue,
+} from "./notion-pages.ts";
 import {
   fakeNotionWorkspace,
   isDataSourceQuery,
@@ -22,16 +26,10 @@ import {
   type FakeProperty,
   type PropertySpec,
 } from "./notion-workspace.ts";
-import {
-  fakeNotion,
-  getNotionConnection,
-  jsonBodyOf,
-  notionWorkspace,
-  type FakeNotion,
-} from "./notion.ts";
+import { fakeNotion, jsonBodyOf, notionWorkspace, type FakeNotion } from "./notion.ts";
 import { requireStatus, type SessionOpts } from "./rest.ts";
 import { loginAs } from "./session.ts";
-import { createTask, getTask, type TestTask } from "./tasks.ts";
+import { getTask, type TestTask } from "./tasks.ts";
 
 export type DatabaseSetup = Omit<DatabaseSettings, "projectPropertyId"> & {
   title: string;
@@ -51,6 +49,16 @@ export type SyncedDatabase = {
 export type SyncedTask = TestTask & {
   notionPageUrl: string | null;
   notionDatabaseId: string | null;
+};
+
+export type NotionEdit = {
+  editedAt: { now: string };
+  title?: string;
+  values?: Record<string, PageValue>;
+};
+
+export type NewNotionPage = NotionEdit & {
+  title: string;
 };
 
 export type FailedSync = {
@@ -74,21 +82,13 @@ export type FakeNotionSync = {
     session: TestSession,
     setup: NotionSetup<Key>,
   ): Promise<Record<Key, SyncedDatabase>>;
+  pageInNotion(dataSource: FakeDataSource, page: NewNotionPage): FakePage;
+  editInNotion(page: FakePage, edit: NotionEdit): void;
   pageOfTask(session: TestSession, taskId: string): Promise<FakePage>;
   requestsDuring(action: () => Promise<unknown>): Promise<ExternalCall[]>;
   requestsExceptPullDuring(action: () => Promise<unknown>): Promise<ExternalCall[]>;
   creationsDuring(action: () => Promise<unknown>): Promise<ExternalCall[]>;
   updatesDuring(page: FakePage, action: () => Promise<unknown>): Promise<ExternalCall[]>;
-};
-
-export type UserWithQueuedTask = {
-  session: TestSession;
-  tasks: SyncedDatabase;
-  task: TestTask;
-};
-
-export type UserWithTaskPage = UserWithQueuedTask & {
-  page: FakePage;
 };
 
 export const SETUP_TIME = atMinute(0);
@@ -97,7 +97,6 @@ export const TASKS_DATABASE: DatabaseSetup = { title: "Задачи" };
 export const FUN_DATABASE: DatabaseSetup = { title: "Развлечения" };
 
 const SYNC_PATH = "/api/notion/sync";
-const EXPORT_PATH = "/api/notion/export";
 const SETUP_DEFAULTS: DatabaseSettings = { blockPosition: "none", timeProperties: true };
 
 export function fakeNotionSync(): FakeNotionSync {
@@ -122,9 +121,6 @@ export function fakeNotionSync(): FakeNotionSync {
       { ...SETUP_DEFAULTS, ...projectSettings(dataSource, projectProperty), ...settings },
       SETUP_TIME,
     );
-    if (settings.isDefault === false && database.isDefault) {
-      await updateDatabase(session, database.id, { isDefault: false }, SETUP_TIME);
-    }
     return { database, dataSource };
   }
 
@@ -137,12 +133,28 @@ export function fakeNotionSync(): FakeNotionSync {
     for (const [key, setup] of Object.entries<DatabaseSetup>(databases)) {
       added.push([key, await addSyncedDatabase(session, setup)]);
     }
-    const current = await connectedDatabasesAtSetup(session);
-    const synced = added.map(([key, { database, dataSource }]): [string, SyncedDatabase] => [
-      key,
-      { database: current.find(({ id }) => id === database.id) ?? database, dataSource },
-    ]);
-    return Object.fromEntries(synced) as Record<Key, SyncedDatabase>;
+    return Object.fromEntries(added) as Record<Key, SyncedDatabase>;
+  }
+
+  function dataSourceOf(page: FakePage): FakeDataSource {
+    const found = workspace.dataSourceById(page.dataSourceId);
+    if (!found) throw new Error(`Page ${page.id} is outside known data sources`);
+    return found;
+  }
+
+  function editInNotion(page: FakePage, { editedAt, title, values = {} }: NotionEdit): void {
+    const titleValues =
+      title === undefined ? {} : { [titlePropertyId(dataSourceOf(page))]: titleValue(title) };
+    for (const [propertyId, value] of Object.entries({ ...values, ...titleValues })) {
+      page.values.set(propertyId, value);
+    }
+    page.lastEditedTime = editedAt.now;
+  }
+
+  function pageInNotion(dataSource: FakeDataSource, newPage: NewNotionPage): FakePage {
+    const page = pages.create(dataSource.id);
+    editInNotion(page, newPage);
+    return page;
   }
 
   async function pageOfTask(session: TestSession, taskId: string): Promise<FakePage> {
@@ -155,6 +167,8 @@ export function fakeNotionSync(): FakeNotionSync {
     workspace,
     pages,
     connectNotion,
+    pageInNotion,
+    editInNotion,
     pageOfTask,
     requestsDuring: (action) => callsDuring(() => notion.requests(), action),
     requestsExceptPullDuring: (action) =>
@@ -167,25 +181,6 @@ export function fakeNotionSync(): FakeNotionSync {
 export async function loginForSync(locale: Locale = "ru"): Promise<TestSession> {
   const { session } = await loginAs({ locale }, SETUP_TIME);
   return session;
-}
-
-export async function userWithQueuedTask(
-  fake: FakeNotionSync,
-  database: DatabaseSetup = TASKS_DATABASE,
-): Promise<UserWithQueuedTask> {
-  const session = await loginForSync();
-  const { tasks } = await fake.connectNotion(session, { databases: { tasks: database } });
-  const task = await createTask(session, { title: TASK_TITLE }, SETUP_TIME);
-  return { session, tasks, task };
-}
-
-export async function userWithTaskPage(
-  fake: FakeNotionSync,
-  database: DatabaseSetup = TASKS_DATABASE,
-): Promise<UserWithTaskPage> {
-  const queued = await userWithQueuedTask(fake, database);
-  await cronAt(SETUP_TIME);
-  return { ...queued, page: await fake.pageOfTask(queued.session, queued.task.id) };
 }
 
 export function cronAt(time: { now: string }): Promise<void> {
@@ -242,21 +237,12 @@ export function retrySync(session: TestSession, opts: SessionOpts = {}): Promise
   return api.post(`${SYNC_PATH}/retry`, undefined, { ...opts, as: session });
 }
 
-export function exportTasks(session: TestSession, opts: SessionOpts = {}): Promise<TestResponse> {
-  return api.post(EXPORT_PATH, undefined, { ...opts, as: session });
-}
-
 export async function readTask(
   session: TestSession,
   id: string,
   opts: SessionOpts = {},
 ): Promise<SyncedTask> {
   return requireStatus(await getTask(session, id, opts), 200, `GET /api/tasks/${id}`).body.task;
-}
-
-async function connectedDatabasesAtSetup(session: TestSession): Promise<TestNotionDatabase[]> {
-  const response = await getNotionConnection(session, SETUP_TIME);
-  return requireStatus(response, 200, "GET /api/notion/connection").body.connection.databases;
 }
 
 function propertyWhere(

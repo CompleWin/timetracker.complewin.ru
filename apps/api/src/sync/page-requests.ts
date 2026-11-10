@@ -20,11 +20,6 @@ export type PageReply = {
   body: unknown;
 };
 
-export type CreatedPage = {
-  id: string;
-  url: string;
-};
-
 export class BudgetExhausted extends Error {
   constructor() {
     super("Notion request budget of this run is exhausted");
@@ -48,8 +43,6 @@ export class PageGone extends Error {
 }
 
 const errorSchema = z.object({ message: z.string().min(1) });
-
-const createdPageSchema = z.object({ id: z.string(), url: z.string() });
 
 const pageSchema = z.object({
   in_trash: z.boolean().optional(),
@@ -80,15 +73,6 @@ export function budgetedClient(
   return { request };
 }
 
-export function createPage(
-  client: NotionClient,
-  dataSourceId: string,
-  properties: PageProperties,
-): Promise<PageReply> {
-  const parent = { type: "data_source_id", data_source_id: dataSourceId };
-  return sendRequest(client, { method: "POST", path: "/v1/pages", body: { parent, properties } });
-}
-
 export function updatePage(
   client: NotionClient,
   pageId: string,
@@ -109,13 +93,6 @@ export async function retrievePage(client: NotionClient, pageId: string): Promis
 export function multiSelectNames(page: Page, propertyId: string): string[] {
   const property = Object.values(page.properties).find(({ id }) => id === propertyId);
   return property?.multi_select?.map(({ name }) => name) ?? [];
-}
-
-export function createdPage(reply: PageReply): CreatedPage {
-  ensureAccepted(reply);
-  const page = createdPageSchema.safeParse(reply.body);
-  if (!page.success) throw new ServerFailure("Notion returned an unexpected page");
-  return page.data;
 }
 
 export function ensureAccepted(reply: PageReply): void {

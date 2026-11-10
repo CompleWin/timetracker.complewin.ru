@@ -140,6 +140,7 @@ async function restoreTask(task: Task): Promise<void> {
       :meta="taskMeta(task)"
       :color="taskProject(task)?.color ?? null"
       marker-at="meta"
+      :from-notion="task.notionPageUrl !== null"
       @restore="restoreTask(task)"
     />
   </ArchiveList>

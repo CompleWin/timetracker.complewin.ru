@@ -14,6 +14,7 @@ import { RouterLink } from "vue-router";
 import { currentLocale } from "../i18n.ts";
 import AppIconButton from "./ui/AppIconButton.vue";
 import AppPulseDot from "./ui/AppPulseDot.vue";
+import NotionMark from "./ui/NotionMark.vue";
 import ProjectMarker from "./ui/ProjectMarker.vue";
 
 const props = defineProps<{
@@ -59,7 +60,10 @@ const today = computed(() => formatDuration(props.todaySec, currentLocale()));
       @click="emit('choose')"
     >
       <AppPulseDot v-if="running" :size="8" />
-      <span class="min-w-[45%] flex-1 truncate text-body text-fg">{{ task.title }}</span>
+      <span class="flex min-w-[45%] flex-1 items-center gap-1.5">
+        <span class="min-w-0 truncate text-body text-fg">{{ task.title }}</span>
+        <NotionMark v-if="task.notionPageUrl !== null" />
+      </span>
       <span
         v-if="withProject"
         class="flex min-w-0 shrink items-center gap-1.5 text-meta text-fg-subtle"

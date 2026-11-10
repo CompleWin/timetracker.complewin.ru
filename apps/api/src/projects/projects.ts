@@ -4,8 +4,7 @@ import { archivedAtAfter } from "../db/archive.ts";
 import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
 import { projects } from "../db/schema.ts";
-import { nameTaken, notFound, validationError } from "../http/errors.ts";
-import { findNotionDatabase } from "../notion/databases.ts";
+import { nameTaken, notFound } from "../http/errors.ts";
 import { enqueueProjectTasks, enqueueTasks } from "../sync/outbox.ts";
 import { projectTotals, stopProjectEntries } from "../timers/time-entries.ts";
 
@@ -62,7 +61,6 @@ export async function createProject(
   now: Date,
 ): Promise<Project> {
   await ensureNameFree(db, userId, project.name);
-  await ensureNotionDatabaseOwned(db, userId, project.notionDatabaseId);
   const [row] = await db
     .insert(projects)
     .values({ id: crypto.randomUUID(), userId, ...project, createdAt: now, updatedAt: now })
@@ -82,14 +80,12 @@ export async function updateProject(
   const name = changes.name ?? current.name;
   const archivedAt = archivedAtAfter(current.archivedAt, changes.archived, now);
   if (archivedAt === null) await ensureNameFree(db, userId, name, id);
-  await ensureNotionDatabaseOwned(db, userId, changes.notionDatabaseId);
   const stopped = changes.archived === true ? await stopProjectEntries(db, userId, id, now) : [];
   const [row] = await db
     .update(projects)
     .set({
       name,
       color: changes.color,
-      notionDatabaseId: changes.notionDatabaseId,
       archivedAt,
       updatedAt: now,
     })
@@ -151,17 +147,6 @@ async function ensureNameFree(
   const active = await activeProjects(db, userId);
   if (active.some((project) => project.id !== exceptId && sameProjectName(project.name, name))) {
     throw nameTaken();
-  }
-}
-
-async function ensureNotionDatabaseOwned(
-  db: Database,
-  userId: string,
-  notionDatabaseId: string | null | undefined,
-): Promise<void> {
-  if (notionDatabaseId === null || notionDatabaseId === undefined) return;
-  if ((await findNotionDatabase(db, userId, notionDatabaseId)) === undefined) {
-    throw validationError({ notionDatabaseId: "Expected an own added Notion database" });
   }
 }
 

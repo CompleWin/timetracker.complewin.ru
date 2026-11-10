@@ -74,7 +74,7 @@ function dataSourceWithSpentAsNumber(): FakeDataSource {
 }
 
 describe("POST /api/notion/databases: поля с временем включены", () => {
-  it("2. первая база own с timeProperties: true у ru-пользователя: 201, isDefault и timeProperties true", async () => {
+  it("2. первая база own с timeProperties: true у ru-пользователя: 201, timeProperties true", async () => {
     const session = await loginIn("ru");
     const tasks = workspace.dataSource({ title: ["Задачи"] });
     const response = await postDatabase(
@@ -94,7 +94,6 @@ describe("POST /api/notion/databases: поля с временем включе�
           projectProperty: null,
           blockPosition: "start",
           timeProperties: true,
-          isDefault: true,
           createdAt: expect.stringMatching(ISO_TIME),
         },
       },

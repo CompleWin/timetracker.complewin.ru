@@ -1,127 +1,57 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { expectValidationError } from "./harness/assertions.ts";
-import { api, type TestResponse, type TestSession } from "./harness/index.ts";
-import { addDatabase, type TestNotionDatabase } from "./harness/notion-databases.ts";
-import { fakeNotionWorkspace, type FakeNotionWorkspace } from "./harness/notion-workspace.ts";
-import { fakeNotion, loginWithNotion, type FakeNotion } from "./harness/notion.ts";
-import { createProject, getProject, projectPath, updateProject } from "./harness/projects.ts";
-import { MISSING_ID } from "./harness/rest.ts";
+import { expectApiError } from "./harness/assertions.ts";
+import { api } from "./harness/index.ts";
+import {
+  IMPORT_RUN,
+  TASKS_BASE,
+  TASKS_TITLE,
+  onlyProjectNamed,
+  pageIn,
+} from "./harness/notion-import.ts";
+import { fakeNotionPull, userWithDatabase, type FakeNotionPull } from "./harness/notion-pull.ts";
+import { SETUP_TIME, cronAt } from "./harness/notion-sync.ts";
+import { createProject, projectPath } from "./harness/projects.ts";
 
-type UserWithDatabase = {
-  session: TestSession;
-  database: TestNotionDatabase;
-};
-
-type InvalidDatabaseId = [string, () => Promise<string>];
-
-const OWNER_ID = 1;
-const STRANGER_ID = 2;
-
-let notion: FakeNotion;
-let workspace: FakeNotionWorkspace;
-
-const invalidDatabaseIds: InvalidDatabaseId[] = [
-  ["чужой базы", strangerDatabaseId],
-  ["несуществующей базы", async () => MISSING_ID],
-  ["неверного формата", async () => "not-a-uuid"],
-];
+let fake: FakeNotionPull;
 
 beforeEach(() => {
-  notion = fakeNotion();
-  workspace = fakeNotionWorkspace();
+  fake = fakeNotionPull();
 });
 
-async function userWithDatabase(telegramId: number): Promise<UserWithDatabase> {
-  const { session } = await loginWithNotion(notion, { telegramId });
-  const database = await addDatabase(session, workspace.dataSource());
-  return { session, database };
-}
+describe("проект и база Notion", () => {
+  it("9. PATCH /api/projects/:id только с notionDatabaseId даёт 400", async () => {
+    const { session, added } = await userWithDatabase(fake);
+    const project = await createProject(session, { name: "Работа" }, SETUP_TIME);
+    const response = await api.patch(
+      projectPath(project.id),
+      { notionDatabaseId: added.database.id },
+      { ...SETUP_TIME, as: session },
+    );
 
-async function strangerDatabaseId(): Promise<string> {
-  const { database } = await userWithDatabase(STRANGER_ID);
-  return database.id;
-}
+    expectApiError(response, "validation_error");
+  });
 
-function postProject(session: TestSession, body: unknown): Promise<TestResponse> {
-  return api.post("/api/projects", body, { as: session });
-}
+  it("9. POST /api/projects с notionDatabaseId создаёт проект с notionDatabaseId = null", async () => {
+    const { session, added } = await userWithDatabase(fake);
+    const response = await api.post(
+      "/api/projects",
+      { name: "Работа", notionDatabaseId: added.database.id },
+      { ...SETUP_TIME, as: session },
+    );
 
-function patchProject(session: TestSession, id: string, body: unknown): Promise<TestResponse> {
-  return api.patch(projectPath(id), body, { as: session });
-}
-
-describe("привязка проекта к базе Notion", () => {
-  it("15. проект без notionDatabaseId получает null", async () => {
-    const { session } = await userWithDatabase(OWNER_ID);
-
-    expect(await createProject(session, { name: "Работа" })).toMatchObject({
-      notionDatabaseId: null,
+    expect(response).toMatchObject({
+      status: 201,
+      body: { project: { name: "Работа", notionDatabaseId: null } },
     });
   });
 
-  it("15. POST /api/projects с ID своей базы сохраняет привязку", async () => {
-    const { session, database } = await userWithDatabase(OWNER_ID);
-    const project = await createProject(session, {
-      name: "Работа",
-      notionDatabaseId: database.id,
-    });
+  it("9. импорт по-прежнему привязывает проект базы", async () => {
+    const { session, added } = await userWithDatabase(fake, TASKS_BASE);
+    pageIn(fake, added, "Anki");
+    await cronAt(IMPORT_RUN);
 
-    expect(await getProject(session, project.id)).toMatchObject({
-      status: 200,
-      body: { project: { notionDatabaseId: database.id } },
+    expect(await onlyProjectNamed(session, TASKS_TITLE, IMPORT_RUN)).toMatchObject({
+      notionDatabaseId: added.database.id,
     });
   });
-
-  it("15. PATCH /api/projects/:id с ID своей базы сохраняет привязку", async () => {
-    const { session, database } = await userWithDatabase(OWNER_ID);
-    const project = await createProject(session, { name: "Работа" });
-
-    expect(
-      await patchProject(session, project.id, { notionDatabaseId: database.id }),
-    ).toMatchObject({
-      status: 200,
-      body: { project: { id: project.id, notionDatabaseId: database.id } },
-    });
-    expect(await getProject(session, project.id)).toMatchObject({
-      status: 200,
-      body: { project: { notionDatabaseId: database.id } },
-    });
-  });
-
-  it("15. PATCH /api/projects/:id с notionDatabaseId null снимает привязку", async () => {
-    const { session, database } = await userWithDatabase(OWNER_ID);
-    const project = await createProject(session, {
-      name: "Работа",
-      notionDatabaseId: database.id,
-    });
-
-    expect(await updateProject(session, project.id, { notionDatabaseId: null })).toMatchObject({
-      notionDatabaseId: null,
-    });
-  });
-
-  it.each(invalidDatabaseIds)(
-    "15. PATCH /api/projects/:id с ID %s даёт 400 с полем notionDatabaseId",
-    async (_, databaseIdOf) => {
-      const { session } = await userWithDatabase(OWNER_ID);
-      const project = await createProject(session, { name: "Работа" });
-      const notionDatabaseId = await databaseIdOf();
-
-      expectValidationError(await patchProject(session, project.id, { notionDatabaseId }), [
-        "notionDatabaseId",
-      ]);
-    },
-  );
-
-  it.each(invalidDatabaseIds)(
-    "15. POST /api/projects с ID %s даёт 400 с полем notionDatabaseId",
-    async (_, databaseIdOf) => {
-      const { session } = await userWithDatabase(OWNER_ID);
-      const notionDatabaseId = await databaseIdOf();
-
-      expectValidationError(await postProject(session, { name: "Работа", notionDatabaseId }), [
-        "notionDatabaseId",
-      ]);
-    },
-  );
 });

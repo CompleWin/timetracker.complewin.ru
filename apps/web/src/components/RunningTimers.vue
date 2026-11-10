@@ -10,6 +10,7 @@ import AppButton from "./ui/AppButton.vue";
 const props = defineProps<{
   sessions: SessionWithTask[];
   projects: Map<string, Project>;
+  notionTaskIds: Set<string>;
   now: number;
   timeZone: string | null;
 }>();
@@ -46,6 +47,7 @@ const heading = computed(() =>
         :key="session.id"
         :session
         :project="projects.get(session.task.projectId ?? '') ?? null"
+        :from-notion="notionTaskIds.has(session.task.id)"
         :now
         :time-zone
         @stop="emit('stop', session)"

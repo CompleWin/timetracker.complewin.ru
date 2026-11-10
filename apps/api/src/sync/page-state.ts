@@ -56,24 +56,11 @@ export function usesMultiSelect(target: PageTarget): boolean {
   return target.projectMode === "property" && target.projectPropType === "multi_select";
 }
 
-export function sentOnCreate(target: PageTarget, desired: SentPage): SentPage {
-  return { ...desired, project: target.projectMode === "none" ? null : desired.project };
-}
-
 export function sentOnUpdate(target: PageTarget, desired: SentPage, sent: SentPage): SentPage {
   return {
     title: desired.title,
     project: target.projectMode === "none" ? sent.project : desired.project,
     time: desired.time ?? sent.time,
-  };
-}
-
-export function newPageProperties(target: PageTarget, desired: SentPage): PageProperties {
-  const multiSelect = desired.project === null ? [] : [desired.project];
-  return {
-    ...titleProperty(target, desired.title),
-    ...projectProperty(target, desired.project, multiSelect),
-    ...timeProperties(target, desired.time),
   };
 }
 

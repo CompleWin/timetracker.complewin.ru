@@ -3,7 +3,6 @@ import type { TestSession } from "./harness/index.ts";
 import { atClock } from "./harness/clock.ts";
 import { lineTexts } from "./harness/notion-blocks.ts";
 import { updateDatabase, type BlockPosition } from "./harness/notion-databases.ts";
-import type { FakePage } from "./harness/notion-pages.ts";
 import {
   FUN_DATABASE,
   SETUP_TIME,
@@ -13,6 +12,7 @@ import {
   syncStatus,
   type SyncedDatabase,
 } from "./harness/notion-sync.ts";
+import { linkedTask, type LinkedTask } from "./harness/notion-task-pages.ts";
 import {
   FIRST_LINE,
   FIRST_SESSION,
@@ -24,15 +24,13 @@ import {
   type FakeNotionTimeBlocks,
 } from "./harness/notion-time-block.ts";
 import { jsonBodyOf, onlyCall } from "./harness/notion.ts";
-import { createProject } from "./harness/projects.ts";
-import { createTask, type TestTask } from "./harness/tasks.ts";
 
 const DATABASE_CHANGE = atClock("01:00");
 
 type UserWithTwoDatabases = {
   session: TestSession;
   tasks: SyncedDatabase;
-  createTaskIn(database: "tasks" | "fun", title: string): Promise<TestTask>;
+  linkedTaskIn(database: "tasks" | "fun", title: string): Promise<LinkedTask>;
 };
 
 let fake: FakeNotionTimeBlocks;
@@ -46,28 +44,18 @@ async function userWithTwoDatabases(
   funPosition: BlockPosition,
 ): Promise<UserWithTwoDatabases> {
   const session = await loginForSync();
-  const { tasks, fun } = await fake.sync.connectNotion(session, {
+  const databases = await fake.sync.connectNotion(session, {
     databases: {
       tasks: { ...TASKS_DATABASE, blockPosition: tasksPosition },
       fun: { ...FUN_DATABASE, blockPosition: funPosition },
     },
   });
-  const games = await createProject(
-    session,
-    { name: "Игры", notionDatabaseId: fun.database.id },
-    SETUP_TIME,
-  );
-  const projectIds = { tasks: null, fun: games.id };
   return {
     session,
-    tasks,
-    createTaskIn: (database, title) =>
-      createTask(session, { title, projectId: projectIds[database] }, SETUP_TIME),
+    tasks: databases.tasks,
+    linkedTaskIn: (database, title) =>
+      linkedTask(fake.sync, session, databases[database], { title }),
   };
-}
-
-function pageOf(session: TestSession, task: TestTask): Promise<FakePage> {
-  return fake.sync.pageOfTask(session, task.id);
 }
 
 describe("своё положение блока у задачи", () => {
@@ -104,35 +92,33 @@ describe("своё положение блока у задачи", () => {
 
 describe("положение блока из настроек базы", () => {
   it("13. PATCH /api/notion/databases/:id с новым blockPosition ставит в очередь задачи этой базы без своего значения, остальные не трогает", async () => {
-    const { session, tasks, createTaskIn } = await userWithTwoDatabases("none", "none");
-    const inherited = await createTaskIn("tasks", "Отчёт");
-    const ownPosition = await createTaskIn("tasks", "Созвон");
-    const otherDatabase = await createTaskIn("fun", "Ведьмак");
-    await setBlockPosition(session, ownPosition.id, "none", SETUP_TIME);
+    const { session, tasks, linkedTaskIn } = await userWithTwoDatabases("none", "none");
+    const inherited = await linkedTaskIn("tasks", "Отчёт");
+    const ownPosition = await linkedTaskIn("tasks", "Созвон");
+    const otherDatabase = await linkedTaskIn("fun", "Ведьмак");
+    await setBlockPosition(session, ownPosition.task.id, "none", SETUP_TIME);
     await cronAt(SETUP_TIME);
     await updateDatabase(session, tasks.database.id, { blockPosition: "start" }, DATABASE_CHANGE);
 
     expect(await syncStatus(session, DATABASE_CHANGE)).toMatchObject({ pendingTasks: 1 });
 
     const run = await fake.blocks.callsDuring(() => cronAt(DATABASE_CHANGE));
-    const inheritedPage = await pageOf(session, inherited);
 
-    expect(jsonBodyOf(onlyCall(run.appends(inheritedPage.id)))).toMatchObject({
+    expect(jsonBodyOf(onlyCall(run.appends(inherited.page.id)))).toMatchObject({
       position: { type: "start" },
     });
-    expect(run.appends((await pageOf(session, ownPosition)).id)).toEqual([]);
-    expect(run.appends((await pageOf(session, otherDatabase)).id)).toEqual([]);
+    expect(run.appends(ownPosition.page.id)).toEqual([]);
+    expect(run.appends(otherDatabase.page.id)).toEqual([]);
   });
 
   it("14. «Задачи» со start и «Развлечения» с none: задача из «Развлечений» блок не получает, задача из «Задач» получает", async () => {
-    const { session, createTaskIn } = await userWithTwoDatabases("start", "none");
-    const report = await createTaskIn("tasks", "Отчёт");
-    const witcher = await createTaskIn("fun", "Ведьмак");
+    const { linkedTaskIn } = await userWithTwoDatabases("start", "none");
+    const report = await linkedTaskIn("tasks", "Отчёт");
+    const witcher = await linkedTaskIn("fun", "Ведьмак");
     await cronAt(SETUP_TIME);
-    const witcherPage = await pageOf(session, witcher);
 
-    expect(fake.blocks.calloutsOn(await pageOf(session, report))).toHaveLength(1);
-    expect(fake.blocks.calloutsOn(witcherPage)).toEqual([]);
-    expect(fake.blocks.calls().appends(witcherPage.id)).toEqual([]);
+    expect(fake.blocks.calloutsOn(report.page)).toHaveLength(1);
+    expect(fake.blocks.calloutsOn(witcher.page)).toEqual([]);
+    expect(fake.blocks.calls().appends(witcher.page.id)).toEqual([]);
   });
 });

@@ -12,10 +12,11 @@ export const projects = new Hono<AuthedEnv>()
     return c.json({ projects: await listProjects(db, c.var.user.id, archived, c.var.now) });
   })
   .post("/", jsonBody(createProjectBody), async (c) => {
+    const body = c.req.valid("json");
     const project = await createProject(
       database(c.env),
       c.var.user.id,
-      c.req.valid("json"),
+      { ...body, notionDatabaseId: null },
       c.var.now,
     );
     return c.json({ project }, 201);

@@ -28,6 +28,7 @@ import {
   trackerPropertyId,
   type DatabaseSetup,
 } from "./harness/notion-sync.ts";
+import { projectsBoundTo } from "./harness/notion-task-pages.ts";
 import { onlyCall } from "./harness/notion.ts";
 import { createProject } from "./harness/projects.ts";
 
@@ -63,17 +64,12 @@ function plainPage({ added }: UserWithDatabase, title = PAGE_TITLE): FakePage {
   return fake.pageInNotion(added.dataSource, { title, editedAt: PAGE_TIME });
 }
 
-async function bindProjects(user: UserWithDatabase, names: string[]): Promise<string[]> {
-  const ids: string[] = [];
-  for (const name of names) {
-    const project = await createProject(
-      user.session,
-      { name, notionDatabaseId: user.added.database.id },
-      SETUP_TIME,
-    );
-    ids.push(project.id);
-  }
-  return ids;
+async function bindProjects(
+  { session, added }: UserWithDatabase,
+  names: string[],
+): Promise<string[]> {
+  const projects = await projectsBoundTo(fake, session, added, names);
+  return projects.map(({ id }) => id);
 }
 
 describe("проект из значения в Notion", () => {

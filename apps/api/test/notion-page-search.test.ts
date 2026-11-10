@@ -132,23 +132,16 @@ describe("схема базы для условий по статусу", () => 
 });
 
 describe("в какую базу уходит поиск", () => {
-  it("3. без databaseId запрос идёт в базу по умолчанию, с databaseId второй базы в её data source", async () => {
+  it("3. без databaseId запрос идёт в первую базу, с databaseId второй базы в её data source", async () => {
     const session = await loginForSync();
     const { tasks, fun } = await fake.connectNotion(session, {
       databases: { tasks: TASKS_DATABASE, fun: FUN_DATABASE },
     });
 
-    expect(tasks.database).toMatchObject({ isDefault: true });
     expect((await searchQuery(session, {})).url).toBe(queryUrlOf(tasks.dataSource));
     expect((await searchQuery(session, { databaseId: fun.database.id })).url).toBe(
       queryUrlOf(fun.dataSource),
     );
-  });
-
-  it("3. без базы по умолчанию и без databaseId ответ 400 с полем databaseId", async () => {
-    const { session } = await userWithDatabase(fake, { ...TASKS_DATABASE, isDefault: false });
-
-    expectValidationError(await searchPages(session, {}, SEARCH_TIME), ["databaseId"]);
   });
 
   it("3. неизвестный databaseId даёт 400 с полем databaseId", async () => {

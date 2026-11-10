@@ -21,7 +21,7 @@ import AppField from "./ui/AppField.vue";
 import AppFormError from "./ui/AppFormError.vue";
 import AppModal from "./ui/AppModal.vue";
 
-const props = defineProps<{ database?: NotionDatabase; hasDefault: boolean }>();
+const props = defineProps<{ database?: NotionDatabase }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
 
 const { t } = useI18n();
@@ -35,7 +35,6 @@ const statuses = ref<NotionStatus[]>([]);
 const skippedStatusIds = ref(props.database?.skippedStatusIds ?? []);
 const blockPosition = ref<NotionBlockPosition>(props.database?.blockPosition ?? "start");
 const timeProperties = ref(props.database?.timeProperties ?? false);
-const isDefault = ref(props.database?.isDefault ?? !props.hasDefault);
 const formError = ref<string>();
 const saving = ref(false);
 
@@ -131,7 +130,6 @@ function saveDatabase(): Promise<NotionDatabase> {
     projectPropertyId: takesProperty.value ? projectPropertyId.value : undefined,
     blockPosition: blockPosition.value,
     timeProperties: timeProperties.value,
-    isDefault: isDefault.value,
     ...(statuses.value.length > 0 && { skippedStatusIds: skippedStatusIds.value }),
   };
   return props.database === undefined
@@ -218,11 +216,6 @@ function errorText(error: unknown): string | undefined {
           {{ t("notionDatabases.timePropertiesKept") }}
         </p>
       </div>
-      <AppCheckbox
-        v-model="isDefault"
-        :label="t('notionDatabases.isDefault')"
-        :hint="t('notionDatabases.hint.isDefault')"
-      />
       <AppFormError v-if="formError" placement="form">{{ formError }}</AppFormError>
     </form>
     <template #actions>

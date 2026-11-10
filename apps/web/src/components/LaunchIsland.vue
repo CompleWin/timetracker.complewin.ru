@@ -43,6 +43,9 @@ const projectsById = computed(
   () => new Map(props.projects.map((project) => [project.id, project])),
 );
 const runningByTask = computed(() => sessionsByTask(props.running));
+const notionTaskIds = computed(
+  () => new Set(props.tasks.filter((task) => task.notionPageUrl !== null).map((task) => task.id)),
+);
 
 watch(pickerOpen, (open) => (open ? listenForPressOutside() : stopListening()));
 watch(isOnline, (online) => {
@@ -110,6 +113,7 @@ function stopListening(): void {
       v-if="running.length > 0"
       :sessions="running"
       :projects="projectsById"
+      :notion-task-ids
       :now
       :time-zone
       @stop="(session) => emit('stop', session)"

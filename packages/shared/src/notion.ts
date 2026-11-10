@@ -48,7 +48,6 @@ export const notionDatabaseSchema = z.object({
   projectProperty: notionPropertySchema.nullable(),
   blockPosition: z.enum(notionBlockPositions),
   timeProperties: z.boolean(),
-  isDefault: z.boolean(),
   statusProperty: notionStatusPropertySchema.nullable(),
   skippedStatusIds: z.array(z.string()),
   createdAt: z.string(),
@@ -102,7 +101,6 @@ const notionDatabaseSettings = z.object({
   projectPropertyId: z.string().trim().min(1).optional(),
   blockPosition: z.enum(notionBlockPositions),
   timeProperties: z.boolean().optional(),
-  isDefault: z.boolean().optional(),
   skippedStatusIds: z.array(z.string()).optional(),
 });
 
@@ -149,8 +147,6 @@ export const syncStatusSchema = z.object({
 });
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
-
-export const notionExportResponse = z.object({ queued: z.number() });
 
 export const notionPageSchema = z.object({
   pageId: z.string(),

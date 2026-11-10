@@ -4,12 +4,6 @@ import { tasks, timeEntries } from "../db/schema.ts";
 import type { TaskPageLink } from "../tasks/tasks.ts";
 import type { SentPage } from "./page-state.ts";
 
-export type PageLink = {
-  pageId: string;
-  pageUrl: string;
-  databaseId: string;
-};
-
 const NO_PAGE = {
   notionDatabaseId: null,
   notionPageId: null,
@@ -56,25 +50,6 @@ export function attachPage(db: Database, taskId: string, link: TaskPageLink, now
   return db
     .update(tasks)
     .set({ ...link, updatedAt: now })
-    .where(eq(tasks.id, taskId));
-}
-
-export async function linkTask(
-  db: Database,
-  taskId: string,
-  link: PageLink,
-  sent: SentPage,
-  now: Date,
-): Promise<void> {
-  await db
-    .update(tasks)
-    .set({
-      notionDatabaseId: link.databaseId,
-      notionPageId: link.pageId,
-      notionPageUrl: link.pageUrl,
-      notionSent: sent,
-      notionSyncedAt: now,
-    })
     .where(eq(tasks.id, taskId));
 }
 

@@ -36,7 +36,6 @@ export {
   notionConnectionStatuses,
   notionDatabaseResponse,
   notionDatabaseSchema,
-  notionExportResponse,
   notionPageQuery,
   notionPageSchema,
   notionPagesResponse,

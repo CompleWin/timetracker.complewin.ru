@@ -13,8 +13,6 @@ import {
   loginForSync,
   pagePropertiesOf,
   readTask,
-  titlePropertyId,
-  titleValue,
   type DatabaseSetup,
   type FakeNotionSync,
   type SyncedDatabase,
@@ -39,16 +37,6 @@ export type NotionOption = {
   color: ProjectColor;
 };
 
-export type NotionEdit = {
-  editedAt: { now: string };
-  title?: string;
-  values?: Record<string, PageValue>;
-};
-
-export type NewNotionPage = NotionEdit & {
-  title: string;
-};
-
 export type PageSearch = {
   databaseId?: string;
   q?: string;
@@ -65,8 +53,6 @@ export type UserWithDatabase = {
 };
 
 export type FakeNotionPull = FakeNotionSync & {
-  pageInNotion(dataSource: FakeDataSource, page: NewNotionPage): FakePage;
-  editInNotion(page: FakePage, edit: NotionEdit): void;
   failQueries(failure: NotionFailure, times?: number): void;
   queriesDuring(action: () => Promise<unknown>): Promise<ExternalCall[]>;
 };
@@ -89,27 +75,6 @@ export function fakeNotionPull(): FakeNotionPull {
     return Response.json(queryResultJson(sortedByEditTime(found, body.sorts), body));
   });
 
-  function dataSourceOf(page: FakePage): FakeDataSource {
-    const found = sync.workspace.dataSourceById(page.dataSourceId);
-    if (!found) throw new Error(`Page ${page.id} is outside known data sources`);
-    return found;
-  }
-
-  function editInNotion(page: FakePage, { editedAt, title, values = {} }: NotionEdit): void {
-    const titleValues =
-      title === undefined ? {} : { [titlePropertyId(dataSourceOf(page))]: titleValue(title) };
-    for (const [propertyId, value] of Object.entries({ ...values, ...titleValues })) {
-      page.values.set(propertyId, value);
-    }
-    page.lastEditedTime = editedAt.now;
-  }
-
-  function pageInNotion(dataSource: FakeDataSource, newPage: NewNotionPage): FakePage {
-    const page = sync.pages.create(dataSource.id);
-    editInNotion(page, newPage);
-    return page;
-  }
-
   function queryResultJson(
     pages: FakePage[],
     body: Record<string, unknown>,
@@ -128,8 +93,6 @@ export function fakeNotionPull(): FakeNotionPull {
 
   return {
     ...sync,
-    pageInNotion,
-    editInNotion,
     failQueries: (failure, times = 1) => {
       failures.push(...Array.from({ length: times }, () => failure));
     },

@@ -40,7 +40,6 @@ export type TestNotionDatabase = {
   skippedStatusIds: string[];
   blockPosition: BlockPosition;
   timeProperties: boolean;
-  isDefault: boolean;
   createdAt: string;
 };
 
@@ -57,7 +56,6 @@ export type DatabaseSettings = {
   projectPropertyId?: string;
   blockPosition?: BlockPosition;
   timeProperties?: boolean;
-  isDefault?: boolean;
   skippedStatusIds?: string[];
 };
 
@@ -190,12 +188,10 @@ export function deleteDatabase(
   return api.delete(databasePath(id), { ...opts, as: session });
 }
 
-export async function connectedDatabases(session: TestSession): Promise<TestNotionDatabase[]> {
-  const response = await getNotionConnection(session);
+export async function connectedDatabases(
+  session: TestSession,
+  opts: SessionOpts = {},
+): Promise<TestNotionDatabase[]> {
+  const response = await getNotionConnection(session, opts);
   return requireStatus(response, 200, "GET /api/notion/connection").body.connection.databases;
-}
-
-export async function defaultDatabaseIds(session: TestSession): Promise<string[]> {
-  const databases = await connectedDatabases(session);
-  return databases.filter((database) => database.isDefault).map((database) => database.id);
 }

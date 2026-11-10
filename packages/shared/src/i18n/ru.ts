@@ -50,6 +50,7 @@ export const ru = {
   "tasks.lastYesterday": "Последний раз: вчера, {time}",
   "tasks.lastAt": "Последний раз: {dateTime}",
   "tasks.neverStarted": "Ещё не запускалась",
+  "tasks.fromNotion": "Задача из Notion",
   "tasks.openInNotion": "Открыть в Notion",
   "tasks.blockPosition": "Блок времени в Notion",
   "tasks.blockPosition.inherit": "Как в настройках базы",
@@ -117,7 +118,6 @@ export const ru = {
   "notionPages.addItem": "Добавить из Notion: {title}",
   "notionPages.linked": "Уже в трекере",
   "notionDatabases.title": "Базы Notion",
-  "notionDatabases.default": "По умолчанию",
   "notionDatabases.configure": "Настроить",
   "notionDatabases.configureItem": "Настроить базу {title}",
   "notionDatabases.remove": "Убрать",
@@ -142,7 +142,6 @@ export const ru = {
     "Трекер добавит в базу поля «{spentHours}», «{spent}», «{running}» и «{lastTracked}», если их там нет. Твои поля он не меняет.",
   "notionDatabases.timePropertiesKept":
     "Созданные поля останутся в Notion. Удалить их можно вручную.",
-  "notionDatabases.isDefault": "База по умолчанию",
   "notionDatabases.importStatuses": "Импортировать задачи со статусами",
   "notionDatabases.importStatusesNote":
     "Задачи с другими статусами можно добавить вручную через «Добавить из Notion».",
@@ -154,8 +153,6 @@ export const ru = {
     "Блок «⏱ Всего: …» внутри страницы задачи: сводка времени и журнал сессий с заметками. Здесь выбирается, где он стоит и нужен ли он.",
   "notionDatabases.hint.timeProperties":
     "По этим полям можно сортировать задачи и считать сумму времени в представлениях базы. Без них время видно только в блоке на странице.",
-  "notionDatabases.hint.isDefault":
-    "Сюда попадают задачи без проекта и задачи проектов, для которых не выбрана база. Если базы по умолчанию нет, такие задачи в Notion не попадают.",
   "notionDatabases.hint.importStatuses":
     "Трекер сам создаёт задачи из записей базы с этими статусами. Записи без статуса импортируются всегда. Уже созданные задачи при смене статуса остаются.",
   "notionDatabases.submit": "Добавить",
@@ -176,9 +173,6 @@ export const ru = {
   "notionSync.lastRun": "Последний запуск: {dateTime}",
   "notionSync.errors": "Ошибки синхронизации",
   "notionSync.retry": "Повторить",
-  "notionSync.export": "Выгрузить задачи в Notion",
-  "notionSync.queued": "Поставлено в очередь: {count}",
-  "projects.notionDatabaseDefault": "Как по умолчанию",
   "timers.running": "Сейчас идёт",
   "timers.runningCount": "Сейчас идут · {count}",
   "timers.stopAll": "Остановить все",
