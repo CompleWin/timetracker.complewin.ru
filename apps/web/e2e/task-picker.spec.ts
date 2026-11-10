@@ -14,6 +14,7 @@ import {
 import { addLocalSession, afternoonZone, loginInZone } from "./helpers/afternoon.ts";
 import { clockIn } from "./helpers/clock.ts";
 import {
+  alreadyRunningButton,
   expectPickerClosed,
   expectStartRows,
   expectTopToBottom,
@@ -411,7 +412,7 @@ test.describe("строка задачи", () => {
   });
 });
 
-test("34. «Создать», затем «Новая задача» закрывают панель и открывают диалог; созданная задача видна в дереве, таймер не идёт", async ({
+test("34. «Создать», затем «Новая задача» закрывают панель и открывают диалог; созданная задача видна в дереве и в регионе «Сейчас идёт»", async ({
   page,
 }) => {
   await page.goto("/");
@@ -428,7 +429,7 @@ test("34. «Создать», затем «Новая задача» закры�
   await button(form, "Создать").click();
   await expect(form).toBeHidden();
 
+  await expect(link(runningNow(page), "Anki")).toBeVisible();
   await openPicker(page);
-  await expect(startTimerButton(group(page, "Без проекта"), "Anki")).toBeVisible();
-  await expect(runningNow(page)).toHaveCount(0);
+  await expect(alreadyRunningButton(group(page, "Без проекта"), "Anki")).toBeVisible();
 });

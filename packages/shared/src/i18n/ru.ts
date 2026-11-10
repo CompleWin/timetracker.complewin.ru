@@ -39,6 +39,8 @@ export const ru = {
   "tasks.new": "Новая задача",
   "tasks.edit": "Изменить задачу",
   "tasks.project": "Проект",
+  "tasks.startError.tooManyRunning": "Задача создана, но таймер не запущен: уже идут 20 таймеров",
+  "tasks.startError.failed": "Задача создана, но таймер не запущен",
   "tasks.total": "Всего: {duration}",
   "tasks.today": "сегодня {duration} · {sessions}",
   "tasks.archivedNotice":
