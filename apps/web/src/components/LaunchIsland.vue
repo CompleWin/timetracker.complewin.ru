@@ -4,7 +4,10 @@ import type { Project, SessionWithTask, Task } from "@stt/shared";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { isOnline } from "../connection.ts";
+import { usePickerResize } from "../picker-resize.ts";
+import type { PickerViewport } from "../picker-size.ts";
 import { sessionsByTask } from "../timers.ts";
+import PickerResizeHandle from "./PickerResizeHandle.vue";
 import RunningTimers from "./RunningTimers.vue";
 import TaskPicker, { type NewTaskRequest } from "./TaskPicker.vue";
 import AppButton from "./ui/AppButton.vue";
@@ -34,10 +37,18 @@ const emit = defineEmits<{
   addFromNotion: [];
 }>();
 
+const DESKTOP_QUERY = "(min-width: 768px)";
+
 const { t } = useI18n();
 const pickerOpen = ref(false);
 const trigger = useTemplateRef("trigger");
 const panel = useTemplateRef("panel");
+const addButton = useTemplateRef("addButton");
+const pickerResize = usePickerResize(measurePickerViewport);
+const pickerSize = pickerResize.size;
+const panelStyle = computed(() =>
+  pickerSize.value === null ? undefined : { width: `${pickerSize.value.width}px` },
+);
 
 const projectsById = computed(
   () => new Map(props.projects.map((project) => [project.id, project])),
@@ -47,7 +58,14 @@ const notionTaskIds = computed(
   () => new Set(props.tasks.filter((task) => task.notionPageUrl !== null).map((task) => task.id)),
 );
 
-watch(pickerOpen, (open) => (open ? listenForPressOutside() : stopListening()));
+watch(pickerOpen, (open) => {
+  if (open) {
+    pickerResize.refresh();
+    listenForPressOutside();
+  } else {
+    stopListening();
+  }
+});
 watch(isOnline, (online) => {
   if (!online) pickerOpen.value = false;
 });
@@ -91,6 +109,15 @@ function hasOpenDialog(): boolean {
   return document.querySelector("dialog[open]") !== null;
 }
 
+function measurePickerViewport(): PickerViewport | null {
+  const end: unknown = addButton.value?.$el;
+  const start = trigger.value;
+  if (!window.matchMedia(DESKTOP_QUERY).matches) return null;
+  if (start === null || !(end instanceof HTMLElement)) return null;
+  const maxWidth = end.getBoundingClientRect().right - start.getBoundingClientRect().left;
+  return { height: window.innerHeight, maxWidth };
+}
+
 function closeOnPressOutside(event: PointerEvent): void {
   const target = event.target;
   if (!(target instanceof Node)) return;
@@ -120,7 +147,7 @@ function stopListening(): void {
       @stop-all="emit('stopAll')"
     />
     <div class="relative flex flex-wrap items-center gap-2.5 p-3">
-      <div class="min-w-0 flex-[1_1_260px] md:relative">
+      <div class="relative min-w-0 flex-[1_1_260px]">
         <button
           ref="trigger"
           type="button"
@@ -139,7 +166,8 @@ function stopListening(): void {
         <div
           v-if="pickerOpen"
           ref="panel"
-          class="absolute inset-x-0 top-[64px] z-20 md:top-[60px] md:right-auto md:w-[min(600px,calc(100vw-24px))]"
+          class="absolute inset-x-0 top-[52px] z-20 md:top-[60px] md:right-auto"
+          :style="panelStyle"
         >
           <TaskPicker
             :tasks
@@ -148,6 +176,7 @@ function stopListening(): void {
             :today-sec
             :now
             :can-add-from-notion
+            :list-height="pickerSize?.listHeight ?? null"
             @start="(task) => closeThen(() => emit('start', task))"
             @create="(request) => closeThen(() => emit('create', request))"
             @pin="(task) => emit('pin', task)"
@@ -157,10 +186,24 @@ function stopListening(): void {
             @edit-project="(project) => closeThen(() => emit('editProject', project))"
             @archive-project="(project) => emit('archiveProject', project)"
             @close="closePicker"
-          />
+          >
+            <template v-if="pickerSize !== null" #footer-end>
+              <PickerResizeHandle
+                :size="pickerSize"
+                @resize="pickerResize.resize"
+                @save="pickerResize.save"
+                @reset="pickerResize.reset"
+              />
+            </template>
+          </TaskPicker>
         </div>
       </div>
-      <AppButton variant="quiet-accent" :disabled="!isOnline" @click="emit('addManually')">
+      <AppButton
+        ref="addButton"
+        variant="quiet-accent"
+        :disabled="!isOnline"
+        @click="emit('addManually')"
+      >
         {{ t("launch.addManually") }}
       </AppButton>
     </div>
