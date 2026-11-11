@@ -18,10 +18,15 @@ const logoTag = computed(() => (route.path === "/" && session.isGuest ? "div" : 
     <component :is="logoTag">
       <RouterLink
         to="/"
-        class="flex items-center gap-2.5 text-logo text-fg no-underline hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        :aria-label="t('app.name')"
+        class="flex items-center gap-2.5 font-code text-[20px] leading-none font-bold tracking-[-0.04em] text-fg no-underline hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <img :src="APP_ICON" alt="" class="size-[26px] flex-none rounded-[6px]" />
-        {{ t("app.name") }}
+        <span aria-hidden="true" class="flex items-center gap-1.5">
+          simple<span class="h-1 w-[9px] rounded-full bg-fg" />time<span
+            class="h-1 w-[9px] rounded-full bg-primary"
+          />tracker
+        </span>
       </RouterLink>
     </component>
     <AccountMenu v-if="session.user" :user="session.user" />
