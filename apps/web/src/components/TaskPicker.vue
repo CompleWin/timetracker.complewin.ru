@@ -41,6 +41,7 @@ const props = defineProps<{
   todaySec: Map<string, number>;
   now: number;
   canAddFromNotion: boolean;
+  listHeight: number | null;
 }>();
 const emit = defineEmits<{
   start: [task: Task];
@@ -76,6 +77,10 @@ const recent = computed(() => recentTasks(props.tasks));
 const found = computed(() => foundTasks(props.tasks, props.projects, search.value));
 const showCreate = computed(() => canCreate(search.value, found.value));
 const target = computed(() => createTarget(props.projects, search.value));
+
+const listStyle = computed(() =>
+  props.listHeight === null ? undefined : { maxHeight: `${props.listHeight}px` },
+);
 
 const createCaption = computed(() => {
   const current = target.value;
@@ -173,6 +178,8 @@ function onPanelKeydown(event: KeyboardEvent): void {
 
 <template>
   <div
+    role="region"
+    :aria-label="t('picker.region')"
     class="overflow-hidden rounded-island border border-line bg-surface-island shadow-popover"
     @keydown="onPanelKeydown"
   >
@@ -226,7 +233,7 @@ function onPanelKeydown(event: KeyboardEvent): void {
       </button>
     </div>
 
-    <div ref="list" class="max-h-[min(400px,55vh)] overflow-y-auto px-2 pb-2">
+    <div ref="list" class="max-h-[min(400px,55vh)] overflow-y-auto px-2 pb-2" :style="listStyle">
       <template v-if="!searching">
         <p v-if="tasks.length === 0" class="px-3 py-2 text-small text-fg-subtle">
           {{ t("home.empty") }}
@@ -344,22 +351,23 @@ function onPanelKeydown(event: KeyboardEvent): void {
       </button>
     </div>
 
-    <div
-      class="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-surface-page px-4 py-2.5 text-meta text-fg-subtle"
-    >
-      <span>{{ t("picker.hint") }}</span>
-      <span class="inline-flex items-center gap-1.5">
-        <AppKbd>#</AppKbd>
-        {{ t("picker.hintProject") }}
-      </span>
-      <span class="inline-flex items-center gap-1.5">
-        <AppKbd><ArrowUp :size="13" /><ArrowDown :size="13" /></AppKbd>
-        {{ t("picker.hintSelect") }}
-      </span>
-      <span class="inline-flex items-center gap-1.5">
-        <AppKbd>Esc</AppKbd>
-        {{ t("picker.hintClose") }}
-      </span>
+    <div class="flex items-end gap-x-3 bg-surface-page px-4 py-2.5 text-meta text-fg-subtle">
+      <div class="flex max-w-[520px] min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span>{{ t("picker.hint") }}</span>
+        <span class="inline-flex items-center gap-1.5">
+          <AppKbd>#</AppKbd>
+          {{ t("picker.hintProject") }}
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <AppKbd><ArrowUp :size="13" /><ArrowDown :size="13" /></AppKbd>
+          {{ t("picker.hintSelect") }}
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <AppKbd>Esc</AppKbd>
+          {{ t("picker.hintClose") }}
+        </span>
+      </div>
+      <slot name="footer-end" />
     </div>
   </div>
 </template>
