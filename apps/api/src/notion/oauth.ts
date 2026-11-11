@@ -4,7 +4,9 @@ import { callNotion, clientAuthorization, notionUrl } from "./http.ts";
 
 const AUTHORIZE_PATH = "/v1/oauth/authorize";
 const TOKEN_PATH = "/v1/oauth/token";
+const REVOKE_PATH = "/v1/oauth/revoke";
 const CALLBACK_PATH = "/notion/oauth/callback";
+const REVOKE_TIMEOUT_MS = 5000;
 
 const tokensSchema = z.object({
   access_token: z.string(),
@@ -75,6 +77,16 @@ export async function renewTokens(
     accessToken: renewed.data.access_token,
     refreshToken: renewed.data.refresh_token ?? refreshToken,
   };
+}
+
+export async function revokeToken(env: Bindings, token: string): Promise<void> {
+  await callNotion(env, {
+    method: "POST",
+    path: REVOKE_PATH,
+    body: { token },
+    authorization: clientAuthorization(env),
+    signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
+  });
 }
 
 function requestTokens(env: Bindings, body: Record<string, string>): Promise<Response> {

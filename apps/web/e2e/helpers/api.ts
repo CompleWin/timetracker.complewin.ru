@@ -156,6 +156,21 @@ export async function botUsername(page: Page): Promise<string> {
   return health.botUsername;
 }
 
+export type PublisherContacts = {
+  publisherName: string;
+  supportEmail: string;
+};
+
+export async function publisherContacts(page: Page): Promise<PublisherContacts> {
+  const request: ApiRequest = { method: "GET", path: "/api/health" };
+  const { publisherName, supportEmail } = await requestFromPage<PublisherContacts>(
+    page,
+    request,
+    200,
+  );
+  return { publisherName, supportEmail };
+}
+
 export async function listProjects(page: Page): Promise<Project[]> {
   const request: ApiRequest = { method: "GET", path: "/api/projects" };
   const { projects } = await requestFromPage<{ projects: Project[] }>(page, request, 200);

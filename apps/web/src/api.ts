@@ -44,7 +44,17 @@ import { rememberServerNow } from "./server-clock.ts";
 
 const SERVER_NOW_HEADER = "X-Server-Now";
 
-const healthResponse = z.object({ env: z.string(), botUsername: z.string() });
+const healthResponse = z.object({
+  env: z.string(),
+  botUsername: z.string(),
+  publisherName: z.string(),
+  supportEmail: z.string(),
+});
+
+export type PublisherContacts = {
+  publisherName: string;
+  supportEmail: string;
+};
 
 const errorResponse = z.object({
   error: z.object({
@@ -90,6 +100,11 @@ export async function fetchBotUsername(): Promise<string> {
   return healthResponse.parse(await request("GET", "/api/health")).botUsername;
 }
 
+export async function fetchPublisherContacts(): Promise<PublisherContacts> {
+  const { publisherName, supportEmail } = healthResponse.parse(await request("GET", "/api/health"));
+  return { publisherName, supportEmail };
+}
+
 export async function fetchCurrentUser(): Promise<User | null> {
   try {
     return userResponse.parse(await request("GET", "/api/me")).user;
@@ -105,6 +120,10 @@ export async function devLogin(body: DevLoginBody = {}): Promise<User> {
 
 export async function updateMe(body: UpdateMeBody): Promise<User> {
   return userResponse.parse(await request("PATCH", "/api/me", body)).user;
+}
+
+export async function deleteAccount(): Promise<void> {
+  await request("DELETE", "/api/me");
 }
 
 export async function logout(): Promise<void> {

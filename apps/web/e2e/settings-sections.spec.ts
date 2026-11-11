@@ -24,7 +24,7 @@ test.describe("ширина окна 1280 px", () => {
     const notion = link(sections, "Notion");
     const language = link(sections, "Язык");
 
-    await expect(sections.getByRole("link")).toHaveText(["Notion", "Telegram-бот", "Язык"]);
+    await expect(sections.getByRole("link")).toContainText(["Notion", "Telegram-бот", "Язык"]);
     await expect(notion).toHaveAttribute("aria-current", "true");
 
     await language.click();

@@ -7,6 +7,7 @@ export type NotionApiRequest = {
   method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
+  signal?: AbortSignal;
 };
 
 export type NotionRequest = NotionApiRequest & {
@@ -40,7 +41,7 @@ export async function callNotion(env: Bindings, request: NotionRequest): Promise
 
 async function send(
   env: Bindings,
-  { method, path, body, authorization }: NotionRequest,
+  { method, path, body, authorization, signal }: NotionRequest,
 ): Promise<Response> {
   const headers = new Headers({ Authorization: authorization, "Notion-Version": NOTION_VERSION });
   if (body !== undefined) headers.set("Content-Type", "application/json");
@@ -49,6 +50,7 @@ async function send(
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
     });
   } catch (error) {
     throw new NotionUnavailable(`Notion request failed: ${String(error)}`);

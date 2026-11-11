@@ -43,7 +43,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     "border-2 border-line-strong text-fg-muted hover:border-fg hover:text-fg disabled:opacity-50",
   "outline-white":
     "border-2 border-white text-white hover:bg-white hover:text-primary disabled:opacity-50",
-  "solid-danger": "bg-danger text-white hover:bg-danger-hover disabled:opacity-50",
+  "solid-danger":
+    "bg-danger text-white hover:bg-danger-hover disabled:bg-surface-active disabled:text-fg-faint",
   ghost: "text-primary hover:bg-primary-soft disabled:opacity-50",
   "ghost-danger": "text-danger-ink hover:bg-danger-soft disabled:opacity-50",
   "quiet-accent": "font-semibold text-primary hover:bg-primary-soft disabled:opacity-50",

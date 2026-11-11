@@ -342,4 +342,61 @@ export const en: Messages = {
   "botSettings.hintOff": "The bot stays quiet even if a timer is left running overnight",
   "botSettings.hint":
     "If a timer runs longer than {duration}, the bot will ask if you forgot to stop it",
+  "bot.description":
+    "I'm the SimpleTimeTracker bot. I show which timers are running, stop them and remind you when a timer runs too long.\n\nSign in to the tracker with Telegram at {appUrl} first, then press Start.",
+  "bot.shortDescription":
+    "SimpleTimeTracker timers in Telegram: what's running, stop and reminders. Website: {appUrl}",
+  "guest.description":
+    "A simple time tracker. Start timers for tasks and projects from your phone or computer, see where your time went and keep it in Notion. Sign in with Telegram, and the bot will remind you about a forgotten timer.",
+  "guest.tryFree": "Try it free",
+  "footer.privacy": "Privacy",
+  "footer.terms": "Terms",
+  "legal.updated": "Updated: {date}",
+  "legal.contacts.title": "Contacts",
+  "legal.contacts.publisher": "The tracker is published by {name}.",
+  "legal.contacts.email": "Send questions and data deletion requests to",
+  "privacy.title": "Privacy Policy",
+  "privacy.intro":
+    "SimpleTimeTracker is a free time tracker. This page describes what data it stores, where it is kept and how to delete it.",
+  "privacy.data.title": "What data is stored",
+  "privacy.data.telegram": "Telegram data received at sign in: id, name, username and avatar link.",
+  "privacy.data.content":
+    "Everything you create in the tracker: projects, tasks, timer sessions, notes and settings.",
+  "privacy.data.notion":
+    "If Notion is connected: encrypted access tokens, the workspace name and the added databases.",
+  "privacy.data.cookie":
+    "A sign in cookie, so you don't have to sign in every time. There are no advertising cookies or analytics.",
+  "privacy.storage.title": "Where the data is stored",
+  "privacy.storage.text":
+    "The tracker runs on Cloudflare, and its database is kept there too. Cloudflare servers may be located outside Russia.",
+  "privacy.notion.title": "Access to Notion",
+  "privacy.notion.text":
+    "The tracker sees only the pages and databases you chose when connecting Notion. It reads records of the added databases and writes time properties and a session log block to them. The tracker does not create new pages.",
+  "privacy.sharing.title": "Sharing data",
+  "privacy.sharing.text":
+    "The data is not sold or shared with third parties. The exceptions are services the tracker cannot work without, and only to the extent needed: Cloudflare stores the data and serves the website, Telegram handles sign in and bot messages, Notion receives what the tracker writes to your databases.",
+  "privacy.deletion.title": "How to delete your data",
+  "privacy.deletion.text":
+    "Open Settings and press Delete account in the Account section. The tracker will delete all your data and disconnect from Notion. Your Notion pages will stay.",
+  "terms.title": "Terms of Use",
+  "terms.intro": "By using SimpleTimeTracker, you agree to these terms.",
+  "terms.service.title": "The service",
+  "terms.service.text":
+    "The tracker is free and provided as is, without warranties. It may have bugs and downtime.",
+  "terms.changes.title": "Changes",
+  "terms.changes.text": "The tracker and these terms may change, and the service may be shut down.",
+  "terms.content.title": "Your data",
+  "terms.content.text":
+    "You are responsible for what you store in the tracker. Don't store anything you are not ready to trust to a third party service.",
+  "terms.deletion.title": "Deleting your account",
+  "terms.deletion.text":
+    "You can delete your account at any time: open Settings and press Delete account in the Account section.",
+  "account.title": "Account",
+  "account.delete": "Delete account",
+  "account.dialogTitle": "Delete account",
+  "account.warning":
+    "All projects, tasks and sessions will be deleted, and the tracker will be disconnected from Notion. Your Notion pages will stay.",
+  "account.confirmLabel": "Type “delete” to confirm",
+  "account.confirmWord": "delete",
+  "account.deleteForever": "Delete forever",
 };

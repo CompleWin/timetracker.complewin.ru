@@ -57,6 +57,10 @@ export async function endSession(c: Context<AppEnv>): Promise<void> {
     .where(eq(sessions.id, await sha256(token)));
 }
 
+export function clearSessionCookie<E extends AppEnv>(c: Context<E>): void {
+  deleteCookie(c, SESSION_COOKIE, { path: "/" });
+}
+
 async function findSession(
   db: Database,
   id: string,

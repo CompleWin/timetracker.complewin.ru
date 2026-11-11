@@ -44,9 +44,10 @@ const signInLine = computed(() =>
     ? t("header.signedIn")
     : translate(currentLocale(), "header.signedInAs", { username: props.user.username }),
 );
-const currentPath = computed(() =>
-  SECTIONS.some((section) => section.path === route.path) ? route.path : TRACKER_PATH,
-);
+const currentPath = computed(() => {
+  if (route.meta.outsideMenu === true) return undefined;
+  return SECTIONS.some((section) => section.path === route.path) ? route.path : TRACKER_PATH;
+});
 
 watch(open, (isOpen) => (isOpen ? listenForDismiss() : stopListening()));
 watch(() => route.fullPath, close);
