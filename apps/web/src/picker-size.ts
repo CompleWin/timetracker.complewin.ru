@@ -7,13 +7,14 @@ type Range = { min: number; max: number };
 type PickerLimits = { width: Range; listHeight: Range };
 
 const STORAGE_KEY = "stt.pickerSize";
-const DEFAULT_WIDTH = 600;
-const DEFAULT_LIST_HEIGHT = 400;
-const DEFAULT_LIST_SHARE = 0.55;
+const MIN_WIDTH = 600;
+const MIN_LIST_HEIGHT = 400;
+const MIN_LIST_SHARE = 0.55;
 const MAX_LIST_SHARE = 0.75;
 
 export function defaultPickerSize(viewport: PickerViewport): PickerSize {
-  return { width: DEFAULT_WIDTH, listHeight: defaultListHeight(viewport.height) };
+  const limits = pickerLimits(viewport);
+  return { width: limits.width.max, listHeight: limits.listHeight.max };
 }
 
 export function fitPickerSize(size: PickerSize, viewport: PickerViewport): PickerSize {
@@ -66,18 +67,14 @@ function isPositiveInteger(value: unknown): value is number {
 }
 
 function pickerLimits(viewport: PickerViewport): PickerLimits {
-  const minListHeight = defaultListHeight(viewport.height);
+  const minListHeight = Math.min(MIN_LIST_HEIGHT, Math.floor(viewport.height * MIN_LIST_SHARE));
   return {
-    width: { min: DEFAULT_WIDTH, max: Math.max(DEFAULT_WIDTH, Math.floor(viewport.maxWidth)) },
+    width: { min: MIN_WIDTH, max: Math.max(MIN_WIDTH, Math.floor(viewport.maxWidth)) },
     listHeight: {
       min: minListHeight,
       max: Math.max(minListHeight, Math.floor(viewport.height * MAX_LIST_SHARE)),
     },
   };
-}
-
-function defaultListHeight(viewportHeight: number): number {
-  return Math.min(DEFAULT_LIST_HEIGHT, Math.floor(viewportHeight * DEFAULT_LIST_SHARE));
 }
 
 function clamp(value: number, range: Range): number {
