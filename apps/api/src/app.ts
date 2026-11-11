@@ -1,9 +1,10 @@
 import { Hono } from "hono";
-import { requireSession } from "./auth/require-session.ts";
+import { identifySession, requireSession } from "./auth/require-session.ts";
 import type { AppEnv } from "./env.ts";
 import { serverClock, testClock } from "./http/clock.ts";
 import { handleError, notFound } from "./http/errors.ts";
 import { sameOriginWrites } from "./http/origin.ts";
+import { rateLimit } from "./http/rate-limit.ts";
 import { serveAssets } from "./routes/assets.ts";
 import { auth } from "./routes/auth.ts";
 import { health } from "./routes/health.ts";
@@ -25,6 +26,7 @@ const WORKER_PREFIXES = ["/auth", "/notion", "/tg", "/__test"];
 
 function apiRoutes() {
   return new Hono<AppEnv>()
+    .use(identifySession, rateLimit)
     .route("/", health)
     .use(requireSession)
     .route("/me", me)

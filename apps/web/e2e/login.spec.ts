@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { accountMenu, openAccountMenu } from "./helpers/account-menu.ts";
-import { button, textOf } from "./helpers/ui.ts";
+import { button, heading, pageTitle, textOf } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
 const signInErrors = [
@@ -14,24 +14,38 @@ function telegramLink(page: Page, name: string) {
   return page.getByRole("link", { name, exact: true });
 }
 
-test("20. открытие / без сессии ведёт на /login со ссылкой «Войти через Telegram»", async ({
+test("20. открытие / без сессии показывает главную для гостя, а не ведёт на /login", async ({
   page,
 }) => {
   await page.goto("/");
 
-  await expect(page).toHaveURL(urlMatching("/login", { returnTo: "/" }));
-  await expect(page.getByRole("heading", { name: "Вход", exact: true })).toBeVisible();
+  await expect(pageTitle(page, "SimpleTimeTracker")).toBeVisible();
+  await expect(page).toHaveURL(urlMatching("/"));
+});
+
+test("20. на /login ссылка «Войти через Telegram» указывает на /auth/telegram/start?returnTo=%2F", async ({
+  page,
+}) => {
+  await page.goto("/login");
+
+  await expect(heading(page, "Вход")).toBeVisible();
   await expect(telegramLink(page, "Войти через Telegram")).toHaveAttribute(
     "href",
     "/auth/telegram/start?returnTo=%2F",
   );
 });
 
+test("20. /settings без сессии ведёт на /login?returnTo=/settings", async ({ page }) => {
+  await page.goto("/settings");
+
+  await expect(page).toHaveURL(urlMatching("/login", { returnTo: "/settings" }));
+});
+
 test("21. «Войти как тестовый пользователь» открывает главную, в меню «Меню» видны «Dev User» и «Выйти», «Выйти» ведёт на /login", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Войти как тестовый пользователь" }).click();
+  await page.goto("/login");
+  await button(page, "Войти как тестовый пользователь").click();
 
   await expect(page).toHaveURL(urlMatching("/"));
   await openAccountMenu(page);
@@ -40,7 +54,7 @@ test("21. «Войти как тестовый пользователь» отк
   await button(accountMenu(page), "Выйти").click();
 
   await expect(page).toHaveURL(urlMatching("/login"));
-  await page.goto("/");
+  await page.goto("/settings");
   await expect(page).toHaveURL(urlMatching("/login"));
 });
 

@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
+import AccountSettings from "../components/AccountSettings.vue";
 import LanguageSettings from "../components/LanguageSettings.vue";
 import NotionDatabases from "../components/NotionDatabases.vue";
 import NotionSettings from "../components/NotionSettings.vue";
@@ -16,6 +17,7 @@ const NOTION_DATABASES_ID = "notion-databases";
 const NOTION_SYNC_ID = "notion-sync";
 const TELEGRAM_BOT_ID = "telegram-bot";
 const LANGUAGE_ID = "language";
+const ACCOUNT_ID = "account";
 
 const { t } = useI18n();
 const connection = ref<NotionConnection | null>(null);
@@ -34,6 +36,7 @@ const sections = computed<SettingsSection[]>(() => [
   ...(shownSync.value !== null ? [{ id: NOTION_SYNC_ID, title: t("notionSync.title") }] : []),
   { id: TELEGRAM_BOT_ID, title: t("botSettings.title") },
   { id: LANGUAGE_ID, title: t("language.label") },
+  { id: ACCOUNT_ID, title: t("account.title") },
 ]);
 const currentId = computed(
   () =>
@@ -98,6 +101,7 @@ function showSection(id: string): void {
       />
       <TelegramBotSettings :id="TELEGRAM_BOT_ID" class="scroll-mt-4" />
       <LanguageSettings :id="LANGUAGE_ID" class="scroll-mt-4" />
+      <AccountSettings :id="ACCOUNT_ID" class="scroll-mt-4" />
     </div>
   </div>
 </template>

@@ -43,6 +43,10 @@ export function runningNow(page: Page): Locator {
   return region(page, "Сейчас идёт");
 }
 
+export function pageFooter(page: Page): Locator {
+  return page.getByRole("contentinfo");
+}
+
 export function dialog(page: Page, name: string): Locator {
   return page.getByRole("dialog", { name, exact: true });
 }

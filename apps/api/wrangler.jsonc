@@ -7,6 +7,8 @@
   "vars": {
     "ENV": "dev",
     "APP_URL": "http://localhost:5173",
+    "PUBLISHER_NAME": "Local publisher",
+    "SUPPORT_EMAIL": "support@example.com",
   },
   "d1_databases": [
     {
@@ -33,7 +35,16 @@
       "vars": {
         "ENV": "staging",
         "APP_URL": "https://stt-staging.complewin.workers.dev",
+        "PUBLISHER_NAME": "complewin",
+        "SUPPORT_EMAIL": "complewin@yandex.ru",
       },
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "1501",
+          "simple": { "limit": 300, "period": 60 },
+        },
+      ],
       "d1_databases": [
         {
           "binding": "DB",
@@ -47,7 +58,16 @@
       "vars": {
         "ENV": "production",
         "APP_URL": "https://timetracker.complewin.ru",
+        "PUBLISHER_NAME": "complewin",
+        "SUPPORT_EMAIL": "complewin@yandex.ru",
       },
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "1502",
+          "simple": { "limit": 300, "period": 60 },
+        },
+      ],
       "d1_databases": [
         {
           "binding": "DB",

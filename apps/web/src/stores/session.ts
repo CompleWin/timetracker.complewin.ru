@@ -1,6 +1,6 @@
 import type { Locale, UpdateMeBody, User } from "@stt/shared";
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import * as api from "../api.ts";
 import { applyLocale } from "../i18n.ts";
 
@@ -8,6 +8,8 @@ export const useSessionStore = defineStore("session", () => {
   const user = ref<User | null>(null);
   const unverified = ref(false);
   let loading: Promise<void> | undefined;
+
+  const isGuest = computed(() => user.value === null && !unverified.value);
 
   function ensureLoaded(): Promise<void> {
     loading ??= loadCurrentUser();
@@ -31,6 +33,11 @@ export const useSessionStore = defineStore("session", () => {
 
   async function signOut(): Promise<void> {
     await api.logout();
+    user.value = null;
+  }
+
+  async function deleteAccount(): Promise<void> {
+    await api.deleteAccount();
     user.value = null;
   }
 
@@ -63,9 +70,11 @@ export const useSessionStore = defineStore("session", () => {
   return {
     user,
     unverified,
+    isGuest,
     ensureLoaded,
     signInAsTestUser,
     signOut,
+    deleteAccount,
     changeLocale,
     changeReminderThreshold,
   };

@@ -18,12 +18,16 @@ export type Bindings = {
   NOTION_CLIENT_SECRET: string;
   NOTION_API_BASE?: string;
   TOKEN_ENC_KEY: string;
+  PUBLISHER_NAME: string;
+  SUPPORT_EMAIL: string;
+  API_RATE_LIMITER?: RateLimit;
 };
 
 export type AppEnv = {
   Bindings: Bindings;
   Variables: {
     now: Date;
+    sessionUser?: User;
   };
 };
 

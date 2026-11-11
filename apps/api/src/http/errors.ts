@@ -18,6 +18,7 @@ export type ErrorCode =
   | "database_already_added"
   | "too_many_databases"
   | "already_linked"
+  | "rate_limited"
   | "notion_unavailable"
   | "internal_error";
 
@@ -92,6 +93,8 @@ export const tooManyDatabases = () =>
 
 export const alreadyLinked = (taskId: string) =>
   new ApiError(409, "already_linked", "The Notion page is already linked to a task", { taskId });
+
+export const rateLimited = () => new ApiError(429, "rate_limited", "Too many requests");
 
 export const notionUnavailable = () =>
   new ApiError(502, "notion_unavailable", "Notion did not answer or answered with a server error");
