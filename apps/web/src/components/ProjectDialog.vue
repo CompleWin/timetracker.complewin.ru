@@ -3,6 +3,7 @@ import { PROJECT_NAME_MAX_LENGTH, type Project, type ProjectColor } from "@stt/s
 import { computed, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
+import { isOnline } from "../connection.ts";
 import ProjectColorField from "./ProjectColorField.vue";
 import AppButton from "./ui/AppButton.vue";
 import AppField from "./ui/AppField.vue";
@@ -13,7 +14,7 @@ type ProjectFields = {
   color: ProjectColor;
 };
 
-const props = defineProps<{ project?: Project }>();
+const props = defineProps<{ project?: Project; onlineOnly?: boolean }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
 
 const { t } = useI18n();
@@ -23,7 +24,9 @@ const color = ref<ProjectColor>(props.project?.color ?? "default");
 const nameTaken = ref(false);
 const saving = ref(false);
 
-const canSave = computed(() => name.value.trim() !== "" && !saving.value);
+const canSave = computed(
+  () => name.value.trim() !== "" && !saving.value && (isOnline.value || !props.onlineOnly),
+);
 
 watch(name, () => {
   nameTaken.value = false;

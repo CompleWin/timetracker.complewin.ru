@@ -13,7 +13,13 @@ type StartErrorKey = "tasks.startError.tooManyRunning" | "tasks.startError.faile
 
 const NO_PROJECT_OPTION = "";
 
-const props = defineProps<{ projects: Project[]; task?: Task; projectId?: string }>();
+const props = defineProps<{
+  projects: Project[];
+  task?: Task;
+  projectId?: string;
+  withoutStart?: boolean;
+  onlineOnly?: boolean;
+}>();
 const emit = defineEmits<{ close: []; saved: []; created: [] }>();
 
 const { t } = useI18n();
@@ -30,7 +36,7 @@ const canSave = computed(
     title.value.trim() !== "" &&
     !saving.value &&
     !locked.value &&
-    (props.task !== undefined || isOnline.value),
+    (isOnline.value || (props.task !== undefined && !props.onlineOnly)),
 );
 
 function projectOptionOf(projectId: string | null): string {
@@ -45,14 +51,19 @@ function selectedProjectId(): string | null {
 async function save(): Promise<void> {
   saving.value = true;
   try {
-    await (props.task === undefined ? createAndStart() : update(props.task));
+    await (props.task === undefined ? create() : update(props.task));
   } finally {
     saving.value = false;
   }
 }
 
-async function createAndStart(): Promise<void> {
+async function create(): Promise<void> {
   const task = await api.createTask({ title: title.value, projectId: selectedProjectId() });
+  if (props.withoutStart) emit("saved");
+  else await start(task);
+}
+
+async function start(task: Task): Promise<void> {
   try {
     await api.startTimer(task.id);
     emit("saved");

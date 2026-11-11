@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { Archive, Check, ChevronDown, LogOut, Settings, Timer, type LucideIcon } from "@lucide/vue";
+import {
+  Archive,
+  Check,
+  ChevronDown,
+  ListTodo,
+  LogOut,
+  Settings,
+  Timer,
+  type LucideIcon,
+} from "@lucide/vue";
 import { t as translate, type MessageKey, type User } from "@stt/shared";
 import { computed, onBeforeUnmount, ref, useId, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -11,6 +20,7 @@ type MenuSection = { path: string; label: MessageKey; icon: LucideIcon };
 
 const SECTIONS: MenuSection[] = [
   { path: "/", label: "header.tracker", icon: Timer },
+  { path: "/tasks", label: "header.tasks", icon: ListTodo },
   { path: "/archive", label: "header.archive", icon: Archive },
   { path: "/settings", label: "header.settings", icon: Settings },
 ];
