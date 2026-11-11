@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage.vue";
 import LoginPage from "./pages/LoginPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import TaskPage from "./pages/TaskPage.vue";
+import TasksPage from "./pages/TasksPage.vue";
 import { useSessionStore } from "./stores/session.ts";
 
 const LOGIN_PATH = "/login";
@@ -14,6 +15,7 @@ export const router = createRouter({
   routes: [
     { path: "/", component: HomePage, meta: { narrow: true } },
     { path: "/archive", component: ArchivePage, meta: { narrow: true } },
+    { path: "/tasks", component: TasksPage, meta: { narrow: true } },
     { path: "/tasks/:id", component: TaskPage, props: true },
     { path: "/settings", component: SettingsPage },
     { path: LOGIN_PATH, component: LoginPage },

@@ -1,19 +1,12 @@
 <script setup lang="ts">
 import { Archive, Pencil, Play, Square } from "@lucide/vue";
-import {
-  formatDateTime,
-  formatDuration,
-  formatTime,
-  tc,
-  type Project,
-  type Session,
-  type Task,
-} from "@stt/shared";
+import { formatDuration, formatTime, tc, type Project, type Session, type Task } from "@stt/shared";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { isOnline } from "../connection.ts";
-import { relativeDay, totalSec } from "../day-sessions.ts";
+import { totalSec } from "../day-sessions.ts";
 import { currentLocale } from "../i18n.ts";
+import { lastStartText } from "../last-start.ts";
 import { liveTotalSec } from "../timers.ts";
 import TimerClock from "./TimerClock.vue";
 import AppIconButton from "./ui/AppIconButton.vue";
@@ -56,16 +49,9 @@ const runningSince = computed(() =>
     : t("tasks.runningSince", { time: formatTime(props.running.startedAt, props.timeZone) }),
 );
 
-const lastStart = computed(() => {
-  const { lastStartedAt } = props.task;
-  if (lastStartedAt === null) return t("tasks.neverStarted");
-  const time = formatTime(lastStartedAt, props.timeZone);
-  const relative = relativeDay(lastStartedAt, props.now, props.timeZone);
-  if (relative === "today") return t("tasks.lastToday", { time });
-  if (relative === "yesterday") return t("tasks.lastYesterday", { time });
-  const dateTime = formatDateTime(lastStartedAt, props.timeZone, currentLocale());
-  return t("tasks.lastAt", { dateTime });
-});
+const lastStart = computed(() =>
+  lastStartText(props.task.lastStartedAt, props.now, props.timeZone, currentLocale()),
+);
 </script>
 
 <template>
