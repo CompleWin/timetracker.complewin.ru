@@ -5,6 +5,8 @@ export type Point = { x: number; y: number };
 
 export type Size = { width: number; height: number };
 
+export type StoredSize = { width: number; listHeight: number };
+
 type Box = Point & Size;
 
 export const PICKER_SIZE_KEY = "stt.pickerSize";
@@ -42,6 +44,11 @@ export async function rightEdge(locator: Locator): Promise<number> {
   return box.x + box.width;
 }
 
+export async function bottomEdge(locator: Locator): Promise<number> {
+  const box = await boxOf(locator);
+  return box.y + box.height;
+}
+
 export async function widthOf(locator: Locator): Promise<number> {
   return (await boxOf(locator)).width;
 }
@@ -63,6 +70,13 @@ export async function expectPx(measure: () => Promise<number>, expected: number)
   await expect.poll(async () => snapped(await measure(), expected)).toBe(expected);
 }
 
+export async function expectSameEdge(
+  measureFirst: () => Promise<number>,
+  measureSecond: () => Promise<number>,
+): Promise<void> {
+  await expectPx(async () => (await measureFirst()) - (await measureSecond()), 0);
+}
+
 export async function expectPanelSize(page: Page, expected: Size): Promise<void> {
   await expectPx(() => panelWidth(page), expected.width);
   await expectPx(() => panelHeight(page), expected.height);
@@ -71,7 +85,7 @@ export async function expectPanelSize(page: Page, expected: Size): Promise<void>
 export async function scrollHandleIntoView(page: Page): Promise<void> {
   const handle = resizeHandle(page);
   await handle.scrollIntoViewIfNeeded();
-  await expect(handle).toBeInViewport();
+  await expect(handle).toBeInViewport({ ratio: 1 });
 }
 
 export async function handleCenter(page: Page): Promise<Point> {
@@ -88,6 +102,7 @@ export async function dragHandleTo(page: Page, target: Point): Promise<void> {
 }
 
 export async function dragHandleBy(page: Page, offset: Point): Promise<void> {
+  await scrollHandleIntoView(page);
   const start = await handleCenter(page);
   await dragHandleTo(page, { x: start.x + offset.x, y: start.y + offset.y });
 }
@@ -99,6 +114,12 @@ export function rawPickerSize(page: Page): Promise<string | null> {
 export async function storedPickerSize(page: Page): Promise<unknown> {
   const raw = await rawPickerSize(page);
   return raw === null ? null : parseJson(raw);
+}
+
+export async function expectStoredSize(page: Page, expected: StoredSize): Promise<void> {
+  await expect
+    .poll(async () => snappedStoredSize(await storedPickerSize(page), expected))
+    .toEqual(expected);
 }
 
 export async function storePickerSize(page: Page, value: string): Promise<void> {
@@ -114,4 +135,19 @@ function parseJson(raw: string): unknown {
 
 function snapped(actual: number, expected: number): number {
   return Math.abs(actual - expected) <= PX_TOLERANCE ? expected : actual;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function snappedStoredSize(stored: unknown, expected: StoredSize): unknown {
+  if (!isRecord(stored)) return stored;
+  const { width, listHeight } = stored;
+  if (typeof width !== "number" || typeof listHeight !== "number") return stored;
+  return {
+    ...stored,
+    width: snapped(width, expected.width),
+    listHeight: snapped(listHeight, expected.listHeight),
+  };
 }

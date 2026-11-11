@@ -11,11 +11,14 @@ import {
   startTimerButton,
 } from "./helpers/picker.ts";
 import {
+  bottomEdge,
   boxOf,
   dragHandleBy,
   dragHandleTo,
   expectPanelSize,
   expectPx,
+  expectSameEdge,
+  expectStoredSize,
   handleCenter,
   isInside,
   leftEdge,
@@ -27,7 +30,6 @@ import {
   resizeHandle,
   rightEdge,
   scrollHandleIntoView,
-  storedPickerSize,
   storePickerSize,
   type Size,
 } from "./helpers/picker-size.ts";
@@ -37,13 +39,14 @@ const DESKTOP = { width: 1280, height: 800 };
 const NARROW_DESKTOP = { width: 1024, height: 800 };
 const PHONE = { width: 390, height: 800 };
 
-const DEFAULT_WIDTH = 600;
-const DEFAULT_LIST_HEIGHT = 400;
-const MAX_LIST_HEIGHT = 600;
+const MIN_WIDTH = 600;
+const MIN_LIST_HEIGHT = 400;
+const DEFAULT_LIST_HEIGHT = 600;
 const KEY_STEP = 40;
 
 const MANY_TASKS = 30;
 const FEW_TASKS = 3;
+const NO_TASKS = 0;
 const TASK_ROW = /^Запустить таймер: Задача /;
 
 test.use({ viewport: DESKTOP });
@@ -66,27 +69,39 @@ async function openPickerWithRows(page: Page, taskCount: number): Promise<void> 
   await expect(pickerRegion(page).getByRole("button", { name: TASK_ROW })).toHaveCount(taskCount);
 }
 
+async function expectPanelLeftAtTrigger(page: Page): Promise<void> {
+  await expectSameEdge(
+    () => leftEdge(pickerRegion(page)),
+    () => leftEdge(pickerTrigger(page)),
+  );
+}
+
+async function expectPanelRightAtAddManually(page: Page): Promise<void> {
+  await expectSameEdge(
+    () => rightEdge(pickerRegion(page)),
+    () => rightEdge(addManually(page)),
+  );
+}
+
+async function expectPanelAlignedWithTrigger(page: Page): Promise<void> {
+  await expectPanelLeftAtTrigger(page);
+  await expectSameEdge(
+    () => rightEdge(pickerRegion(page)),
+    () => rightEdge(pickerTrigger(page)),
+  );
+}
+
 async function openDefaultPanel(page: Page, taskCount: number): Promise<Size> {
   await createTasks(page, taskCount);
   await page.goto("/");
   await openPickerWithRows(page, taskCount);
-  await expectPx(() => panelWidth(page), DEFAULT_WIDTH);
+  await expectPanelRightAtAddManually(page);
   return panelSize(page);
 }
 
 async function openPanelWithManyTasks(page: Page): Promise<Size> {
   test.slow();
   return openDefaultPanel(page, MANY_TASKS);
-}
-
-async function expectPanelRightAtAddManually(page: Page): Promise<void> {
-  await expectPx(() => rightEdge(pickerRegion(page)), await rightEdge(addManually(page)));
-}
-
-async function expectPanelAlignedWithTrigger(page: Page): Promise<void> {
-  const trigger = pickerTrigger(page);
-  await expectPx(() => leftEdge(pickerRegion(page)), await leftEdge(trigger));
-  await expectPx(() => rightEdge(pickerRegion(page)), await rightEdge(trigger));
 }
 
 async function expectPanelOpen(page: Page): Promise<void> {
@@ -98,78 +113,78 @@ async function expectNoSavedSize(page: Page): Promise<void> {
   await expect.poll(() => rawPickerSize(page)).toBeNull();
 }
 
-test("1. без сохранённого размера регион «Выбор задачи» шириной 600 px начинается от левого края триггера, у кнопки «Изменить размер панели» такой же title и подсказка про стрелки", async ({
+test("1. без сохранённого размера регион «Выбор задачи» тянется от левого края триггера до правого края «Добавить вручную» и в окне 1024 x 800, у кнопки «Изменить размер панели» такой же title и подсказка про стрелки", async ({
   page,
 }) => {
   await page.goto("/");
 
   await openPicker(page);
 
-  await expectPx(() => panelWidth(page), DEFAULT_WIDTH);
-  await expectPx(() => leftEdge(pickerRegion(page)), await leftEdge(pickerTrigger(page)));
+  await expectPanelLeftAtTrigger(page);
+  await expectPanelRightAtAddManually(page);
   const handle = resizeHandle(page);
   await expect(handle).toBeVisible();
   await expect(handle).toHaveAttribute("title", "Изменить размер панели");
   await expect(handle).toHaveAccessibleDescription(
     "Стрелки меняют размер, Home возвращает обычный",
   );
+
+  await page.setViewportSize(NARROW_DESKTOP);
+
+  await expectPanelRightAtAddManually(page);
 });
 
 test.describe("перетаскивание ручки", () => {
-  test("2. много задач: сдвиг на +150 и +120 px даёт ширину 750 px и высоту на 120 px больше, размер записан и остаётся после перезагрузки", async ({
+  test("2. много задач: сдвиг на -150 и -120 px уменьшает ширину на 150 px и высоту на 120 px, записан список 480 px, размер остаётся после перезагрузки", async ({
     page,
   }) => {
-    const before = await openPanelWithManyTasks(page);
-    const grown = { width: 750, height: before.height + 120 };
+    const defaults = await openPanelWithManyTasks(page);
+    const shrunk = { width: defaults.width - 150, height: defaults.height - 120 };
 
-    await dragHandleBy(page, { x: 150, y: 120 });
+    await dragHandleBy(page, { x: -150, y: -120 });
 
-    await expectPanelSize(page, grown);
-    await expect.poll(() => storedPickerSize(page)).toEqual({ width: 750, listHeight: 520 });
+    await expectPanelSize(page, shrunk);
+    await expectStoredSize(page, { width: defaults.width - 150, listHeight: 480 });
 
     await page.reload();
     await openPickerWithRows(page, MANY_TASKS);
 
-    await expectPanelSize(page, grown);
+    await expectPanelSize(page, shrunk);
   });
 
-  test("3. много задач: сдвиг на +2000 px упирается в правый край «Добавить вручную» и список 600 px, после прокрутки к ручке сдвиг на -2000 px возвращает размер по умолчанию", async ({
+  test("3. много задач: сдвиг на -2000 px даёт ширину 600 px и список 400 px вместо 600 px, сдвиг на +2000 px возвращает размер по умолчанию", async ({
     page,
   }) => {
     const defaults = await openPanelWithManyTasks(page);
 
-    await dragHandleBy(page, { x: 2000, y: 2000 });
-
-    await expectPanelRightAtAddManually(page);
-    await expectPx(
-      () => panelHeight(page),
-      defaults.height + MAX_LIST_HEIGHT - DEFAULT_LIST_HEIGHT,
-    );
-
-    await scrollHandleIntoView(page);
     await dragHandleBy(page, { x: -2000, y: -2000 });
+
+    await expectPanelSize(page, {
+      width: MIN_WIDTH,
+      height: defaults.height - (DEFAULT_LIST_HEIGHT - MIN_LIST_HEIGHT),
+    });
+
+    await dragHandleBy(page, { x: 2000, y: 2000 });
 
     await expectPanelSize(page, defaults);
   });
 
-  test("4. три задачи: сдвиг на +200 px вниз высоту региона не меняет, записана наибольшая высота списка 600 px", async ({
+  test("4. три задачи: сдвиг на -100 px вверх высоту региона не меняет, записан список 500 px", async ({
     page,
   }) => {
     const defaults = await openDefaultPanel(page, FEW_TASKS);
 
-    await dragHandleBy(page, { x: 0, y: 200 });
+    await dragHandleBy(page, { x: 0, y: -100 });
 
+    await expectStoredSize(page, { width: defaults.width, listHeight: 500 });
     await expectPx(() => panelHeight(page), defaults.height);
-    await expect
-      .poll(() => storedPickerSize(page))
-      .toEqual({ width: DEFAULT_WIDTH, listHeight: MAX_LIST_HEIGHT });
   });
 
-  test("7. после растягивания двойной клик по ручке возвращает размер по умолчанию и удаляет ключ", async ({
+  test("7. после уменьшения двойной клик по ручке возвращает размер по умолчанию и удаляет ключ", async ({
     page,
   }) => {
     const defaults = await openPanelWithManyTasks(page);
-    await dragHandleBy(page, { x: 100, y: 80 });
+    await dragHandleBy(page, { x: -100, y: -80 });
     await expect.poll(() => rawPickerSize(page)).not.toBeNull();
 
     await resizeHandle(page).dblclick();
@@ -178,52 +193,51 @@ test.describe("перетаскивание ручки", () => {
     await expectNoSavedSize(page);
   });
 
-  test("8. перетаскивание, отпущенное над островком «Хронология», оставляет панель открытой и записывает размер", async ({
+  test("8. без задач: сдвиг на -100 px влево и +300 px вниз, отпущенный над островком «Хронология» ниже панели, оставляет панель открытой и записывает ширину на 100 px меньше и список 600 px", async ({
     page,
   }) => {
-    await page.goto("/");
+    const defaults = await openDefaultPanel(page, NO_TASKS);
+    await scrollHandleIntoView(page);
     const timeline = await boxOf(island(page, "Хронология"));
-    await openPicker(page);
-    const panel = await boxOf(pickerRegion(page));
+    const panelBottom = await bottomEdge(pickerRegion(page));
     const start = await handleCenter(page);
-    const dx = 100;
-    const dy = Math.ceil(Math.max(panel.y + panel.height, timeline.y) + 40 - start.y);
-    const target = { x: start.x + dx, y: start.y + dy };
-    expect(isInside(target, timeline)).toBe(true);
+    const target = { x: start.x - 100, y: start.y + 300 };
+    expect(target.y).toBeGreaterThan(panelBottom);
     expect(target.y).toBeLessThan(DESKTOP.height);
+    expect(isInside(target, timeline)).toBe(true);
 
     await dragHandleTo(page, target);
 
     await expectPanelOpen(page);
-    await expect
-      .poll(() => storedPickerSize(page))
-      .toEqual({
-        width: DEFAULT_WIDTH + dx,
-        listHeight: Math.min(DEFAULT_LIST_HEIGHT + dy, MAX_LIST_HEIGHT),
-      });
+    await expectStoredSize(page, {
+      width: defaults.width - 100,
+      listHeight: DEFAULT_LIST_HEIGHT,
+    });
   });
 });
 
 test.describe("клавиатура на ручке", () => {
-  test("5. много задач: стрелка вправо дважды даёт 680 px, стрелка вниз прибавляет 40 px высоты, Home возвращает размер по умолчанию и удаляет ключ, стрелка влево при 600 px ширину не меняет", async ({
+  test("5. много задач: стрелка влево дважды уменьшает ширину на 80 px, стрелка вверх уменьшает высоту на 40 px, Home возвращает размер по умолчанию и удаляет ключ, стрелка вправо при ширине по умолчанию ничего не меняет и не записывает", async ({
     page,
   }) => {
     const defaults = await openPanelWithManyTasks(page);
     await resizeHandle(page).focus();
 
-    await page.keyboard.press("ArrowRight");
-    await page.keyboard.press("ArrowRight");
-    await expectPx(() => panelWidth(page), DEFAULT_WIDTH + 2 * KEY_STEP);
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowLeft");
+    await expectPx(() => panelWidth(page), defaults.width - 2 * KEY_STEP);
 
-    await page.keyboard.press("ArrowDown");
-    await expectPx(() => panelHeight(page), defaults.height + KEY_STEP);
+    const heightBefore = await panelHeight(page);
+    await page.keyboard.press("ArrowUp");
+    await expectPx(() => panelHeight(page), heightBefore - KEY_STEP);
 
     await page.keyboard.press("Home");
     await expectPanelSize(page, defaults);
     await expectNoSavedSize(page);
 
-    await page.keyboard.press("ArrowLeft");
-    await expectPx(() => panelWidth(page), DEFAULT_WIDTH);
+    await page.keyboard.press("ArrowRight");
+    await expectPx(() => panelWidth(page), defaults.width);
+    expect(await rawPickerSize(page)).toBeNull();
   });
 
   test("6. при поиске «Отчёт» Enter и стрелка вниз на ручке не запускают таймер подсвеченной задачи «Отчёт», панель открыта, новой сессии нет", async ({
