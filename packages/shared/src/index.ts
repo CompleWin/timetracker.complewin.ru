@@ -78,6 +78,7 @@ export {
   type ProjectColor,
   type UpdateProjectBody,
 } from "./project.ts";
+export { REPO_URL } from "./repo.ts";
 export { safeReturnTo } from "./return-to.ts";
 export {
   createSessionBody,
