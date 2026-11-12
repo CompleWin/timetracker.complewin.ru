@@ -19,7 +19,7 @@ test("20. открытие / без сессии показывает главн
 }) => {
   await page.goto("/");
 
-  await expect(pageTitle(page, "SimpleTimeTracker")).toBeVisible();
+  await expect(pageTitle(page, "Бесплатный трекер времени")).toBeVisible();
   await expect(page).toHaveURL(urlMatching("/"));
 });
 

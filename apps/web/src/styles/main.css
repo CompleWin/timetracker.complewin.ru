@@ -22,7 +22,16 @@
   --color-project-purple: #9065b0;
   --color-project-pink: #c14c8a;
   --color-project-red: #d44c47;
+  --color-cta-deep: #0c4a2e;
+  --color-cta-teal: #0f7b6c;
+  --color-cta-green: #1e8656;
+  --color-cta-light: #3fbf7f;
   --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
+  --animate-sheen: sheen 5s linear infinite;
+  --animate-glint: glint 4.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-glow: sheen 5s linear infinite, breathe 3s ease-in-out infinite;
+  --animate-ripple: ripple 550ms ease-out forwards;
+  --animate-caret: caret 1s steps(1) infinite;
 
   @keyframes pulse-dot {
     0%,
@@ -33,6 +42,124 @@
       opacity: 0.28;
     }
   }
+
+  @keyframes sheen {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: -200% 50%;
+    }
+  }
+
+  @keyframes glint {
+    0% {
+      transform: translateX(-130%) skewX(-18deg);
+    }
+    50%,
+    100% {
+      transform: translateX(330%) skewX(-18deg);
+    }
+  }
+
+  @keyframes breathe {
+    0%,
+    100% {
+      opacity: 0.35;
+    }
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  @keyframes ripple {
+    from {
+      transform: scale(0.35);
+      opacity: 0.9;
+    }
+    to {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+
+  @keyframes caret {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
+@utility bg-cta-sheen {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-cta-deep) 0%,
+    var(--color-primary) 16%,
+    var(--color-cta-teal) 34%,
+    var(--color-cta-green) 50%,
+    var(--color-cta-teal) 66%,
+    var(--color-primary) 84%,
+    var(--color-cta-deep) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@utility bg-cta-glint {
+  background-image: linear-gradient(
+    105deg,
+    transparent 15%,
+    color-mix(in srgb, var(--color-white) 32%, transparent) 50%,
+    transparent 85%
+  );
+  transform: translateX(-130%) skewX(-18deg);
+}
+
+@utility bg-cta-glow {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-cta-green),
+    var(--color-cta-teal),
+    var(--color-cta-light),
+    var(--color-cta-teal),
+    var(--color-cta-green)
+  );
+  background-size: 200% 100%;
+}
+
+@utility bg-hero-dots {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--color-fg) 20%, transparent) 1px,
+    transparent 1.6px
+  );
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 75% 62% at 50% 48%, black 35%, transparent 88%);
+}
+
+@utility bg-demo-glow {
+  background-image: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-primary-soft) 95%, transparent),
+    transparent
+  );
+}
+
+@utility mask-fade-bottom {
+  mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent);
+}
+
+@utility mask-timeline-window {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 6px,
+    black calc(100% - 22px),
+    transparent
+  );
 }
 
 @layer base {

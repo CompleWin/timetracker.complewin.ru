@@ -1,23 +1,23 @@
 <script setup lang="ts">
+import { onUnmounted, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
-import LocaleChips from "../components/LocaleChips.vue";
-import AppButton from "../components/ui/AppButton.vue";
-import AppIsland from "../components/ui/AppIsland.vue";
-import { APP_ICON } from "../app-icon.ts";
+import LandingDemo from "../components/landing/LandingDemo.vue";
+import LandingFeatures from "../components/landing/LandingFeatures.vue";
+import LandingHero from "../components/landing/LandingHero.vue";
+import LandingNotion from "../components/landing/LandingNotion.vue";
 
 const { t } = useI18n();
+
+watchEffect(() => (document.title = t("guest.title")));
+onUnmounted(() => (document.title = t("app.name")));
 </script>
 
 <template>
-  <AppIsland
-    class="mx-auto mt-8 flex w-full max-w-[560px] flex-col items-center text-center md:mt-16"
-  >
-    <img :src="APP_ICON" alt="" class="size-16 rounded-[14px]" />
-    <h1 class="mt-4 text-form-title md:text-form-title-lg">{{ t("app.name") }}</h1>
-    <p class="mt-3 text-body text-fg-muted">{{ t("guest.description") }}</p>
-    <AppButton href="/login" size="lg" width="full-on-mobile" class="mt-6">
-      {{ t("guest.tryFree") }}
-    </AppButton>
-    <LocaleChips class="mt-6 justify-center" />
-  </AppIsland>
+  <section class="relative pt-[clamp(28px,5vw,56px)] pb-14">
+    <div aria-hidden="true" class="pointer-events-none absolute inset-0 bg-hero-dots" />
+    <LandingHero />
+    <LandingDemo />
+  </section>
+  <LandingFeatures />
+  <LandingNotion />
 </template>
