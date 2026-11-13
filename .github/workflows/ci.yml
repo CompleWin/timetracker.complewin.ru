@@ -22,8 +22,18 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - run: npm run deploy:staging -w @stt/api -- --dry-run
-      - run: npm run deploy:production -w @stt/api -- --dry-run
+      - name: Dry-run staging on workers.dev
+        env:
+          APP_URL: https://stt-staging.example.workers.dev
+          PUBLISHER_NAME: Example publisher
+          SUPPORT_EMAIL: support@example.com
+        run: npm run deploy:staging -w @stt/api -- --dry-run
+      - name: Dry-run production on a custom domain
+        env:
+          APP_URL: https://tracker.example.com
+          PUBLISHER_NAME: Example publisher
+          SUPPORT_EMAIL: support@example.com
+        run: npm run deploy:production -w @stt/api -- --dry-run
       - run: npm run test:e2e
       - if: failure()
         uses: actions/upload-artifact@v7

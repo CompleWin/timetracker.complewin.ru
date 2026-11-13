@@ -1,3 +1,4 @@
+export { parseAppUrl, type AppUrl } from "./app-url.ts";
 export type { ArchivedFilter } from "./archived-filter.ts";
 export {
   BOT_COMMANDS,
