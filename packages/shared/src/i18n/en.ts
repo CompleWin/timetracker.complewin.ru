@@ -343,7 +343,7 @@ export const en: Messages = {
   "botSettings.hint":
     "If a timer runs longer than {duration}, the bot will ask if you forgot to stop it",
   "bot.description":
-    "I'm the SimpleTimeTracker bot. I show which timers are running, stop them and remind you when a timer runs too long.\n\nSign in to the tracker with Telegram at {appUrl} first, then press Start.",
+    "Started a timer and went off to dinner? It happens. ⏰ I'll remind you about it here, ⏹ you can stop it right from the chat, and ▶ /status shows what's running now.\n\nSign in to the tracker with Telegram at {appUrl} first, then press Start.",
   "bot.shortDescription":
     "SimpleTimeTracker timers in Telegram: what's running, stop and reminders. Website: {appUrl}",
   "guest.tryFree": "Try it free",
