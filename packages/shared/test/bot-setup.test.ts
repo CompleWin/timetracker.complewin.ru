@@ -18,11 +18,11 @@ const englishCommands = [
 ];
 
 const russianDescription =
-  "Я бот трекера SimpleTimeTracker. Показываю, какие таймеры сейчас идут, останавливаю их и напоминаю, если таймер идёт слишком долго.\n\n" +
-  `Сначала войди в трекер через Telegram на сайте ${APP_URL}, потом нажми «Старт».`;
+  "Запустил таймер и ушёл ужинать? Бывает. ⏰ Я напомню о нём здесь, ⏹ остановить можно прямо из чата, а ▶ /status покажет, что идёт сейчас.\n\n" +
+  `Сначала войди в трекер через Telegram на ${APP_URL}, потом жми «Запустить».`;
 
 const englishDescription =
-  "I'm the SimpleTimeTracker bot. I show which timers are running, stop them and remind you when a timer runs too long.\n\n" +
+  "Started a timer and went off to dinner? It happens. ⏰ I'll remind you about it here, ⏹ you can stop it right from the chat, and ▶ /status shows what's running now.\n\n" +
   `Sign in to the tracker with Telegram at ${APP_URL} first, then press Start.`;
 
 const russianShortDescription = `Таймеры SimpleTimeTracker в Telegram: что идёт, остановка и напоминания. Сайт: ${APP_URL}`;
