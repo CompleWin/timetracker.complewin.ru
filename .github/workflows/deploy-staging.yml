@@ -6,8 +6,9 @@ on:
 
 jobs:
   deploy:
+    if: vars.STAGING_APP_URL != ''
     uses: ./.github/workflows/deploy.yml
     with:
       environment: staging
-      app-url: https://stt-staging.complewin.workers.dev
+      app-url: ${{ vars.STAGING_APP_URL }}
     secrets: inherit

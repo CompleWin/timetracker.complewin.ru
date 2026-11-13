@@ -15,8 +15,8 @@
     "db:migrate:production": "wrangler d1 migrations apply DB --remote --env production",
     "db:backup:production": "node --experimental-strip-types scripts/backup-production.ts",
     "bot:setup": "node --experimental-strip-types scripts/bot-setup.ts",
-    "deploy:staging": "wrangler deploy --env staging",
-    "deploy:production": "wrangler deploy --env production"
+    "deploy:staging": "node --experimental-strip-types scripts/deploy.ts --env staging",
+    "deploy:production": "node --experimental-strip-types scripts/deploy.ts --env production"
   },
   "dependencies": {
     "@stt/shared": "*",

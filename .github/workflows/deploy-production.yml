@@ -9,5 +9,5 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
-      app-url: https://timetracker.complewin.ru
+      app-url: ${{ vars.PRODUCTION_APP_URL }}
     secrets: inherit
