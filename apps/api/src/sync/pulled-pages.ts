@@ -27,6 +27,7 @@ export type PulledTask = {
 type PulledChanges = {
   title: string | undefined;
   projectId: string | undefined;
+  notionDefaultProject: boolean | undefined;
   notionSent: SentPage;
 };
 
@@ -95,6 +96,7 @@ async function pageChanges(
   return {
     title,
     projectId: project?.projectId,
+    notionDefaultProject: project?.defaultProject,
     notionSent: {
       ...sent,
       title: title ?? sent.title,
@@ -144,5 +146,5 @@ async function projectOfOrphan(
   if (target.pullCursor !== null || task.projectId !== null) return undefined;
   if (chosenOption(projectValueOf(page, target), book.projects) !== null) return undefined;
   const project = await projectWithoutValue(book, target);
-  return { projectId: project.id, sentProject: task.notionSent.project };
+  return { projectId: project.id, sentProject: task.notionSent.project, defaultProject: true };
 }

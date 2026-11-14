@@ -21,6 +21,7 @@ export type ProjectBook = {
 export type RecordProject = {
   projectId: string;
   sentProject: string | null;
+  defaultProject: boolean;
 };
 
 export async function openProjectBook(
@@ -38,11 +39,12 @@ export async function projectOfRecord(
 ): Promise<RecordProject> {
   const option = chosenOption(value, book.projects);
   if (option === null) {
-    return { projectId: (await projectWithoutValue(book, target)).id, sentProject: null };
+    const project = await projectWithoutValue(book, target);
+    return { projectId: project.id, sentProject: null, defaultProject: true };
   }
   const found = book.projects.find((project) => sameProjectName(project.name, option.name));
   const project = found ?? (await addProject(book, { ...option, notionDatabaseId: null }));
-  return { projectId: project.id, sentProject: project.name };
+  return { projectId: project.id, sentProject: project.name, defaultProject: false };
 }
 
 export async function projectWithoutValue(

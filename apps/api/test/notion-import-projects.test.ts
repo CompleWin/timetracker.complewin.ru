@@ -25,6 +25,7 @@ import {
   queryBodyOf,
   queryUrlOf,
   selectValue,
+  sendsProperty,
   userWithDatabase,
   type FakeNotionPull,
   type NotionOption,
@@ -35,7 +36,6 @@ import {
   SETUP_TIME,
   cronAt,
   loginForSync,
-  pagePropertiesOf,
   propertyNamed,
   trackerPropertyId,
   type DatabaseSetup,
@@ -293,15 +293,13 @@ describe("link без projectId", () => {
     });
   });
 
-  it("26. проект с названием базы при первом push записывается в Notion как обычный проект задачи", async () => {
+  it("26. проект с названием базы при первом push не записывается в ⏱ Проект", async () => {
     const user = await userWithDatabase(fake, BY_OWN_FIELD);
     const page = pageIn(fake, user.added, "Anki");
     await linkPage(user.session, page.id, {}, IMPORT_RUN);
     const update = onlyCall(await fake.updatesDuring(page, () => cronAt(IMPORT_RUN)));
 
-    expect(pagePropertiesOf(update)).toMatchObject({
-      [trackerPropertyId(user.added.dataSource, "project")]: { select: { name: TASKS_TITLE } },
-    });
+    expect(sendsProperty(update, trackerPropertyId(user.added.dataSource, "project"))).toBe(false);
   });
 });
 

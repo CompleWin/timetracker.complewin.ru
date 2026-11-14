@@ -9,6 +9,7 @@ const NO_PAGE = {
   notionPageId: null,
   notionPageUrl: null,
   notionSent: null,
+  notionDefaultProject: false,
   notionSyncedAt: null,
   notionBlock: null,
 };
