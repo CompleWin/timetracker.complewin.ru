@@ -25,7 +25,7 @@ export type NewTask = {
 
 export type TaskPageLink = Pick<
   TaskRow,
-  "notionDatabaseId" | "notionPageId" | "notionPageUrl" | "notionSent"
+  "notionDatabaseId" | "notionPageId" | "notionPageUrl" | "notionSent" | "notionDefaultProject"
 >;
 
 const activityConditions: Record<ArchivedFilter, SQL | undefined> = {
@@ -98,6 +98,7 @@ export async function updateTask(
   const current = await requireTask(db, userId, id);
   await ensureProjectUsable(db, userId, changes.projectId);
   const stopped = changes.archived === true ? await stopTaskEntries(db, userId, id, now) : [];
+  const projectChangedAt = changedAt(current.projectId, changes.projectId, now);
   const [row] = await db
     .update(tasks)
     .set({
@@ -106,7 +107,8 @@ export async function updateTask(
       pinned: changes.pinned,
       notionBlockPosition: changes.notionBlockPosition,
       titleChangedAt: changedAt(current.title, changes.title, now),
-      projectChangedAt: changedAt(current.projectId, changes.projectId, now),
+      projectChangedAt,
+      notionDefaultProject: projectChangedAt === undefined ? undefined : false,
       archivedAt: archivedAtAfter(current.archivedAt, changes.archived, now),
       updatedAt: now,
     })

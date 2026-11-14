@@ -97,7 +97,7 @@ async function pushedTask(database: DatabaseSetup): Promise<ImportedTask> {
 }
 
 describe("первый push импортированной задачи", () => {
-  it("17. после сессии и cron уходит PATCH страницы с проектом задачи в ⏱ Проект, новая страница не создаётся, title не отправляется", async () => {
+  it("17. после сессии и cron уходит PATCH страницы с полями времени без ⏱ Проект, новая страница не создаётся, title не отправляется", async () => {
     const imported = await importedTask(OWN_FIELD_WITH_BLOCK);
     const source = imported.added.dataSource;
     await recordSession(imported);
@@ -106,9 +106,9 @@ describe("первый push импортированной задачи", () => 
     );
 
     expect(pagePropertiesOf(update)).toMatchObject({
-      [trackerPropertyId(source, "project")]: { select: { name: TASKS_TITLE } },
       [trackerPropertyId(source, "spentHours")]: { number: 0.02 },
     });
+    expect(sendsProperty(update, trackerPropertyId(source, "project"))).toBe(false);
     expect(sendsProperty(update, titlePropertyId(source))).toBe(false);
     expect(fake.pages.creations()).toEqual([]);
   });
@@ -141,14 +141,13 @@ describe("задача без успешного push", () => {
 });
 
 describe("задача с прошедшим push", () => {
-  it("18. переименование проекта отправляет PATCH страницы с новым названием проекта", async () => {
+  it("18. переименование проекта с названием базы не отправляет поле проекта в страницу", async () => {
     const { session, added, page, project } = await pushedTask(OWN_FIELD);
+    const projectField = trackerPropertyId(added.dataSource, "project");
     await updateProject(session, project.id, { name: RENAMED }, NEXT_RUN);
-    const update = onlyCall(await fake.updatesDuring(page, () => cronAt(NEXT_RUN)));
+    const updates = await fake.updatesDuring(page, () => cronAt(NEXT_RUN));
 
-    expect(pagePropertiesOf(update)).toMatchObject({
-      [trackerPropertyId(added.dataSource, "project")]: { select: { name: RENAMED } },
-    });
+    expect(updates.filter((call) => sendsProperty(call, projectField))).toEqual([]);
   });
 
   it("18. смена blockPosition базы создаёт блок на странице", async () => {

@@ -40,12 +40,20 @@ export async function linkNotionPage(
   const linkedTaskId = (await linkedTaskIds(db, owner.id, [page.id])).get(page.id);
   if (linkedTaskId !== undefined) throw alreadyLinked(linkedTaskId);
   const title = taskTitleOf(page, target.propertyIds.title, owner.locale);
-  const { projectId, sentProject } = await chooseProject(db, owner, page, target, body, now);
+  const { projectId, sentProject, defaultProject } = await chooseProject(
+    db,
+    owner,
+    page,
+    target,
+    body,
+    now,
+  );
   return createTask(db, owner.id, { title, projectId }, now, {
     notionDatabaseId: target.id,
     notionPageId: page.id,
     notionPageUrl: page.url,
     notionSent: { title, project: sentProject, time: null },
+    notionDefaultProject: defaultProject,
   });
 }
 
@@ -68,7 +76,8 @@ async function chooseProject(
   const value = projectValueOf(page, target);
   if (body.projectId === undefined) return projectOfRecord(book, value, target);
   const sentProject = chosenOption(value, book.projects)?.name ?? null;
-  return { projectId: await requireOwnActiveProject(db, owner.id, body.projectId), sentProject };
+  const projectId = await requireOwnActiveProject(db, owner.id, body.projectId);
+  return { projectId, sentProject, defaultProject: false };
 }
 
 async function requireOwnActiveProject(

@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `notion_default_project` integer DEFAULT false NOT NULL;

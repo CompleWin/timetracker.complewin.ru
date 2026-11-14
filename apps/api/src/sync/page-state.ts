@@ -32,6 +32,13 @@ export type PageTarget = Pick<
   "propertyIds" | "projectMode" | "projectPropId" | "projectPropType" | "timeProperties"
 >;
 
+export function pushedTarget<Target extends PageTarget>(
+  target: Target,
+  onDefaultProject: boolean,
+): Target {
+  return onDefaultProject ? { ...target, projectMode: "none" } : target;
+}
+
 export function desiredPage(task: TaskSnapshot, target: PageTarget, locale: Locale): SentPage {
   return {
     title: task.title,
@@ -70,12 +77,11 @@ export function changedPageProperties(
   sent: SentPage,
   currentMultiSelect: string[],
 ): PageProperties {
-  const multiSelect = projectChanged(target, desired, sent)
-    ? replaceProject(currentMultiSelect, sent.project, desired.project)
-    : undefined;
+  const changed = projectChanged(target, desired, sent);
+  const multiSelect = replaceProject(currentMultiSelect, sent.project, desired.project);
   return {
     ...(desired.title !== sent.title && titleProperty(target, desired.title)),
-    ...projectProperty(target, desired.project, multiSelect),
+    ...(changed && projectProperty(target, desired.project, multiSelect)),
     ...timeProperties(target, desired.time),
   };
 }
@@ -111,13 +117,12 @@ function titleProperty(target: PageTarget, title: string): PageProperties {
 function projectProperty(
   target: PageTarget,
   project: string | null,
-  multiSelect: string[] | undefined,
+  multiSelect: string[],
 ): PageProperties {
   const select = { select: project === null ? null : { name: project } };
   if (target.projectMode === "own") return property(target.propertyIds.project, select);
   if (target.projectMode === "none") return {};
   if (!usesMultiSelect(target)) return property(target.projectPropId, select);
-  if (multiSelect === undefined) return {};
   const options = multiSelect.map((name) => ({ name }));
   return property(target.projectPropId, { multi_select: options });
 }

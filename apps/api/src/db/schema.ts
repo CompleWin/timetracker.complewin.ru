@@ -144,6 +144,9 @@ export const tasks = sqliteTable(
     notionPageId: text("notion_page_id"),
     notionPageUrl: text("notion_page_url"),
     notionSent: text("notion_sent", { mode: "json" }).$type<SentPage>(),
+    notionDefaultProject: integer("notion_default_project", { mode: "boolean" })
+      .notNull()
+      .default(false),
     notionSyncedAt: timestamp("notion_synced_at"),
     notionBlockPosition: text("notion_block_position", { enum: notionBlockPositions }),
     notionBlock: text("notion_block", { mode: "json" }).$type<TimeBlockLink>(),

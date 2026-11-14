@@ -32,12 +32,13 @@ export async function importPages(
   for (const page of wanted) {
     const title = taskTitleOf(page, target.propertyIds.title, run.owner.locale);
     const value = projectValueOf(page, target);
-    const { projectId, sentProject } = await projectOfRecord(book, value, target);
+    const { projectId, sentProject, defaultProject } = await projectOfRecord(book, value, target);
     const link = {
       notionDatabaseId: target.id,
       notionPageId: page.id,
       notionPageUrl: page.url,
       notionSent: { title, project: sentProject, time: null },
+      notionDefaultProject: defaultProject,
     };
     const taskId = pageless.get(taskKey(projectId, title))?.shift();
     if (taskId === undefined) {

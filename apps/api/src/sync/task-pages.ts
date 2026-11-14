@@ -28,6 +28,7 @@ import {
   desiredPage,
   hasChanges,
   projectChanged,
+  pushedTarget,
   sentOnUpdate,
   usesMultiSelect,
   type SentPage,
@@ -47,6 +48,7 @@ type LoadedTask = {
   notionDatabaseId: string | null;
   notionPageId: string | null;
   notionSent: SentPage | null;
+  notionDefaultProject: boolean;
   snapshot: TaskSnapshot;
 };
 
@@ -76,6 +78,7 @@ async function loadTask(run: SyncRun, taskId: string): Promise<LoadedTask | unde
     notionDatabaseId: row.task.notionDatabaseId,
     notionPageId: row.task.notionPageId,
     notionSent: row.task.notionSent,
+    notionDefaultProject: row.task.notionDefaultProject,
     snapshot: {
       title: row.task.title,
       project: row.projectName,
@@ -112,8 +115,9 @@ async function dropDeletedPage(run: SyncRun, taskId: string): Promise<void> {
 async function patchTaskPage(
   run: SyncRun,
   task: LinkedTask,
-  target: NotionDatabaseRow,
+  database: NotionDatabaseRow,
 ): Promise<boolean> {
+  const target = pushedTarget(database, task.notionDefaultProject);
   const sent = task.notionSent;
   const desired = desiredPage(task.snapshot, target, run.owner.locale);
   if (!hasChanges(target, desired, sent)) {
@@ -125,16 +129,21 @@ async function patchTaskPage(
     updatePage(
       run.client,
       task.notionPageId,
-      changedPageProperties(current, desired, sent, values),
+      changedPageProperties(
+        pushedTarget(current, task.notionDefaultProject),
+        desired,
+        sent,
+        values,
+      ),
     );
-  const reply = await patch(target);
+  const reply = await patch(database);
   if (isNotFound(reply)) throw new PageGone();
   if (isBadRequest(reply) && (await isTrashed(run, task.notionPageId))) {
     await updateTask(run.db, run.owner.id, task.id, { archived: true }, run.now);
     return false;
   }
   const accepted = isMissingProperty(reply)
-    ? await patch(await refreshProperties(run, target))
+    ? await patch(await refreshProperties(run, database))
     : reply;
   ensureAccepted(accepted);
   await markSynced(run.db, task.id, sentOnUpdate(target, desired, sent), run.now);

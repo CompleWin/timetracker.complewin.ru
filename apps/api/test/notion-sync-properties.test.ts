@@ -205,13 +205,10 @@ describe("проект на странице", () => {
 describe("база без полей с временем", () => {
   const withoutTimeFields = { ...TASKS_DATABASE, timeProperties: false };
 
-  it("21. timeProperties = false: в PATCH страницы после link нет spentHours, spent, running и lastTracked", async () => {
-    const { tasks, page } = await userWithTaskPage(fake, withoutTimeFields);
-    const source = tasks.dataSource;
+  it("21. timeProperties = false: задача после link на проекте по умолчанию, cron не отправляет PATCH страницы", async () => {
+    const { page } = await userWithTaskPage(fake, withoutTimeFields);
 
-    expect(propertyKeysOf(onlyCall(fake.pages.updates(page)))).toEqual([
-      trackerPropertyId(source, "project"),
-    ]);
+    expect(fake.pages.updates(page)).toEqual([]);
   });
 
   it("21. timeProperties = false: запуск и остановка таймера задачи со страницей PATCH страницы не отправляют", async () => {
