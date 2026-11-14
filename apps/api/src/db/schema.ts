@@ -76,6 +76,7 @@ export const notionConnections = sqliteTable("notion_connections", {
   status: text("status", { enum: notionConnectionStatuses }).notNull(),
   syncPausedUntil: timestamp("sync_paused_until"),
   lastSyncAt: timestamp("last_sync_at"),
+  webhookEventAt: timestamp("webhook_event_at"),
   createdAt: timestamp("created_at").notNull(),
 });
 

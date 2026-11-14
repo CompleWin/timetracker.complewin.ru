@@ -11,9 +11,8 @@ import {
   type NotionPageSnapshot,
 } from "../notion/pages.ts";
 import { projectOfRecord, type ProjectBook } from "../notion/record-projects.ts";
-import { insertTask } from "../tasks/tasks.ts";
 import { enqueueTasksWithSessions } from "./outbox.ts";
-import { attachPage } from "./page-links.ts";
+import { attachPage, insertPageTask } from "./page-links.ts";
 import type { SyncRun } from "./task-pages.ts";
 
 type PagelessTasks = Map<string, string[]>;
@@ -42,7 +41,7 @@ export async function importPages(
     };
     const taskId = pageless.get(taskKey(projectId, title))?.shift();
     if (taskId === undefined) {
-      writes.push(insertTask(run.db, run.owner.id, { title, projectId }, run.now, link));
+      writes.push(insertPageTask(run.db, run.owner.id, { title, projectId }, link, run.now));
     } else {
       writes.push(attachPage(run.db, taskId, link, run.now));
       attachedIds.push(taskId);

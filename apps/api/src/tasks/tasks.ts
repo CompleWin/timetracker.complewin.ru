@@ -75,13 +75,7 @@ export async function createTask(
   return toTask(row, IDLE_TIMER);
 }
 
-export function insertTask(
-  db: Database,
-  userId: string,
-  task: NewTask,
-  now: Date,
-  page?: TaskPageLink,
-) {
+function insertTask(db: Database, userId: string, task: NewTask, now: Date, page?: TaskPageLink) {
   return db
     .insert(tasks)
     .values({ id: crypto.randomUUID(), userId, ...task, ...page, createdAt: now, updatedAt: now })

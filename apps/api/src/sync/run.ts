@@ -12,6 +12,10 @@ import type { SyncRun } from "./task-pages.ts";
 
 const MAX_REQUESTS_PER_RUN = 100;
 const REQUEST_PAUSE_MS = 350;
+const MS_PER_MINUTE = 60_000;
+const POLL_INTERVAL_MS = 5 * MS_PER_MINUTE;
+const WEBHOOK_POLL_INTERVAL_MS = 30 * MS_PER_MINUTE;
+const WEBHOOK_ALIVE_MS = 24 * 60 * MS_PER_MINUTE;
 
 type SyncUser = {
   connection: ConnectedRow;
@@ -66,6 +70,12 @@ async function syncUser(
     databases: await listNotionDatabaseRows(db, connection.userId),
     now,
   };
-  if ((await pullUserChanges(run)) === "stop") return;
+  if ((await pullUserChanges(run, pullInterval(connection, now))) === "stop") return;
   await pushUserChanges(run, connection.id);
+}
+
+function pullInterval({ webhookEventAt }: ConnectedRow, now: Date): number {
+  const hearsWebhooks =
+    webhookEventAt !== null && now.getTime() - webhookEventAt.getTime() < WEBHOOK_ALIVE_MS;
+  return hearsWebhooks ? WEBHOOK_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
 }

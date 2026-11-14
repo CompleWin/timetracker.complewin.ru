@@ -1,0 +1,1 @@
+ALTER TABLE `notion_connections` ADD `webhook_event_at` integer;

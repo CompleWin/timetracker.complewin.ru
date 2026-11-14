@@ -15,6 +15,7 @@ import { notionDatabases } from "./routes/notion-databases.ts";
 import { notionOauth } from "./routes/notion-oauth.ts";
 import { notionPages } from "./routes/notion-pages.ts";
 import { notionSync } from "./routes/notion-sync.ts";
+import { notionWebhook } from "./routes/notion-webhook.ts";
 import { projects } from "./routes/projects.ts";
 import { tasks } from "./routes/tasks.ts";
 import { telegramWebhook } from "./routes/telegram-webhook.ts";
@@ -52,6 +53,7 @@ export function createApp() {
   app.route("/api", apiRoutes());
   app.route("/auth", auth);
   app.route("/notion", notionOauth);
+  app.route("/notion", notionWebhook);
   app.route("/tg", telegramWebhook);
   app.route("/__test", testHooks);
 
