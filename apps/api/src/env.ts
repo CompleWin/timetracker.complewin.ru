@@ -17,6 +17,7 @@ export type Bindings = {
   NOTION_CLIENT_ID: string;
   NOTION_CLIENT_SECRET: string;
   NOTION_API_BASE?: string;
+  NOTION_WEBHOOK_SECRET?: string;
   TOKEN_ENC_KEY: string;
   PUBLISHER_NAME: string;
   SUPPORT_EMAIL: string;

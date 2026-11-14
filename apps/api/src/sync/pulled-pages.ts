@@ -43,19 +43,27 @@ export async function linkedTasks(
       .leftJoin(projects, eq(projects.id, tasks.projectId))
       .where(and(eq(tasks.userId, run.owner.id), inArray(tasks.notionPageId, pageIds)));
     for (const { task, projectName } of rows) {
-      if (task.notionPageId === null || task.notionSent === null) continue;
-      found.set(task.notionPageId, {
-        id: task.id,
-        title: task.title,
-        projectId: task.projectId,
-        projectName,
-        notionSent: task.notionSent,
-        titleChangedAt: task.titleChangedAt ?? task.createdAt,
-        projectChangedAt: task.projectChangedAt,
-      });
+      const pulled = toPulledTask(task, projectName);
+      if (task.notionPageId !== null && pulled !== undefined) found.set(task.notionPageId, pulled);
     }
   }
   return found;
+}
+
+export function toPulledTask(
+  task: typeof tasks.$inferSelect,
+  projectName: string | null,
+): PulledTask | undefined {
+  if (task.notionSent === null) return undefined;
+  return {
+    id: task.id,
+    title: task.title,
+    projectId: task.projectId,
+    projectName,
+    notionSent: task.notionSent,
+    titleChangedAt: task.titleChangedAt ?? task.createdAt,
+    projectChangedAt: task.projectChangedAt,
+  };
 }
 
 export async function applyLinkedPages(

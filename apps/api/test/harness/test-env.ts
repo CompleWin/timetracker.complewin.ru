@@ -8,6 +8,7 @@ export const testEnv = {
   TG_WEBHOOK_SECRET: "test-webhook-secret",
   NOTION_CLIENT_ID: "test-notion-client-id",
   NOTION_CLIENT_SECRET: "test-notion-client-secret",
+  NOTION_WEBHOOK_SECRET: "test-notion-webhook-secret",
   TOKEN_ENC_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
   TG_OAUTH_BASE: "https://oauth.telegram.org",
   TG_API_BASE: "https://api.telegram.org",

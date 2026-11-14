@@ -34,7 +34,6 @@ import { applyLinkedPages, linkedTasks } from "./pulled-pages.ts";
 import type { SyncRun } from "./task-pages.ts";
 
 const MS_PER_MINUTE = 60_000;
-const PULL_INTERVAL_MS = 5 * MS_PER_MINUTE;
 const CURSOR_OVERLAP_MS = 2 * MS_PER_MINUTE;
 const PULL_PAGE_SIZE = 100;
 const MAX_PULL_PAGES = 5;
@@ -46,8 +45,8 @@ type QueryPage = {
   nextCursor: string | undefined;
 };
 
-export async function pullUserChanges(run: SyncRun): Promise<PullOutcome> {
-  for (const target of run.databases.filter((database) => isDue(database, run.now))) {
+export async function pullUserChanges(run: SyncRun, intervalMs: number): Promise<PullOutcome> {
+  for (const target of run.databases.filter((database) => isDue(database, run.now, intervalMs))) {
     try {
       if (await pullDatabase(run, target)) return "next";
     } catch (error) {
@@ -60,11 +59,11 @@ export async function pullUserChanges(run: SyncRun): Promise<PullOutcome> {
   return "next";
 }
 
-function isDue(database: NotionDatabaseRow, now: Date): boolean {
+function isDue(database: NotionDatabaseRow, now: Date, intervalMs: number): boolean {
   return (
     database.pulledAt === null ||
     database.pullNextCursor !== null ||
-    now.getTime() - database.pulledAt.getTime() >= PULL_INTERVAL_MS
+    now.getTime() - database.pulledAt.getTime() >= intervalMs
   );
 }
 

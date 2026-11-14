@@ -107,7 +107,7 @@ async function updateTaskPage(
   }
 }
 
-async function dropDeletedPage(run: SyncRun, taskId: string): Promise<void> {
+export async function dropDeletedPage(run: SyncRun, taskId: string): Promise<void> {
   await unlinkTask(run.db, taskId);
   await updateTask(run.db, run.owner.id, taskId, { archived: true }, run.now);
 }
