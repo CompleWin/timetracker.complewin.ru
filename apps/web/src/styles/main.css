@@ -1,4 +1,4 @@
-@import "../design/openkege/tailwind.css";
+@import "../design/theme/tailwind.css";
 
 @theme {
   --color-primary: #125b3a;

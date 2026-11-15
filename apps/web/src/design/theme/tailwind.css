@@ -1,5 +1,5 @@
 /* =====================================================================
-   OpenKEGE — тема для Tailwind v4 (CSS-first, tailwind.config не нужен)
+   Тема трекера для Tailwind v4 (CSS-first, tailwind.config не нужен)
 
    Подключение — в главном CSS проекта:  @import "./tailwind.css";
    tailwindcss импортируется здесь же, второй раз его не подключайте.
@@ -264,7 +264,7 @@
   --text-badge--line-height: 1;
   --text-badge--letter-spacing: 0.14em;
   --text-badge--font-weight: 800;
-  --text-logo: 22px; /* логотип OPENKEGE */
+  --text-logo: 22px; /* логотип */
   --text-logo--line-height: 1;
   --text-logo--letter-spacing: -0.02em;
   --text-logo--font-weight: 800;
