@@ -9,6 +9,8 @@ SimpleTimeTracker: трекер времени по задачам и проек
 1. Прочитай [README.md](README.md): что это и как устроено.
 2. Команды, локальный запуск и тесты описаны в [CONTRIBUTING.md](CONTRIBUTING.md).
 3. Деплой и настройки экземпляра описаны в [docs/self-hosting.md](docs/self-hosting.md). Для обычной доработки они не нужны.
+4. Контракт для спецификаций и тестов описан в [docs/contract.md](docs/contract.md): ошибки API, окружения, тестовые механизмы, тексты, форматы и правила e2e.
+5. Перед правкой интерфейса прочитай дизайн в [docs/design/](docs/design/): `principles.md` и `components.md`.
 
 ## Где что лежит
 
@@ -31,7 +33,7 @@ apps/web                фронтенд на Vue 3 и Vite (@stt/web)
   src/components        компоненты, базовые в components/ui
   src/stores            Pinia
   src/styles/main.css   тема трекера поверх дизайн-системы
-  src/design/openkege   дизайн-система OpenKEGE, вендорная копия, не править
+  src/design/theme      дизайн-система: тема Tailwind и шрифты
   e2e/                  Playwright-тесты, хелперы в e2e/helpers
 packages/shared         общий код (@stt/shared)
   src/index.ts          публичный интерфейс пакета
@@ -126,7 +128,7 @@ Cron срабатывает раз в минуту и запускает сна�
 - Все тексты для людей лежат в `packages/shared/src/i18n/ru.ts` и `en.ts`. Набор ключей в них одинаковый, пустых строк нет.
 - Текст с числом хранится одной строкой с формами через `|`: в `ru` три формы, в `en` две. Подставляет его `tc`.
 - Интерфейс обращается к пользователю на "ты".
-- Тема только светлая. Цвета трекера заданы токенами в `apps/web/src/styles/main.css` поверх дизайн-системы OpenKEGE.
+- Тема только светлая. Цвета трекера заданы токенами в `apps/web/src/styles/main.css` поверх темы из `apps/web/src/design/theme`.
 
 ## База данных
 
