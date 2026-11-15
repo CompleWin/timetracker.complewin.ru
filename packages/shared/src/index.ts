@@ -122,9 +122,7 @@ export {
   parallelSec,
   timelineGaps,
   timelineLanes,
-  timelineRange,
   type TimelineGap,
-  type TimelineHours,
   type TimelineItem,
   type TimelineLane,
 } from "./timeline.ts";

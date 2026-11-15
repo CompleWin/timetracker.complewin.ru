@@ -1,5 +1,3 @@
-import { hourOf } from "./dates.ts";
-
 export type TimelineItem = {
   id: string;
   startMs: number;
@@ -17,15 +15,7 @@ export type TimelineGap = {
   endMs: number;
 };
 
-export type TimelineHours = {
-  startHour: number;
-  endHour: number;
-};
-
 const MS_PER_SECOND = 1000;
-const DAY_END_HOUR = 18;
-const HOURS_AFTER_NOW = 2;
-const HOURS_PER_DAY = 24;
 
 export function timelineLanes(items: TimelineItem[]): TimelineLane[] {
   const laneEnds: number[] = [];
@@ -73,20 +63,6 @@ export function parallelSec(items: TimelineItem[]): number {
     previousMs = edge.atMs;
   }
   return Math.floor(parallelMs / MS_PER_SECOND);
-}
-
-export function timelineRange(
-  firstStart: string | null,
-  now: string,
-  timeZone: string | null,
-): TimelineHours {
-  return {
-    startHour: hourOf(firstStart ?? now, timeZone),
-    endHour: Math.min(
-      HOURS_PER_DAY,
-      Math.max(DAY_END_HOUR, hourOf(now, timeZone) + HOURS_AFTER_NOW),
-    ),
-  };
 }
 
 function overlaps(a: TimelineItem, b: TimelineItem): boolean {
