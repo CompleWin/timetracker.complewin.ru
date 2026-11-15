@@ -23,7 +23,6 @@ export type TimelineHours = {
 };
 
 const MS_PER_SECOND = 1000;
-const DAY_START_HOUR = 8;
 const DAY_END_HOUR = 18;
 const HOURS_AFTER_NOW = 2;
 const HOURS_PER_DAY = 24;
@@ -81,9 +80,8 @@ export function timelineRange(
   now: string,
   timeZone: string | null,
 ): TimelineHours {
-  const firstHour = firstStart === null ? DAY_START_HOUR : hourOf(firstStart, timeZone);
   return {
-    startHour: Math.min(DAY_START_HOUR, firstHour),
+    startHour: hourOf(firstStart ?? now, timeZone),
     endHour: Math.min(
       HOURS_PER_DAY,
       Math.max(DAY_END_HOUR, hourOf(now, timeZone) + HOURS_AFTER_NOW),
