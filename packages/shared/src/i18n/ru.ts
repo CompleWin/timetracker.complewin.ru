@@ -232,6 +232,7 @@ export const ru = {
   "picker.resizeHint": "Стрелки меняют размер, Home возвращает обычный",
   "timeline.title": "Хронология",
   "timeline.add": "Сессия",
+  "timeline.scale": "Шкала времени",
   "timeline.editSession": "Изменить сессию {title}, {range}",
   "timeline.gap": "Пропуск {duration}",
   "timeline.fill": "Заполнить",

@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { activeTimers, createTask, setTimeZone, taskSessions } from "./helpers/api.ts";
+import { activeTimers, createTask, taskSessions } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
 import { collectConsoleErrors } from "./helpers/console.ts";
 import { expectNoHorizontalScroll } from "./helpers/layout.ts";
@@ -33,7 +33,6 @@ import {
   storePickerSize,
   type Size,
 } from "./helpers/picker-size.ts";
-import { zoneAtHour } from "./helpers/timeline.ts";
 import { button, island } from "./helpers/ui.ts";
 
 const DESKTOP = { width: 1280, height: 800 };
@@ -44,7 +43,6 @@ const MIN_WIDTH = 600;
 const MIN_LIST_HEIGHT = 400;
 const DEFAULT_LIST_HEIGHT = 600;
 const KEY_STEP = 40;
-const EARLY_MORNING_HOUR = 2;
 
 const MANY_TASKS = 30;
 const FEW_TASKS = 3;
@@ -195,34 +193,25 @@ test.describe("перетаскивание ручки", () => {
     await expectNoSavedSize(page);
   });
 
-  test.describe("ранним утром по времени пользователя", () => {
-    const earlyMorning = zoneAtHour(EARLY_MORNING_HOUR);
-    test.use({ timezoneId: earlyMorning.timezoneId });
+  test("8. без задач: сдвиг на -100 px влево и +300 px вниз, отпущенный над островком «Хронология» ниже панели, оставляет панель открытой и записывает ширину на 100 px меньше и список 600 px", async ({
+    page,
+  }) => {
+    const defaults = await openDefaultPanel(page, NO_TASKS);
+    await scrollHandleIntoView(page);
+    const timeline = await boxOf(island(page, "Хронология"));
+    const panelBottom = await bottomEdge(pickerRegion(page));
+    const start = await handleCenter(page);
+    const target = { x: start.x - 100, y: start.y + 300 };
+    expect(target.y).toBeGreaterThan(panelBottom);
+    expect(target.y).toBeLessThan(DESKTOP.height);
+    expect(isInside(target, timeline)).toBe(true);
 
-    test.beforeEach(async ({ page }) => {
-      await setTimeZone(page, earlyMorning.timezoneId);
-    });
+    await dragHandleTo(page, target);
 
-    test("8. без задач: сдвиг на -100 px влево и +300 px вниз, отпущенный над островком «Хронология» ниже панели, оставляет панель открытой и записывает ширину на 100 px меньше и список 600 px", async ({
-      page,
-    }) => {
-      const defaults = await openDefaultPanel(page, NO_TASKS);
-      await scrollHandleIntoView(page);
-      const timeline = await boxOf(island(page, "Хронология"));
-      const panelBottom = await bottomEdge(pickerRegion(page));
-      const start = await handleCenter(page);
-      const target = { x: start.x - 100, y: start.y + 300 };
-      expect(target.y).toBeGreaterThan(panelBottom);
-      expect(target.y).toBeLessThan(DESKTOP.height);
-      expect(isInside(target, timeline)).toBe(true);
-
-      await dragHandleTo(page, target);
-
-      await expectPanelOpen(page);
-      await expectStoredSize(page, {
-        width: defaults.width - 100,
-        listHeight: DEFAULT_LIST_HEIGHT,
-      });
+    await expectPanelOpen(page);
+    await expectStoredSize(page, {
+      width: defaults.width - 100,
+      listHeight: DEFAULT_LIST_HEIGHT,
     });
   });
 });

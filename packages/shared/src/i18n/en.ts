@@ -233,6 +233,7 @@ export const en: Messages = {
   "picker.resizeHint": "Arrow keys change the size, Home restores the default",
   "timeline.title": "Timeline",
   "timeline.add": "Session",
+  "timeline.scale": "Time scale",
   "timeline.editSession": "Edit session {title}, {range}",
   "timeline.gap": "Gap {duration}",
   "timeline.fill": "Fill in",
