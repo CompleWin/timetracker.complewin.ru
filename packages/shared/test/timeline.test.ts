@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parallelSec, timelineGaps, timelineLanes, timelineRange } from "@stt/shared";
+import { parallelSec, timelineGaps, timelineLanes } from "@stt/shared";
 
 type TimelineItem = { id: string; startMs: number; endMs: number };
 
 const DAY = "2026-11-03";
-const MOSCOW = "Europe/Moscow";
 const GAP_THRESHOLD_SEC = 1200;
 
 function at(time: string): number {
@@ -17,10 +16,6 @@ function item(id: string, start: string, end: string): TimelineItem {
 
 function gap(start: string, end: string): { startMs: number; endMs: number } {
   return { startMs: at(start), endMs: at(end) };
-}
-
-function inMoscow(time: string): string {
-  return new Date(`${DAY}T${time}:00+03:00`).toISOString();
 }
 
 const a = item("A", "10:00", "11:00");
@@ -89,16 +84,5 @@ describe("parallelSec", () => {
 
   it("14. одна сессия даёт 0", () => {
     expect(parallelSec([item("1", "10:00", "11:00")])).toBe(0);
-  });
-});
-
-describe("timelineRange", () => {
-  it.each([
-    ["первая сессия в 06:40, «сейчас» 15:42", 6, 18, inMoscow("06:40"), inMoscow("15:42")],
-    ["без сессий, «сейчас» 15:42", 15, 18, null, inMoscow("15:42")],
-    ["без сессий, «сейчас» 21:10", 21, 23, null, inMoscow("21:10")],
-    ["без сессий, «сейчас» 23:05", 23, 24, null, inMoscow("23:05")],
-  ])("15. по Москве %s даёт %i и %i", (_, startHour, endHour, firstStart, now) => {
-    expect(timelineRange(firstStart, now, MOSCOW)).toEqual({ startHour, endHour });
   });
 });

@@ -115,10 +115,6 @@ export function formatSessionRange(
   return `${start}–${formatShortDate(endedAt, timeZone, locale)} ${end}`;
 }
 
-export function hourOf(iso: string, timeZone: string | null): number {
-  return wallClock(Date.parse(iso), timeZone).hour;
-}
-
 export function lastDays(iso: string, timeZone: string | null, count: number): DayRange[] {
   const { year, month, day } = wallClock(Date.parse(iso), timeZone);
   return Array.from({ length: count }, (_, index) => {

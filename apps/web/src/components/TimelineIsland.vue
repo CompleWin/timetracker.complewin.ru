@@ -6,13 +6,12 @@ import {
   formatWeekdayDate,
   timelineGaps,
   timelineLanes,
-  timelineRange,
   type DayRange,
   type Project,
   type SessionWithTask,
   type TimelineGap,
 } from "@stt/shared";
-import { computed, useId } from "vue";
+import { computed, onMounted, useId, useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { isOnline } from "../connection.ts";
 import { timelineItems } from "../day-sessions.ts";
@@ -46,6 +45,7 @@ const BLOCK_MIN_HEIGHT_PX = 24;
 const BLOCK_INSET_PX = 3;
 const SCALE_LABEL_WIDTH = "56px";
 const HOURS_PER_DAY = 24;
+const NOW_WINDOW_SHARE = 2 / 3;
 
 const props = defineProps<{
   sessions: SessionWithTask[];
@@ -62,21 +62,19 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const titleId = useId();
+const scroller = useTemplateRef("scroller");
+const scale = useTemplateRef("scale");
 
 const nowIso = computed(() => new Date(props.now).toISOString());
 const dateLabel = computed(() =>
   formatWeekdayDate(props.day.from, props.timeZone, currentLocale()),
 );
-const hours = computed(() =>
-  timelineRange(props.sessions[0]?.startedAt ?? null, nowIso.value, props.timeZone),
-);
-const scaleHeight = computed(() => (hours.value.endHour - hours.value.startHour) * HOUR_HEIGHT_PX);
-const hourMarks = computed(() =>
-  Array.from({ length: hours.value.endHour - hours.value.startHour + 1 }, (_, index) => ({
-    label: `${String((hours.value.startHour + index) % HOURS_PER_DAY).padStart(2, "0")}:00`,
-    top: index * HOUR_HEIGHT_PX,
-  })),
-);
+const scaleHeight = HOURS_PER_DAY * HOUR_HEIGHT_PX;
+const hourMarks = Array.from({ length: HOURS_PER_DAY + 1 }, (_, hour) => ({
+  key: hour,
+  label: `${String(hour % HOURS_PER_DAY).padStart(2, "0")}:00`,
+  top: hour * HOUR_HEIGHT_PX,
+}));
 const items = computed(() => timelineItems(props.sessions, props.now));
 
 const placedSessions = computed<PlacedSession[]>(() => {
@@ -85,7 +83,7 @@ const placedSessions = computed<PlacedSession[]>(() => {
     const item = items.value[index];
     const lane = lanes.get(session.id) ?? { lane: 0, lanes: 1 };
     const top = offsetOf(item?.startMs ?? 0);
-    const bottom = Math.min(offsetOf(item?.endMs ?? 0), scaleHeight.value);
+    const bottom = Math.min(offsetOf(item?.endMs ?? 0), scaleHeight);
     const heightPx = Math.max(BLOCK_MIN_HEIGHT_PX, bottom - top - BLOCK_INSET_PX);
     return {
       session,
@@ -109,10 +107,16 @@ const placedGaps = computed<PlacedGap[]>(() =>
 const nowTop = computed(() => offsetOf(props.now));
 const nowLabel = computed(() => formatTime(nowIso.value, props.timeZone));
 
+onMounted(scrollToNow);
+
+function scrollToNow(): void {
+  if (scroller.value === null || scale.value === null) return;
+  scroller.value.scrollTop =
+    scale.value.offsetTop + nowTop.value - scroller.value.clientHeight * NOW_WINDOW_SHARE;
+}
+
 function offsetOf(epochMs: number): number {
-  const hoursFromScaleStart =
-    (epochMs - Date.parse(props.day.from)) / HOUR_MS - hours.value.startHour;
-  return hoursFromScaleStart * HOUR_HEIGHT_PX;
+  return ((epochMs - Date.parse(props.day.from)) / HOUR_MS) * HOUR_HEIGHT_PX;
 }
 
 function blocksBottomBefore(atMs: number): number {
@@ -170,55 +174,63 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
         {{ t("timeline.add") }}
       </AppButton>
     </div>
-    <div class="relative isolate" :style="{ height: `${scaleHeight}px` }">
-      <div
-        v-for="mark in hourMarks"
-        :key="mark.label"
-        class="absolute inset-x-0 border-t border-line"
-        :style="{ top: `${mark.top}px` }"
-      >
-        <span
-          class="absolute left-0 -translate-y-1/2 bg-surface-island pr-1.5 font-code text-caps tracking-normal text-fg-faint"
+    <div
+      ref="scroller"
+      role="region"
+      :aria-label="t('timeline.scale')"
+      tabindex="0"
+      class="relative h-[640px] overflow-y-auto py-3 [scrollbar-width:thin]"
+    >
+      <div ref="scale" class="relative isolate" :style="{ height: `${scaleHeight}px` }">
+        <div
+          v-for="mark in hourMarks"
+          :key="mark.key"
+          class="absolute inset-x-0 border-t border-line"
+          :style="{ top: `${mark.top}px` }"
         >
-          {{ mark.label }}
-        </span>
-      </div>
-      <div
-        v-for="gap in placedGaps"
-        :key="gap.key"
-        class="absolute right-0 left-14 flex items-center justify-center gap-2 rounded-field border border-dashed border-line-strong"
-        :style="gap.style"
-      >
-        <span class="text-meta text-fg-subtle">{{ gap.label }}</span>
-        <AppButton
-          variant="quiet-accent"
-          size="2xs"
-          :aria-label="gap.fillLabel"
-          :disabled="!isOnline"
-          @click="emit('fill', gap.range)"
+          <span
+            class="absolute left-0 -translate-y-1/2 bg-surface-island pr-1.5 font-code text-caps tracking-normal text-fg-faint"
+          >
+            {{ mark.label }}
+          </span>
+        </div>
+        <div
+          v-for="gap in placedGaps"
+          :key="gap.key"
+          class="absolute right-0 left-14 flex items-center justify-center gap-2 rounded-field border border-dashed border-line-strong"
+          :style="gap.style"
         >
-          <Plus :size="13" aria-hidden="true" />
-          {{ t("timeline.fill") }}
-        </AppButton>
-      </div>
-      <TimelineSession
-        v-for="placed in placedSessions"
-        :key="placed.session.id"
-        class="absolute"
-        :style="placed.style"
-        :session="placed.session"
-        :project="projects.get(placed.session.task.projectId ?? '') ?? null"
-        :height-px="placed.heightPx"
-        :now
-        :time-zone
-        @edit="emit('edit', placed.session)"
-      />
-      <div class="absolute right-0 left-12 z-20 h-0.5 bg-primary" :style="{ top: `${nowTop}px` }">
-        <span
-          class="absolute right-full -translate-y-1/2 bg-surface-island pr-1 font-code text-caps tracking-normal text-primary"
-        >
-          {{ nowLabel }}
-        </span>
+          <span class="text-meta text-fg-subtle">{{ gap.label }}</span>
+          <AppButton
+            variant="quiet-accent"
+            size="2xs"
+            :aria-label="gap.fillLabel"
+            :disabled="!isOnline"
+            @click="emit('fill', gap.range)"
+          >
+            <Plus :size="13" aria-hidden="true" />
+            {{ t("timeline.fill") }}
+          </AppButton>
+        </div>
+        <TimelineSession
+          v-for="placed in placedSessions"
+          :key="placed.session.id"
+          class="absolute"
+          :style="placed.style"
+          :session="placed.session"
+          :project="projects.get(placed.session.task.projectId ?? '') ?? null"
+          :height-px="placed.heightPx"
+          :now
+          :time-zone
+          @edit="emit('edit', placed.session)"
+        />
+        <div class="absolute right-0 left-12 z-20 h-0.5 bg-primary" :style="{ top: `${nowTop}px` }">
+          <span
+            class="absolute right-full -translate-y-1/2 bg-surface-island pr-1 font-code text-caps tracking-normal text-primary"
+          >
+            {{ nowLabel }}
+          </span>
+        </div>
       </div>
     </div>
   </AppIsland>
