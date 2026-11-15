@@ -26,6 +26,8 @@ type PlacedSession = {
   session: SessionWithTask;
   style: Record<string, string>;
   heightPx: number;
+  startMs: number;
+  bottomPx: number;
 };
 
 type PlacedGap = {
@@ -43,6 +45,7 @@ const MS_PER_SECOND = 1000;
 const BLOCK_MIN_HEIGHT_PX = 24;
 const BLOCK_INSET_PX = 3;
 const SCALE_LABEL_WIDTH = "56px";
+const HOURS_PER_DAY = 24;
 
 const props = defineProps<{
   sessions: SessionWithTask[];
@@ -70,7 +73,7 @@ const hours = computed(() =>
 const scaleHeight = computed(() => (hours.value.endHour - hours.value.startHour) * HOUR_HEIGHT_PX);
 const hourMarks = computed(() =>
   Array.from({ length: hours.value.endHour - hours.value.startHour + 1 }, (_, index) => ({
-    label: `${String(hours.value.startHour + index).padStart(2, "0")}:00`,
+    label: `${String((hours.value.startHour + index) % HOURS_PER_DAY).padStart(2, "0")}:00`,
     top: index * HOUR_HEIGHT_PX,
   })),
 );
@@ -87,6 +90,8 @@ const placedSessions = computed<PlacedSession[]>(() => {
     return {
       session,
       heightPx,
+      startMs: item?.startMs ?? 0,
+      bottomPx: Math.max(bottom, top + BLOCK_MIN_HEIGHT_PX + BLOCK_INSET_PX),
       style: {
         top: `${top + 1}px`,
         height: `${heightPx}px`,
@@ -98,7 +103,7 @@ const placedSessions = computed<PlacedSession[]>(() => {
 });
 
 const placedGaps = computed<PlacedGap[]>(() =>
-  timelineGaps(items.value, GAP_MIN_SEC).map((gap) => placeGap(gap)),
+  timelineGaps(items.value, GAP_MIN_SEC).flatMap((gap) => placeGap(gap) ?? []),
 );
 
 const nowTop = computed(() => offsetOf(props.now));
@@ -110,13 +115,25 @@ function offsetOf(epochMs: number): number {
   return hoursFromScaleStart * HOUR_HEIGHT_PX;
 }
 
-function placeGap(gap: TimelineGap): PlacedGap {
+function blocksBottomBefore(atMs: number): number {
+  return Math.max(
+    -Infinity,
+    ...placedSessions.value
+      .filter((placed) => placed.startMs < atMs)
+      .map((placed) => placed.bottomPx),
+  );
+}
+
+function placeGap(gap: TimelineGap): PlacedGap | undefined {
   const range = {
     startedAt: new Date(gap.startMs).toISOString(),
     endedAt: new Date(gap.endMs).toISOString(),
   };
   const times = `${formatTime(range.startedAt, props.timeZone)}–${formatTime(range.endedAt, props.timeZone)}`;
-  const top = offsetOf(gap.startMs);
+  const timeTop = offsetOf(gap.startMs);
+  const top = Math.max(timeTop, blocksBottomBefore(gap.endMs));
+  const heightPx = offsetOf(gap.endMs) - top - BLOCK_INSET_PX;
+  if (top > timeTop && heightPx < BLOCK_MIN_HEIGHT_PX) return undefined;
   return {
     key: range.startedAt,
     range,
@@ -126,7 +143,7 @@ function placeGap(gap: TimelineGap): PlacedGap {
     fillLabel: t("timeline.fillGap", { range: times }),
     style: {
       top: `${top + 1}px`,
-      height: `${Math.max(0, offsetOf(gap.endMs) - top - BLOCK_INSET_PX)}px`,
+      height: `${Math.max(0, heightPx)}px`,
     },
   };
 }

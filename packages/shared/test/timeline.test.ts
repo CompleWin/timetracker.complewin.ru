@@ -95,9 +95,9 @@ describe("parallelSec", () => {
 describe("timelineRange", () => {
   it.each([
     ["первая сессия в 06:40, «сейчас» 15:42", 6, 18, inMoscow("06:40"), inMoscow("15:42")],
-    ["без сессий, «сейчас» 15:42", 8, 18, null, inMoscow("15:42")],
-    ["без сессий, «сейчас» 21:10", 8, 23, null, inMoscow("21:10")],
-    ["без сессий, «сейчас» 23:05", 8, 24, null, inMoscow("23:05")],
+    ["без сессий, «сейчас» 15:42", 15, 18, null, inMoscow("15:42")],
+    ["без сессий, «сейчас» 21:10", 21, 23, null, inMoscow("21:10")],
+    ["без сессий, «сейчас» 23:05", 23, 24, null, inMoscow("23:05")],
   ])("15. по Москве %s даёт %i и %i", (_, startHour, endHour, firstStart, now) => {
     expect(timelineRange(firstStart, now, MOSCOW)).toEqual({ startHour, endHour });
   });
