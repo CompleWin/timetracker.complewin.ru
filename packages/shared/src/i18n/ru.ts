@@ -236,6 +236,11 @@ export const ru = {
   "timeline.gap": "Пропуск {duration}",
   "timeline.fill": "Заполнить",
   "timeline.fillGap": "Заполнить пропуск {range}",
+  "timeline.hideGap": "Скрыть пропуск {range}",
+  "timelineSettings.title": "Хронология",
+  "timelineSettings.showGaps": "Показывать пропуски",
+  "timelineSettings.showGapsNote":
+    "Пустое время между сессиями от 20 минут, его можно заполнить в один клик",
   "summary.title": "Сводка за сегодня",
   "summary.sessions": "{count} сессия|{count} сессии|{count} сессий",
   "summary.parallel": "{sessions} · параллельно {duration}",

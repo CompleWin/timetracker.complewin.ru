@@ -7,6 +7,7 @@ import { applyLocale } from "../i18n.ts";
 export const useSessionStore = defineStore("session", () => {
   const user = ref<User | null>(null);
   const unverified = ref(false);
+  const savingShowGaps = ref(false);
   let loading: Promise<void> | undefined;
 
   const isGuest = computed(() => user.value === null && !unverified.value);
@@ -50,6 +51,32 @@ export const useSessionStore = defineStore("session", () => {
     await saveProfile({ reminderThresholdMin });
   }
 
+  async function changeShowGaps(showGaps: boolean): Promise<void> {
+    const profile = user.value;
+    if (profile === null || savingShowGaps.value || profile.showGaps === showGaps) return;
+    savingShowGaps.value = true;
+    user.value = { ...profile, showGaps };
+    try {
+      await api.updateMe({ showGaps });
+    } catch (error) {
+      if (user.value?.id === profile.id) {
+        user.value = { ...user.value, showGaps: profile.showGaps };
+      }
+      throw error;
+    } finally {
+      savingShowGaps.value = false;
+    }
+  }
+
+  async function refreshShowGaps(): Promise<void> {
+    const profile = user.value;
+    if (profile === null || savingShowGaps.value) return;
+    const fresh = await api.fetchCurrentUser();
+    if (user.value === profile && fresh?.id === profile.id && fresh.showGaps !== profile.showGaps) {
+      user.value = { ...profile, showGaps: fresh.showGaps };
+    }
+  }
+
   function signedIn(signedInUser: User | null): void {
     user.value = signedInUser;
     if (signedInUser === null) return;
@@ -71,11 +98,14 @@ export const useSessionStore = defineStore("session", () => {
     user,
     unverified,
     isGuest,
+    savingShowGaps,
     ensureLoaded,
     signInAsTestUser,
     signOut,
     deleteAccount,
     changeLocale,
     changeReminderThreshold,
+    changeShowGaps,
+    refreshShowGaps,
   };
 });

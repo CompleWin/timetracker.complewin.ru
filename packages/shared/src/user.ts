@@ -12,6 +12,7 @@ export const userSchema = z.object({
   locale: z.enum(locales),
   botCanMessage: z.boolean(),
   reminderThresholdMin: z.int(),
+  showGaps: z.boolean(),
 });
 
 export type User = z.infer<typeof userSchema>;
@@ -61,6 +62,7 @@ export const updateMeBody = atLeastOneField(
     timezone: timeZone.optional(),
     locale: z.enum(locales).optional(),
     reminderThresholdMin: reminderThresholdMin.optional(),
+    showGaps: z.boolean().optional(),
   }),
 );
 

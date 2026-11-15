@@ -8,6 +8,7 @@ import { rateLimit } from "./http/rate-limit.ts";
 import { serveAssets } from "./routes/assets.ts";
 import { auth } from "./routes/auth.ts";
 import { health } from "./routes/health.ts";
+import { hiddenGaps } from "./routes/hidden-gaps.ts";
 import { me } from "./routes/me.ts";
 import { notionAvailableDatabases } from "./routes/notion-available-databases.ts";
 import { notionConnection } from "./routes/notion-connection.ts";
@@ -34,6 +35,7 @@ function apiRoutes() {
     .route("/projects", projects)
     .route("/tasks", tasks)
     .route("/sessions", timerSessions)
+    .route("/hidden-gaps", hiddenGaps)
     .route("/timers", timers)
     .route("/notion/connection", notionConnection)
     .route("/notion/available-databases", notionAvailableDatabases)

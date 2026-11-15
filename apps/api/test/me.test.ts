@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { expectApiError, expectValidationError } from "./harness/assertions.ts";
 import { api, type TestSession } from "./harness/index.ts";
-import { loginAs } from "./harness/session.ts";
+import { currentUser, loginAs } from "./harness/session.ts";
 
 async function russianUserSession(): Promise<TestSession> {
   const { session } = await loginAs({}, { headers: { "Accept-Language": "ru-RU" } });
@@ -52,5 +52,31 @@ describe("PATCH /api/me", () => {
     const response = await api.patch("/api/me", { locale: "de" }, { as: session });
 
     expectValidationError(response, ["locale"]);
+  });
+});
+
+describe("настройка showGaps", () => {
+  it("1. у нового пользователя showGaps равен true", async () => {
+    const { session } = await loginAs();
+
+    expect(await currentUser(session)).toMatchObject({ showGaps: true });
+  });
+
+  it("2. showGaps сохраняется и читается в другой сессии", async () => {
+    const first = await loginAs();
+    const response = await api.patch("/api/me", { showGaps: false }, { as: first.session });
+    const second = await loginAs();
+
+    expect(response).toMatchObject({ status: 200, body: { user: { showGaps: false } } });
+    expect(await currentUser(first.session)).toMatchObject({ showGaps: false });
+    expect(await currentUser(second.session)).toMatchObject({ showGaps: false });
+  });
+
+  it("3. строка в showGaps даёт 400 с полем showGaps и не меняет настройку", async () => {
+    const { session } = await loginAs();
+    const response = await api.patch("/api/me", { showGaps: "no" }, { as: session });
+
+    expectValidationError(response, ["showGaps"]);
+    expect(await currentUser(session)).toMatchObject({ showGaps: true });
   });
 });

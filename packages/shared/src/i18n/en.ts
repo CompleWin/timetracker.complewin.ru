@@ -237,6 +237,11 @@ export const en: Messages = {
   "timeline.gap": "Gap {duration}",
   "timeline.fill": "Fill in",
   "timeline.fillGap": "Fill gap {range}",
+  "timeline.hideGap": "Hide gap {range}",
+  "timelineSettings.title": "Timeline",
+  "timelineSettings.showGaps": "Show gaps",
+  "timelineSettings.showGapsNote":
+    "Idle time of 20 minutes or more between sessions, you can fill it in one click",
   "summary.title": "Today's summary",
   "summary.sessions": "{count} session|{count} sessions",
   "summary.parallel": "{sessions} · in parallel {duration}",

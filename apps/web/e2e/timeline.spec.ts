@@ -8,7 +8,8 @@ import {
   loginInZone,
   weekdayDateRu,
 } from "./helpers/afternoon.ts";
-import { button, dialog, expectInSection, field, link, textOf } from "./helpers/ui.ts";
+import { expectNoHorizontalScroll, PHONE_VIEWPORT } from "./helpers/layout.ts";
+import { button, dialog, expectInSection, field, heading, link, textOf } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
 const ZONE = afternoonZone();
@@ -27,6 +28,23 @@ function sessionBlock(page: Page, title: string, range: string): Locator {
 
 function fillGapButton(page: Page, range: string): Locator {
   return button(page, `Заполнить пропуск ${range}`);
+}
+
+function showGapsCheckbox(page: Page): Locator {
+  return page.getByRole("checkbox", { name: "Показывать пропуски", exact: true });
+}
+
+async function setShowGaps(page: Page, show: boolean): Promise<void> {
+  const saved = page.waitForResponse((response) => {
+    const request = response.request();
+    return (
+      request.method() === "PATCH" &&
+      new URL(response.url()).pathname === "/api/me" &&
+      request.postDataJSON()?.showGaps === show
+    );
+  });
+  await showGapsCheckbox(page).setChecked(show);
+  expect((await saved).status()).toBe(200);
 }
 
 function runningRange(running: Session): string {
@@ -130,6 +148,118 @@ test("37. «Заполнить пропуск» открывает «Новая 
   await expect(form).toBeHidden();
   await expect(fillGapButton(page, "10:30–11:15")).toHaveCount(0);
   await expect(sessionBlock(page, "Бег", "10:30–11:15")).toBeVisible();
+});
+
+test("STT-37. флажок в настройках скрывает и возвращает пропуски и сохраняет значение после перезагрузки", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const anki = await createTask(page, { title: "Anki" });
+  await addLocalSession(page, ZONE, anki.id, { start: "10:00", end: "10:30" });
+  await addLocalSession(page, ZONE, anki.id, { start: "11:15", end: "11:45" });
+  await page.goto("/settings");
+
+  const sections = page.getByRole("navigation", { name: "Разделы настроек", exact: true });
+  const expectedOrder = ["Notion", "Telegram-бот", "Хронология", "Язык"];
+  await expect(sections.getByRole("link")).toContainText(expectedOrder);
+  await link(sections, "Хронология").click();
+  await expect(heading(page, "Хронология")).toBeInViewport();
+  await expect(showGapsCheckbox(page)).toBeChecked();
+  await expect(
+    textOf(page, "Пустое время между сессиями от 20 минут, его можно заполнить в один клик"),
+  ).toBeVisible();
+
+  await context.setOffline(true);
+  await expect(showGapsCheckbox(page)).toBeDisabled();
+  await context.setOffline(false);
+
+  await setShowGaps(page, false);
+  await page.reload();
+  await expect(showGapsCheckbox(page)).not.toBeChecked();
+  await page.goto("/");
+
+  await expect(sessionBlock(page, "Anki", "10:00–10:30")).toBeVisible();
+  await expect(sessionBlock(page, "Anki", "11:15–11:45")).toBeVisible();
+  await expect(textOf(page, "Пропуск 45 мин")).toHaveCount(0);
+  await expect(fillGapButton(page, "10:30–11:15")).toHaveCount(0);
+
+  await page.goto("/settings");
+  await setShowGaps(page, true);
+  await page.goto("/");
+  await expect(textOf(page, "Пропуск 45 мин")).toBeVisible();
+  await expect(fillGapButton(page, "10:30–11:15")).toBeVisible();
+});
+
+test("STT-37. крестик скрывает один пропуск до изменения его границ", async ({ page, context }) => {
+  const anki = await createTask(page, { title: "Anki" });
+  await addLocalSession(page, ZONE, anki.id, { start: "10:00", end: "10:30" });
+  await addLocalSession(page, ZONE, anki.id, { start: "11:15", end: "11:45" });
+  await addLocalSession(page, ZONE, anki.id, { start: "12:30", end: "13:00" });
+  await page.goto("/");
+
+  const hideLabel = "Скрыть пропуск 10:30–11:15";
+  const hideGap = button(page, hideLabel);
+  const targetGap = fillGapButton(page, "10:30–11:15");
+  const otherGap = fillGapButton(page, "11:45–12:30");
+  await expect(hideGap).toBeVisible();
+  await expect(hideGap).toHaveAttribute("title", hideLabel);
+  await expect(textOf(page, "Пропуск 45 мин")).toHaveCount(2);
+
+  await context.setOffline(true);
+  await expect(hideGap).toBeDisabled();
+  await expect(targetGap).toBeDisabled();
+  await context.setOffline(false);
+
+  const saved = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/hidden-gaps",
+  );
+  await hideGap.click();
+  await expect(targetGap).toHaveCount(0);
+  await expect(textOf(page, "Пропуск 45 мин")).toHaveCount(1);
+  await expect(otherGap).toBeVisible();
+  await expect(sessionBlock(page, "Anki", "10:00–10:30")).toBeVisible();
+  await expect(sessionBlock(page, "Anki", "11:15–11:45")).toBeVisible();
+  expect((await saved).status()).toBe(204);
+
+  await page.reload();
+  await expect(otherGap).toBeVisible();
+  await expect(targetGap).toHaveCount(0);
+
+  await page.goto("/settings");
+  await setShowGaps(page, false);
+  await setShowGaps(page, true);
+  await page.goto("/");
+  await expect(otherGap).toBeVisible();
+  await expect(targetGap).toHaveCount(0);
+
+  await sessionBlock(page, "Anki", "11:15–11:45").click();
+  const form = dialog(page, "Сессия");
+  await field(form, "Начало").fill(localInput(ZONE, "11:20"));
+  await button(form, "Сохранить").click();
+
+  await expect(form).toBeHidden();
+  await expect(textOf(page, "Пропуск 50 мин")).toBeVisible();
+  await expect(fillGapButton(page, "10:30–11:20")).toBeVisible();
+});
+
+test("STT-37. на телефоне можно скрыть видимый пропуск после короткой сессии", async ({ page }) => {
+  await page.setViewportSize(PHONE_VIEWPORT);
+  const anki = await createTask(page, { title: "Anki" });
+  await addLocalSession(page, ZONE, anki.id, { start: "10:29", end: "10:30" });
+  await addLocalSession(page, ZONE, anki.id, { start: "11:25", end: "11:55" });
+  await page.goto("/");
+
+  const hideGap = button(page, "Скрыть пропуск 10:30–11:25");
+  await expect(hideGap).toBeVisible();
+  await expectNoHorizontalScroll(page);
+  await hideGap.click();
+  await expect(fillGapButton(page, "10:30–11:25")).toHaveCount(0);
+
+  await sessionBlock(page, "Anki", "10:29–10:30").click();
+  await expect(dialog(page, "Сессия")).toBeVisible();
 });
 
 test("38. «Добавить вручную» и «Сессия» открывают «Новая сессия» с пустыми «Начало» и «Конец»; в «Задача» варианты «<название> · <проект>» и «<название>»", async ({
