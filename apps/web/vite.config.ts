@@ -8,7 +8,7 @@ const WORKER_PREFIXES = ["/api/", "/auth/", "/notion/", "/tg/", "/__test/"];
 
 const manifest: Partial<ManifestOptions> = {
   name: "SimpleTimeTracker",
-  short_name: "Трекер",
+  short_name: "SimpleTimeTracker",
   lang: "ru",
   start_url: "/",
   display: "standalone",
