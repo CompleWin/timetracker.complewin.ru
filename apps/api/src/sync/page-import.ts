@@ -3,6 +3,7 @@ import type { BatchItem } from "drizzle-orm/batch";
 import { runAll } from "../db/bulk.ts";
 import { tasks } from "../db/schema.ts";
 import type { NotionDatabaseRow } from "../notion/databases.ts";
+import { deletedNotionPageIds } from "../notion/deleted-pages.ts";
 import { projectValueOf } from "../notion/page-projects.ts";
 import {
   pageTitle,
@@ -11,6 +12,7 @@ import {
   type NotionPageSnapshot,
 } from "../notion/pages.ts";
 import { projectOfRecord, type ProjectBook } from "../notion/record-projects.ts";
+import { normalizedNotionId } from "../notion/webhook-events.ts";
 import { enqueueTasksWithSessions } from "./outbox.ts";
 import { attachPage, insertPageTask } from "./page-links.ts";
 import type { SyncRun } from "./task-pages.ts";
@@ -23,7 +25,14 @@ export async function importPages(
   target: NotionDatabaseRow,
   pages: NotionPageSnapshot[],
 ): Promise<boolean> {
-  const wanted = pages.filter((page) => isWanted(page, target));
+  const deleted = await deletedNotionPageIds(
+    run.db,
+    run.owner.id,
+    pages.map(({ id }) => id),
+  );
+  const wanted = pages.filter(
+    (page) => !deleted.has(normalizedNotionId(page.id)) && isWanted(page, target),
+  );
   if (wanted.length === 0) return false;
   const pageless = await pagelessTasks(run);
   const writes: BatchItem<"sqlite">[] = [];
@@ -41,9 +50,23 @@ export async function importPages(
     };
     const taskId = pageless.get(taskKey(projectId, title))?.shift();
     if (taskId === undefined) {
-      writes.push(insertPageTask(run.db, run.owner.id, { title, projectId }, link, run.now));
+      writes.push(
+        insertPageTask(
+          run.db,
+          {
+            id: crypto.randomUUID(),
+            userId: run.owner.id,
+            title,
+            projectId,
+            ...link,
+            createdAt: run.now,
+            updatedAt: run.now,
+          },
+          "automatic",
+        ),
+      );
     } else {
-      writes.push(attachPage(run.db, taskId, link, run.now));
+      writes.push(attachPage(run.db, run.owner.id, taskId, link, run.now));
       attachedIds.push(taskId);
     }
   }

@@ -4,7 +4,7 @@ import { onBeforeUnmount, onMounted, useId, useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
 import AppIconButton from "./AppIconButton.vue";
 
-withDefaults(defineProps<{ title: string; wide?: boolean }>(), { wide: false });
+const props = defineProps<{ title: string; wide?: boolean; closeDisabled?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const { t } = useI18n();
@@ -22,6 +22,10 @@ onBeforeUnmount(() => {
   dialog.value?.close();
   opener?.focus();
 });
+
+function close(): void {
+  if (!props.closeDisabled) emit("close");
+}
 </script>
 
 <template>
@@ -30,11 +34,11 @@ onBeforeUnmount(() => {
     :aria-labelledby="titleId"
     :class="wide ? 'w-[520px]' : 'w-[460px]'"
     class="m-auto max-w-[calc(100vw-32px)] rounded-island border border-line bg-surface-island p-[18px] text-fg shadow-modal backdrop:bg-overlay md:p-7"
-    @cancel.prevent="emit('close')"
+    @cancel.prevent="close"
   >
     <div class="mb-5 flex items-start justify-between gap-4">
       <h2 :id="titleId" class="text-h3">{{ title }}</h2>
-      <AppIconButton :label="t('dialog.close')" size="sm" @click="emit('close')">
+      <AppIconButton :label="t('dialog.close')" size="sm" :disabled="closeDisabled" @click="close">
         <X :size="17" aria-hidden="true" />
       </AppIconButton>
     </div>

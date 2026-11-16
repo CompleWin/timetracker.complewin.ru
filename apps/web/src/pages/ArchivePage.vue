@@ -6,6 +6,7 @@ import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
 import ArchiveList from "../components/ArchiveList.vue";
 import ArchiveRow from "../components/ArchiveRow.vue";
+import TaskDeleteDialog from "../components/TaskDeleteDialog.vue";
 import AppFormError from "../components/ui/AppFormError.vue";
 import { currentLocale } from "../i18n.ts";
 import { joinMeta } from "../meta-line.ts";
@@ -19,6 +20,8 @@ const projects = ref<Project[]>([]);
 const inactiveTasks = ref<Task[]>([]);
 const loaded = ref(false);
 const nameTaken = ref(false);
+const taskToDelete = ref<Task | null>(null);
+let latestReload = 0;
 
 const timeZone = computed(() => account.user?.timezone ?? null);
 const projectsById = computed(
@@ -35,10 +38,12 @@ onMounted(reload);
 useAutoRefresh(reload);
 
 async function reload(): Promise<void> {
+  const reloadNumber = ++latestReload;
   const [allProjects, tasks] = await Promise.all([
     api.fetchProjects("all"),
     api.fetchTasks("true"),
   ]);
+  if (reloadNumber !== latestReload) return;
   projects.value = allProjects;
   inactiveTasks.value = tasks;
   loaded.value = true;
@@ -91,6 +96,12 @@ async function restoreTask(task: Task): Promise<void> {
   nameTaken.value = false;
   await reload();
 }
+
+async function onTaskDeleted(id: string): Promise<void> {
+  taskToDelete.value = null;
+  inactiveTasks.value = inactiveTasks.value.filter((task) => task.id !== id);
+  await reload();
+}
 </script>
 
 <template>
@@ -141,7 +152,15 @@ async function restoreTask(task: Task): Promise<void> {
       :color="taskProject(task)?.color ?? null"
       marker-at="meta"
       :from-notion="task.notionPageUrl !== null"
+      deletable
       @restore="restoreTask(task)"
+      @delete="taskToDelete = task"
     />
   </ArchiveList>
+  <TaskDeleteDialog
+    v-if="taskToDelete"
+    :task="taskToDelete"
+    @close="taskToDelete = null"
+    @deleted="onTaskDeleted"
+  />
 </template>

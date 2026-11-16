@@ -10,10 +10,12 @@ import { and, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 import { archivedAtAfter } from "../db/archive.ts";
 import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
-import { projects, tasks } from "../db/schema.ts";
+import { projects, tasks, timeEntries } from "../db/schema.ts";
 import { notFound, taskArchived, validationError } from "../http/errors.ts";
+import { rememberDeletedNotionPage } from "../notion/deleted-pages.ts";
 import { isActiveProject } from "../projects/projects.ts";
 import { enqueueTasks } from "../sync/outbox.ts";
+import { createPageTask, type TaskPageLink } from "../sync/page-links.ts";
 import { IDLE_TIMER, stopTaskEntries, taskTimers, type TaskTimer } from "../timers/time-entries.ts";
 
 type TaskRow = typeof tasks.$inferSelect;
@@ -22,11 +24,6 @@ export type NewTask = {
   title: string;
   projectId: string | null;
 };
-
-export type TaskPageLink = Pick<
-  TaskRow,
-  "notionDatabaseId" | "notionPageId" | "notionPageUrl" | "notionSent" | "notionDefaultProject"
->;
 
 const activityConditions: Record<ArchivedFilter, SQL | undefined> = {
   false: and(isNull(tasks.archivedAt), isNull(projects.archivedAt)),
@@ -69,17 +66,14 @@ export async function createTask(
   page?: TaskPageLink,
 ): Promise<Task> {
   await ensureProjectUsable(db, userId, task.projectId);
-  const [row] = await insertTask(db, userId, task, now, page);
+  const values = { id: crypto.randomUUID(), userId, ...task, createdAt: now, updatedAt: now };
+  const row =
+    page === undefined
+      ? (await db.insert(tasks).values(values).returning())[0]
+      : await createPageTask(db, { ...values, ...page });
   if (row === undefined) throw new Error(`Task "${task.title}" was not created`);
   await enqueueTasks(db, userId, [row.id], now);
   return toTask(row, IDLE_TIMER);
-}
-
-function insertTask(db: Database, userId: string, task: NewTask, now: Date, page?: TaskPageLink) {
-  return db
-    .insert(tasks)
-    .values({ id: crypto.randomUUID(), userId, ...task, ...page, createdAt: now, updatedAt: now })
-    .returning();
 }
 
 export async function updateTask(
@@ -106,11 +100,23 @@ export async function updateTask(
       archivedAt: archivedAtAfter(current.archivedAt, changes.archived, now),
       updatedAt: now,
     })
-    .where(eq(tasks.id, id))
+    .where(and(eq(tasks.userId, userId), eq(tasks.id, id)))
     .returning();
-  if (row === undefined) throw new Error(`Task ${id} was not updated`);
+  if (row === undefined) throw notFound();
   if (changesNotionPage(changes) || stopped.length > 0) await enqueueTasks(db, userId, [id], now);
   return withTimer(db, row, now);
+}
+
+export async function deleteTask(db: Database, userId: string, id: string): Promise<void> {
+  const [, , removed] = await db.batch([
+    rememberDeletedNotionPage(db, userId, id),
+    db.delete(timeEntries).where(and(eq(timeEntries.userId, userId), eq(timeEntries.taskId, id))),
+    db
+      .delete(tasks)
+      .where(and(eq(tasks.userId, userId), eq(tasks.id, id)))
+      .returning({ id: tasks.id }),
+  ]);
+  if (removed.length === 0) throw notFound();
 }
 
 export async function requireTask(db: Database, userId: string, id: string): Promise<TaskRow> {

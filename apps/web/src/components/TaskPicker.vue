@@ -10,7 +10,7 @@ import {
   Star,
 } from "@lucide/vue";
 import type { Project, SessionWithTask, Task } from "@stt/shared";
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from "vue";
+import { computed, nextTick, onMounted, ref, shallowRef, useId, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   canCreate,
@@ -23,6 +23,7 @@ import {
   recentTasks,
 } from "../task-picker.ts";
 import PickerBranch from "./PickerBranch.vue";
+import PickerTaskMenu, { type TaskMenuAction, type TaskMenuAnchor } from "./PickerTaskMenu.vue";
 import PickerTaskRow from "./PickerTaskRow.vue";
 import AppKbd from "./ui/AppKbd.vue";
 import AppMenu, { type MenuItem } from "./ui/AppMenu.vue";
@@ -31,6 +32,7 @@ import AppSectionLabel from "./ui/AppSectionLabel.vue";
 export type NewTaskRequest = { title: string; projectId: string | null };
 
 type PickerEntry = { key: string; task: Task | null };
+type TaskMenu = { taskId: string; anchor: TaskMenuAnchor; trigger: HTMLElement };
 
 const CREATE_KEY = "create";
 
@@ -51,6 +53,9 @@ const emit = defineEmits<{
   newProject: [];
   editProject: [project: Project];
   archiveProject: [project: Project];
+  editTask: [task: Task];
+  deleteTask: [task: Task];
+  archiveTask: [task: Task];
   addFromNotion: [];
   close: [];
 }>();
@@ -58,6 +63,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const query = ref("");
 const highlightedIndex = ref(0);
+const taskMenu = shallowRef<TaskMenu | null>(null);
 const searchField = useTemplateRef("searchField");
 const list = useTemplateRef("list");
 const recentLabelId = useId();
@@ -100,6 +106,7 @@ const entries = computed<PickerEntry[]>(() => {
 });
 
 const highlightedKey = computed(() => entries.value[highlightedIndex.value]?.key);
+const menuTask = computed(() => props.tasks.find(({ id }) => id === taskMenu.value?.taskId));
 
 const createItems = computed<MenuItem[]>(() => [
   { label: t("tasks.new"), icon: ListPlus, select: () => emit("newTask") },
@@ -174,6 +181,48 @@ function onPanelKeydown(event: KeyboardEvent): void {
   event.preventDefault();
   emit("close");
 }
+
+function openTaskMenu(task: Task, event: MouseEvent, trigger: EventTarget | null): void {
+  if (!(trigger instanceof HTMLElement)) return;
+  event.preventDefault();
+  const anchor = { x: event.clientX, y: event.clientY };
+  taskMenu.value = { taskId: task.id, anchor, trigger };
+}
+
+function onTaskKeydown(task: Task, event: KeyboardEvent): void {
+  if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+  const trigger = event.currentTarget;
+  if (!(trigger instanceof HTMLElement)) return;
+  event.preventDefault();
+  const bounds = trigger.getBoundingClientRect();
+  const anchor = { x: bounds.left, y: bounds.bottom };
+  taskMenu.value = { taskId: task.id, anchor, trigger };
+}
+
+function closeTaskMenu(restoreFocus: boolean): void {
+  const trigger = taskMenu.value?.trigger;
+  taskMenu.value = null;
+  if (restoreFocus)
+    (trigger?.isConnected ? trigger : searchField.value)?.focus({ preventScroll: true });
+}
+
+function selectTaskAction(action: TaskMenuAction): void {
+  const task = menuTask.value;
+  closeTaskMenu(false);
+  searchField.value?.focus({ preventScroll: true });
+  if (task === undefined) return;
+  switch (action) {
+    case "edit":
+      emit("editTask", task);
+      break;
+    case "delete":
+      emit("deleteTask", task);
+      break;
+    case "archive":
+      emit("archiveTask", task);
+      break;
+  }
+}
 </script>
 
 <template>
@@ -225,8 +274,12 @@ function onPanelKeydown(event: KeyboardEvent): void {
             ? t('picker.alreadyRunning', { title: task.title })
             : t('timers.startTask', { title: task.title })
         "
+        aria-haspopup="menu"
+        aria-keyshortcuts="Shift+F10"
         class="inline-flex h-[30px] max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-primary-soft px-3 text-meta text-primary-ink transition-colors duration-150 hover:bg-primary-soft-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         @click="choose(task)"
+        @contextmenu="openTaskMenu(task, $event, $event.currentTarget)"
+        @keydown="onTaskKeydown(task, $event)"
       >
         <span class="truncate">{{ task.title }}</span>
         <Star :size="13" aria-hidden="true" class="flex-none fill-current text-project-yellow" />
@@ -257,6 +310,8 @@ function onPanelKeydown(event: KeyboardEvent): void {
             @choose="choose(task)"
             @pin="emit('pin', task)"
             @hover="highlight(`recent:${task.id}`)"
+            @context="(event, trigger) => openTaskMenu(task, event, trigger)"
+            @task-keydown="onTaskKeydown(task, $event)"
           />
         </div>
         <div v-if="branches.length > 0" role="group" :aria-labelledby="treeLabelId">
@@ -287,6 +342,8 @@ function onPanelKeydown(event: KeyboardEvent): void {
               @choose="choose(task)"
               @pin="emit('pin', task)"
               @hover="highlight(`tree:${task.id}`)"
+              @context="(event, trigger) => openTaskMenu(task, event, trigger)"
+              @task-keydown="onTaskKeydown(task, $event)"
             />
           </PickerBranch>
         </div>
@@ -311,6 +368,8 @@ function onPanelKeydown(event: KeyboardEvent): void {
             @choose="choose(task)"
             @pin="emit('pin', task)"
             @hover="highlight(`found:${task.id}`)"
+            @context="(event, trigger) => openTaskMenu(task, event, trigger)"
+            @task-keydown="onTaskKeydown(task, $event)"
           />
         </div>
         <p v-else class="px-3 py-2 text-small text-fg-subtle">{{ t("picker.nothingFound") }}</p>
@@ -369,5 +428,12 @@ function onPanelKeydown(event: KeyboardEvent): void {
       </div>
       <slot name="footer-end" />
     </div>
+    <PickerTaskMenu
+      v-if="taskMenu && menuTask"
+      :title="menuTask.title"
+      :anchor="taskMenu.anchor"
+      @select="selectTaskAction"
+      @close="closeTaskMenu"
+    />
   </div>
 </template>

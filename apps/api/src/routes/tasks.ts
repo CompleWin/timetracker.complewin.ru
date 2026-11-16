@@ -9,7 +9,7 @@ import { Hono } from "hono";
 import { database } from "../db/client.ts";
 import type { AuthedEnv } from "../env.ts";
 import { jsonBody, queryParams } from "../http/validation.ts";
-import { createTask, getTask, listTasks, updateTask } from "../tasks/tasks.ts";
+import { createTask, deleteTask, getTask, listTasks, updateTask } from "../tasks/tasks.ts";
 import { addSession } from "../timers/session-edits.ts";
 import { listTaskSessions, startTimer, stopTaskTimer } from "../timers/timers.ts";
 
@@ -35,6 +35,10 @@ export const tasks = new Hono<AuthedEnv>()
       c.var.now,
     );
     return c.json({ task });
+  })
+  .delete("/:id", async (c) => {
+    await deleteTask(database(c.env), c.var.user.id, c.req.param("id"));
+    return c.body(null, 204);
   })
   .post("/:id/start", async (c) => {
     const session = await startTimer(database(c.env), c.var.user.id, c.req.param("id"), c.var.now);

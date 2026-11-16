@@ -166,6 +166,10 @@ export async function updateTask(id: string, body: UpdateTaskBody): Promise<Task
   return taskResponse.parse(await request("PATCH", `/api/tasks/${id}`, body)).task;
 }
 
+export async function deleteTask(id: string): Promise<void> {
+  await request("DELETE", `/api/tasks/${id}`);
+}
+
 export async function fetchTaskSessions(taskId: string): Promise<Session[]> {
   const limit = String(TASK_SESSIONS_MAX_LIMIT);
   const path = `/api/tasks/${taskId}/sessions?${new URLSearchParams({ limit })}`;

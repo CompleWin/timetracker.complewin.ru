@@ -15,6 +15,7 @@ import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
 import SessionDialog from "../components/SessionDialog.vue";
 import TaskDays from "../components/TaskDays.vue";
+import TaskDeleteDialog from "../components/TaskDeleteDialog.vue";
 import TaskDialog from "../components/TaskDialog.vue";
 import TaskNotion from "../components/TaskNotion.vue";
 import TaskOverview from "../components/TaskOverview.vue";
@@ -27,7 +28,10 @@ import { serverNowMs, useServerNow } from "../server-clock.ts";
 import { useSessionStore } from "../stores/session.ts";
 import { changeTimer } from "../timers.ts";
 
-type OpenDialog = { kind: "session"; session?: Session } | { kind: "task"; projects: Project[] };
+type OpenDialog =
+  | { kind: "session"; session?: Session }
+  | { kind: "task"; projects: Project[] }
+  | { kind: "deleteTask"; task: Task };
 
 type TaskPageData = {
   task: Task;
@@ -145,6 +149,11 @@ async function onSaved(): Promise<void> {
   dialog.value = null;
   await load();
 }
+
+async function onDeleted(): Promise<void> {
+  dialog.value = null;
+  await router.replace("/");
+}
 </script>
 
 <template>
@@ -188,6 +197,7 @@ async function onSaved(): Promise<void> {
           :time-zone
           @edit="editTask"
           @archive="setArchived(true)"
+          @delete="dialog = { kind: 'deleteTask', task }"
           @start="startTimer"
           @stop="stopTimer"
         />
@@ -225,6 +235,12 @@ async function onSaved(): Promise<void> {
       :task
       @close="dialog = null"
       @saved="onSaved"
+    />
+    <TaskDeleteDialog
+      v-if="dialog?.kind === 'deleteTask'"
+      :task="dialog.task"
+      @close="dialog = null"
+      @deleted="onDeleted"
     />
   </template>
 </template>

@@ -80,6 +80,17 @@ export const notionOauthStates = sqliteTable("notion_oauth_states", {
   expiresAt: timestamp("expires_at").notNull(),
 });
 
+export const deletedNotionPages = sqliteTable(
+  "deleted_notion_pages",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    pageId: text("page_id").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.pageId] })],
+);
+
 export const notionConnections = sqliteTable("notion_connections", {
   id: text("id").primaryKey(),
   userId: text("user_id")

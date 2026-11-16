@@ -52,6 +52,22 @@ export function getTask(
   return api.get(taskPath(id), { ...opts, as: session });
 }
 
+export function requestDeleteTask(
+  session: TestSession,
+  id: string,
+  opts: SessionOpts = {},
+): Promise<TestResponse> {
+  return api.delete(taskPath(id), { ...opts, as: session });
+}
+
+export async function deleteTask(
+  session: TestSession,
+  id: string,
+  opts: SessionOpts = {},
+): Promise<void> {
+  requireStatus(await requestDeleteTask(session, id, opts), 204, `DELETE ${taskPath(id)}`);
+}
+
 export function archiveTask(
   session: TestSession,
   id: string,

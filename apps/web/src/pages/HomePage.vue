@@ -20,6 +20,7 @@ import SessionDialog, {
   type TaskChoice,
 } from "../components/SessionDialog.vue";
 import SummaryIsland from "../components/SummaryIsland.vue";
+import TaskDeleteDialog from "../components/TaskDeleteDialog.vue";
 import TaskDialog from "../components/TaskDialog.vue";
 import type { NewTaskRequest } from "../components/TaskPicker.vue";
 import TimelineIsland from "../components/TimelineIsland.vue";
@@ -36,7 +37,8 @@ type OpenDialog =
   | { kind: "newSession"; range?: SessionRange }
   | { kind: "session"; session: SessionWithTask }
   | { kind: "project"; project?: Project }
-  | { kind: "task" }
+  | { kind: "task"; task?: Task }
+  | { kind: "deleteTask"; task: Task }
   | { kind: "notionPages" };
 
 const WEEK_DAYS = 7;
@@ -170,6 +172,10 @@ function archiveProject(project: Project): Promise<void> {
   return changeAndReload(() => api.updateProject(project.id, { archived: true }));
 }
 
+function archiveTask(task: Task): Promise<void> {
+  return changeAndReload(() => api.updateTask(task.id, { archived: true }));
+}
+
 function sessionTask(session: SessionWithTask): SessionTask {
   return {
     id: session.task.id,
@@ -186,6 +192,13 @@ async function openDialog(next: OpenDialog): Promise<void> {
 async function onSaved(): Promise<void> {
   dialog.value = null;
   await reload();
+}
+
+async function onTaskDeleted(id: string): Promise<void> {
+  tasks.value = tasks.value.filter((task) => task.id !== id);
+  running.value = running.value.filter((session) => session.taskId !== id);
+  weekSessions.value = weekSessions.value.filter((session) => session.taskId !== id);
+  await onSaved();
 }
 </script>
 
@@ -212,6 +225,9 @@ async function onSaved(): Promise<void> {
       @new-project="openDialog({ kind: 'project' })"
       @edit-project="(project) => openDialog({ kind: 'project', project })"
       @archive-project="archiveProject"
+      @edit-task="(task) => openDialog({ kind: 'task', task })"
+      @delete-task="(task) => openDialog({ kind: 'deleteTask', task })"
+      @archive-task="archiveTask"
       @add-from-notion="openDialog({ kind: 'notionPages' })"
     />
     <TimelineIsland
@@ -264,9 +280,16 @@ async function onSaved(): Promise<void> {
   />
   <TaskDialog
     v-if="dialog?.kind === 'task'"
+    :task="dialog.task"
     :projects="activeProjects"
     @close="dialog = null"
     @saved="onSaved"
     @created="reload"
+  />
+  <TaskDeleteDialog
+    v-if="dialog?.kind === 'deleteTask'"
+    :task="dialog.task"
+    @close="dialog = null"
+    @deleted="onTaskDeleted"
   />
 </template>
