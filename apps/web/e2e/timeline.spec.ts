@@ -128,7 +128,7 @@ test("36. «К задаче» в диалоге «Сессия» открыва�
   await expect(page).toHaveURL(urlMatching(`/tasks/${anki.id}`));
 });
 
-test("37. «Заполнить пропуск» открывает «Новая сессия» с границами пропуска и последней запущенной задачей, после сохранения пропуска нет, а блок есть", async ({
+test("37. «Заполнить пропуск» открывает «Новая сессия» с границами пропуска и последней запущенной задачей, после сохранения пропуска нет, а новая сессия слита с соседней сессией этой задачи в один блок", async ({
   page,
 }) => {
   const anki = await createTask(page, { title: "Anki" });
@@ -147,7 +147,8 @@ test("37. «Заполнить пропуск» открывает «Новая 
 
   await expect(form).toBeHidden();
   await expect(fillGapButton(page, "10:30–11:15")).toHaveCount(0);
-  await expect(sessionBlock(page, "Бег", "10:30–11:15")).toBeVisible();
+  await expect(sessionBlock(page, "Бег", "10:30–11:45")).toBeVisible();
+  await expect(sessionBlock(page, "Бег", "10:30–11:15")).toHaveCount(0);
 });
 
 test("STT-37. флажок в настройках скрывает и возвращает пропуски и сохраняет значение после перезагрузки", async ({

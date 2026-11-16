@@ -18,6 +18,9 @@ const DROPPED_COLUMN_VALUE = 0;
 
 const LAST_MIGRATION_BEFORE_AUTO_IMPORT = "0011_telegram_bot.sql";
 const LAST_MIGRATION_BEFORE_PAGES_ONLY = "0012_notion_auto_import.sql";
+const LAST_MIGRATION_BEFORE_SESSION_MERGE = "0016_hidden_gaps.sql";
+const TIME_ENTRIES = "time_entries";
+const MS_PER_SECOND = 1_000;
 const TABLES_SQL =
   "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*' AND name != 'd1_migrations'";
 
@@ -27,6 +30,28 @@ export function replayAutoImportMigrations(): Promise<void> {
 
 export function replayPagesOnlyMigration(edit: SnapshotEdit): Promise<void> {
   return replayMigrationsAfter(LAST_MIGRATION_BEFORE_PAGES_ONLY, edit);
+}
+
+export function replaySessionMergeMigration(...edits: SnapshotEdit[]): Promise<void> {
+  return replayMigrationsAfter(LAST_MIGRATION_BEFORE_SESSION_MERGE, (snapshot) => {
+    for (const edit of edits) edit(snapshot);
+  });
+}
+
+export function moveSessionStart(
+  session: { id: string; startedAt: string },
+  startedAt: string,
+): SnapshotEdit {
+  const fromMs = Date.parse(session.startedAt);
+  const toMs = Date.parse(startedAt);
+  return (snapshot) => {
+    const row = snapshot.get(TIME_ENTRIES)?.find((entry) => entry.id === session.id);
+    if (!row) throw new Error(`No ${TIME_ENTRIES} row ${session.id}`);
+    for (const [column, value] of Object.entries(row)) {
+      if (value === fromMs) row[column] = toMs;
+      if (value === fromMs / MS_PER_SECOND) row[column] = toMs / MS_PER_SECOND;
+    }
+  };
 }
 
 export function clearValuesInRowsOf(

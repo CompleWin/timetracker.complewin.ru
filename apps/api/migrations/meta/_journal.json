@@ -120,6 +120,13 @@
       "when": 1794770651855,
       "tag": "0016_hidden_gaps",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1794806558590,
+      "tag": "0017_merge_adjacent_sessions",
+      "breakpoints": true
     }
   ]
 }
