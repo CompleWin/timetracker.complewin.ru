@@ -61,7 +61,7 @@ test("40. неделя из 7 столбиков: у последнего title 
   const anki = await createTask(page, { title: "Anki" });
   await addLocalSession(page, ZONE, anki.id, { start: "10:00", end: "12:00", daysAgo: 1 });
   await addLocalSession(page, ZONE, anki.id, { start: "10:00", end: "11:00" });
-  await addLocalSession(page, ZONE, anki.id, { start: "11:00", end: "11:30" });
+  await addLocalSession(page, ZONE, anki.id, { start: "11:05", end: "11:35" });
 
   await page.goto("/");
 

@@ -81,7 +81,7 @@ describe("задачи и проекты с сайта живут только �
       await addSession(
         session,
         task.id,
-        { startedAt: atMinute(14).now, endedAt: atMinute(15).now },
+        { startedAt: atMinute(15).now, endedAt: atMinute(16).now },
         atMinute(16),
       );
       await updateTask(session, task.id, { title: "Anki: испанский" }, atMinute(16));

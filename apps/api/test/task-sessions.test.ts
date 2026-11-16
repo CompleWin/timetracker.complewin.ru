@@ -20,17 +20,18 @@ type TaskHistory = {
 };
 
 const DEFAULT_LIMIT = 50;
-const LIST_AT = atSecond(230);
-const SECOND_SESSION_START = 100;
+const LIST_AT = atSecond(430);
+const SECOND_SESSION_START = 200;
+const HISTORY_STEP_SEC = 100;
 const LONG_HISTORY_TIMEOUT_MS = 30_000;
 
 async function taskWithThreeSessions(): Promise<TaskHistory> {
   const { session, task } = await loginWithTask();
   const other = await createTask(session, { title: "Беговая дорожка" }, atSecond(0));
   const first = await recordSession(session, task.id, 0, 60);
-  const second = await recordSession(session, task.id, SECOND_SESSION_START, 160);
-  await recordSession(session, other.id, 150, 170);
-  const third = await startTimer(session, task.id, atSecond(200));
+  const second = await recordSession(session, task.id, SECOND_SESSION_START, 260);
+  await recordSession(session, other.id, 250, 270);
+  const third = await startTimer(session, task.id, atSecond(400));
   return { session, task, first, second, third };
 }
 
@@ -62,7 +63,7 @@ describe("GET /api/tasks/:id/sessions", () => {
 
   it.each([
     ["в UTC", atSecond(SECOND_SESSION_START).now],
-    ["со смещением", "2030-01-01T03:01:40+03:00"],
+    ["со смещением", "2030-01-01T03:03:20+03:00"],
   ])(
     "15. before = startedAt второй сессии %s оставляет сессии строго раньше",
     async (_, before) => {
@@ -85,11 +86,12 @@ describe("GET /api/tasks/:id/sessions", () => {
       const { session, task } = await loginWithTask();
       const recorded: TestTimerSession[] = [];
       for (let index = 0; index <= DEFAULT_LIMIT; index++) {
-        recorded.push(await recordSession(session, task.id, index * 10, index * 10 + 5));
+        const start = index * HISTORY_STEP_SEC;
+        recorded.push(await recordSession(session, task.id, start, start + 5));
       }
       const newestFirst = recorded.reverse().slice(0, DEFAULT_LIMIT);
 
-      expectSessionIds(await getTaskSessions(session, task.id, {}, atSecond(1_000)), newestFirst);
+      expectSessionIds(await getTaskSessions(session, task.id, {}, atSecond(10_000)), newestFirst);
     },
     LONG_HISTORY_TIMEOUT_MS,
   );

@@ -11,6 +11,7 @@ import { tasks, timeEntries } from "../db/schema.ts";
 import { alreadyRunning, notRunning, tooManyRunning } from "../http/errors.ts";
 import { enqueueTasks } from "../sync/outbox.ts";
 import { requireActiveTask, requireTask } from "../tasks/tasks.ts";
+import { resumeRecentSession } from "./session-merge.ts";
 import {
   entryIdWhere,
   liveEntries,
@@ -30,6 +31,8 @@ export async function startTimer(
 ): Promise<Session> {
   await requireActiveTask(db, userId, taskId);
   await ensureCanStart(db, userId, taskId);
+  const resumed = await resumeRecentSession(db, taskId, now);
+  if (resumed !== undefined) return sessionChanged(db, resumed, now);
   const [row] = await db
     .insert(timeEntries)
     .values({ id: crypto.randomUUID(), userId, taskId, startedAt: now })

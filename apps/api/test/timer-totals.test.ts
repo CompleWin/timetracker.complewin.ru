@@ -9,14 +9,14 @@ describe("totalSec задачи", () => {
   it("10. две сессии по 60 и 120 секунд плюс идущая 30 секунд дают totalSec 210", async () => {
     const { session, task } = await loginWithTask();
     await recordSession(session, task.id, 0, 60);
-    await recordSession(session, task.id, 100, 220);
-    const running = await startTimer(session, task.id, atSecond(300));
+    await recordSession(session, task.id, 200, 320);
+    const running = await startTimer(session, task.id, atSecond(400));
 
-    expect(await getTask(session, task.id, atSecond(330))).toMatchObject({
+    expect(await getTask(session, task.id, atSecond(430))).toMatchObject({
       status: 200,
       body: { task: { totalSec: 210, runningSessionId: running.id } },
     });
-    expect(await getTimerSession(session, running.id, atSecond(330))).toMatchObject({
+    expect(await getTimerSession(session, running.id, atSecond(430))).toMatchObject({
       status: 200,
       body: { session: { id: running.id, endedAt: null, durationSec: 30 } },
     });
@@ -25,10 +25,10 @@ describe("totalSec задачи", () => {
   it("10. totalSec виден и в списке задач", async () => {
     const { session, task } = await loginWithTask();
     await recordSession(session, task.id, 0, 60);
-    await recordSession(session, task.id, 100, 220);
-    await startTimer(session, task.id, atSecond(300));
+    await recordSession(session, task.id, 200, 320);
+    await startTimer(session, task.id, atSecond(400));
 
-    expect(await listTasks(session, {}, atSecond(330))).toMatchObject({
+    expect(await listTasks(session, {}, atSecond(430))).toMatchObject({
       status: 200,
       body: { tasks: [{ id: task.id, totalSec: 210 }] },
     });

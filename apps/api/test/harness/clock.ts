@@ -16,6 +16,11 @@ export function clockIso(time: string): string {
   return atMinute(hours * HOUR_MIN + minutes).now;
 }
 
+export function clockSecondsIso(time: string): string {
+  const [hours = 0, minutes = 0, seconds = 0] = time.split(":").map(Number);
+  return atSecond((hours * HOUR_MIN + minutes) * MINUTE_SEC + seconds).now;
+}
+
 export function atClock(time: string): { now: string } {
   return { now: clockIso(time) };
 }

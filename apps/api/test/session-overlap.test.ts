@@ -64,9 +64,9 @@ describe("пересечение с остановленной сессией", 
   );
 
   it.each([
-    ["11:00", "11:30"],
-    ["09:30", "10:00"],
-  ])("4. сессия %s–%s впритык к существующей 10:00–11:00 создаётся", async (start, end) => {
+    ["11:02", "11:30"],
+    ["09:30", "09:58"],
+  ])("4. сессия %s–%s рядом с существующей 10:00–11:00 создаётся", async (start, end) => {
     const { session, task } = await taskWithSessionFrom10To11();
 
     expect(await requestAddSession(session, task.id, interval(start, end), EVENING)).toMatchObject({
@@ -77,7 +77,7 @@ describe("пересечение с остановленной сессией", 
 
   it("4. правка остановленной сессии на пересечение с другой даёт 409 overlap", async () => {
     const { session, task, existing } = await taskWithSessionFrom10To11();
-    const later = await addSession(session, task.id, interval("11:00", "11:30"), EVENING);
+    const later = await addSession(session, task.id, interval("11:05", "11:30"), EVENING);
 
     expectOverlap(
       await requestEditSession(session, later.id, { startedAt: clockIso("10:59") }, EVENING),
@@ -138,28 +138,24 @@ describe("пересечение с идущей сессией", () => {
   it("6. начало идущей сессии переносится раньше, если пересечения нет, и сессия идёт дальше", async () => {
     const { session, task } = await taskWithSessionFrom10To11();
     const running = await startTimer(session, task.id, atClock("12:00"));
+    const movedStart = clockIso("11:30");
 
     expect(
-      await requestEditSession(
-        session,
-        running.id,
-        { startedAt: clockIso(EXISTING_END) },
-        atClock("12:30"),
-      ),
+      await requestEditSession(session, running.id, { startedAt: movedStart }, atClock("12:30")),
     ).toMatchObject({
       status: 200,
       body: {
         session: {
           id: running.id,
-          startedAt: clockIso(EXISTING_END),
+          startedAt: movedStart,
           endedAt: null,
-          durationSec: 5400,
+          durationSec: 3600,
         },
       },
     });
     expect(await getActiveTimers(session, atClock("12:30"))).toMatchObject({
       status: 200,
-      body: { sessions: [{ id: running.id, startedAt: clockIso(EXISTING_END) }] },
+      body: { sessions: [{ id: running.id, startedAt: movedStart }] },
     });
   });
 });

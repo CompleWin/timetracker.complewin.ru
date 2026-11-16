@@ -5,6 +5,7 @@ import { timeEntries } from "../db/schema.ts";
 import { notFound, overlap, validationError, type FieldErrors } from "../http/errors.ts";
 import { enqueueTasks } from "../sync/outbox.ts";
 import { requireActiveTask } from "../tasks/tasks.ts";
+import { mergeNeighbours } from "./session-merge.ts";
 import { sessionChanged } from "./timers.ts";
 import { liveEntries, ownEntry, requireEntry, stoppedAt } from "./time-entries.ts";
 
@@ -43,7 +44,7 @@ export async function addSession(
     .values({ id: crypto.randomUUID(), userId, taskId, ...times, note })
     .returning();
   if (row === undefined) throw new Error(`Session of task ${taskId} was not added`);
-  return sessionChanged(db, row, now);
+  return sessionChanged(db, await mergeNeighbours(db, row, now), now);
 }
 
 export async function updateSession(
@@ -67,7 +68,8 @@ export async function updateSession(
     .where(ownEntry(userId, id))
     .returning();
   if (row === undefined) throw notFound();
-  return sessionChanged(db, row, now);
+  const timesChanged = startedAt !== undefined || endedAt !== undefined;
+  return sessionChanged(db, timesChanged ? await mergeNeighbours(db, row, now) : row, now);
 }
 
 export async function deleteSession(
