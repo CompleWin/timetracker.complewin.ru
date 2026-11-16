@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import {
   lastDays,
+  type HiddenGap,
   type NotionDatabase,
   type Project,
   type SessionWithTask,
   type Task,
 } from "@stt/shared";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
@@ -24,6 +25,7 @@ import type { NewTaskRequest } from "../components/TaskPicker.vue";
 import TimelineIsland from "../components/TimelineIsland.vue";
 import AppIsland from "../components/ui/AppIsland.vue";
 import AppSkeleton from "../components/ui/AppSkeleton.vue";
+import { isOnline } from "../connection.ts";
 import { secondsByTask, startedIn } from "../day-sessions.ts";
 import { serverNowMs, useServerNow } from "../server-clock.ts";
 import { useSessionStore } from "../stores/session.ts";
@@ -46,6 +48,8 @@ const projects = ref<Project[]>([]);
 const tasks = ref<Task[]>([]);
 const running = ref<SessionWithTask[]>([]);
 const weekSessions = ref<SessionWithTask[]>([]);
+const hiddenGaps = shallowRef<HiddenGap[]>([]);
+const pendingHiddenGaps = shallowRef<HiddenGap[]>([]);
 const notionDatabases = ref<NotionDatabase[]>([]);
 const loaded = ref(false);
 const dialog = ref<OpenDialog | null>(null);
@@ -60,6 +64,7 @@ const todaySessions = computed(() =>
   today.value === undefined ? [] : startedIn(today.value, weekSessions.value),
 );
 const todaySecByTask = computed(() => secondsByTask(todaySessions.value, now.value));
+const effectiveHiddenGaps = computed(() => [...hiddenGaps.value, ...pendingHiddenGaps.value]);
 const projectsById = computed(
   () => new Map(projects.value.map((project) => [project.id, project])),
 );
@@ -93,14 +98,21 @@ async function reload(): Promise<void> {
   const week = weekOf(serverNowMs());
   const from = week[0]?.from ?? "";
   const to = week[week.length - 1]?.to ?? "";
+  const gapsBeforeReload = hiddenGaps.value;
   const loadedData = await Promise.all([
     api.fetchProjects("all"),
     api.fetchTasks("false"),
     api.fetchActiveSessions(),
     api.fetchPeriodSessions(from, to),
+    api.fetchHiddenGaps(from, to),
   ]);
   if (reloadNumber !== latestReload) return;
-  [projects.value, tasks.value, running.value, weekSessions.value] = loadedData;
+  const [nextProjects, nextTasks, nextRunning, nextSessions, nextHiddenGaps] = loadedData;
+  if (hiddenGaps.value === gapsBeforeReload) hiddenGaps.value = nextHiddenGaps;
+  projects.value = nextProjects;
+  tasks.value = nextTasks;
+  running.value = nextRunning;
+  weekSessions.value = nextSessions;
   loaded.value = true;
 }
 
@@ -111,6 +123,19 @@ async function loadNotionDatabases(): Promise<void> {
 async function changeAndReload(change: () => Promise<unknown>): Promise<void> {
   await change();
   await reload();
+}
+
+async function hideGap(gap: HiddenGap): Promise<void> {
+  if (!isOnline.value) return;
+  pendingHiddenGaps.value = [...pendingHiddenGaps.value, gap];
+  try {
+    await api.hideGap(gap);
+    hiddenGaps.value = [...hiddenGaps.value, gap];
+  } catch (error) {
+    if (!(error instanceof api.NetworkError)) throw error;
+  } finally {
+    pendingHiddenGaps.value = pendingHiddenGaps.value.filter((pending) => pending !== gap);
+  }
 }
 
 function startTask(task: Task): Promise<void> {
@@ -194,10 +219,13 @@ async function onSaved(): Promise<void> {
       :sessions="todaySessions"
       :day="today"
       :projects="projectsById"
+      :show-gaps="account.user?.showGaps ?? true"
+      :hidden-gaps="effectiveHiddenGaps"
       :now
       :time-zone
       @add="openDialog({ kind: 'newSession' })"
       @fill="(range) => openDialog({ kind: 'newSession', range })"
+      @hide="hideGap"
       @edit="(session) => openDialog({ kind: 'session', session })"
     />
     <SummaryIsland :week-sessions :days :projects :now :time-zone />

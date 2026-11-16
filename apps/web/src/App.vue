@@ -3,6 +3,7 @@ import { WifiOff } from "@lucide/vue";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterView, useRoute } from "vue-router";
+import { useAutoRefresh } from "./auto-refresh.ts";
 import AppFooter from "./components/AppFooter.vue";
 import AppHeader from "./components/AppHeader.vue";
 import AppBanner from "./components/ui/AppBanner.vue";
@@ -12,6 +13,7 @@ import { useSessionStore } from "./stores/session.ts";
 const { t } = useI18n();
 const route = useRoute();
 const session = useSessionStore();
+useAutoRefresh(session.refreshShowGaps);
 
 const mainClasses = computed(() => {
   if (route.path === "/" && session.isGuest) return "w-full overflow-x-clip";

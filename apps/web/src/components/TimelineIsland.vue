@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus } from "@lucide/vue";
+import { Plus, X } from "@lucide/vue";
 import {
   formatDuration,
   formatTime,
@@ -7,6 +7,7 @@ import {
   timelineGaps,
   timelineLanes,
   type DayRange,
+  type HiddenGap,
   type Project,
   type SessionWithTask,
   type TimelineGap,
@@ -19,6 +20,7 @@ import { currentLocale } from "../i18n.ts";
 import type { SessionRange } from "./SessionDialog.vue";
 import TimelineSession from "./TimelineSession.vue";
 import AppButton from "./ui/AppButton.vue";
+import AppIconButton from "./ui/AppIconButton.vue";
 import AppIsland from "./ui/AppIsland.vue";
 
 type PlacedSession = {
@@ -34,6 +36,7 @@ type PlacedGap = {
   range: SessionRange;
   label: string;
   fillLabel: string;
+  hideLabel: string;
   style: Record<string, string>;
 };
 
@@ -51,6 +54,8 @@ const props = defineProps<{
   sessions: SessionWithTask[];
   day: DayRange;
   projects: Map<string, Project>;
+  showGaps: boolean;
+  hiddenGaps: HiddenGap[];
   now: number;
   timeZone: string | null;
 }>();
@@ -58,6 +63,7 @@ const emit = defineEmits<{
   add: [];
   edit: [session: SessionWithTask];
   fill: [range: SessionRange];
+  hide: [gap: HiddenGap];
 }>();
 
 const { t } = useI18n();
@@ -100,9 +106,15 @@ const placedSessions = computed<PlacedSession[]>(() => {
   });
 });
 
-const placedGaps = computed<PlacedGap[]>(() =>
-  timelineGaps(items.value, GAP_MIN_SEC).flatMap((gap) => placeGap(gap) ?? []),
-);
+const placedGaps = computed<PlacedGap[]>(() => {
+  if (!props.showGaps) return [];
+  const hidden = new Set(
+    props.hiddenGaps.map((gap) => gapKey(Date.parse(gap.startedAt), Date.parse(gap.endedAt))),
+  );
+  return timelineGaps(items.value, GAP_MIN_SEC)
+    .filter((gap) => !hidden.has(gapKey(gap.startMs, gap.endMs)))
+    .flatMap((gap) => placeGap(gap) ?? []);
+});
 
 const nowTop = computed(() => offsetOf(props.now));
 const nowLabel = computed(() => formatTime(nowIso.value, props.timeZone));
@@ -117,6 +129,10 @@ function scrollToNow(): void {
 
 function offsetOf(epochMs: number): number {
   return ((epochMs - Date.parse(props.day.from)) / HOUR_MS) * HOUR_HEIGHT_PX;
+}
+
+function gapKey(startMs: number, endMs: number): string {
+  return `${startMs}:${endMs}`;
 }
 
 function blocksBottomBefore(atMs: number): number {
@@ -139,12 +155,13 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
   const heightPx = offsetOf(gap.endMs) - top - BLOCK_INSET_PX;
   if (top > timeTop && heightPx < BLOCK_MIN_HEIGHT_PX) return undefined;
   return {
-    key: range.startedAt,
+    key: gapKey(gap.startMs, gap.endMs),
     range,
     label: t("timeline.gap", {
       duration: formatDuration((gap.endMs - gap.startMs) / MS_PER_SECOND, currentLocale()),
     }),
     fillLabel: t("timeline.fillGap", { range: times }),
+    hideLabel: t("timeline.hideGap", { range: times }),
     style: {
       top: `${top + 1}px`,
       height: `${Math.max(0, heightPx)}px`,
@@ -197,20 +214,31 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
         <div
           v-for="gap in placedGaps"
           :key="gap.key"
-          class="absolute right-0 left-14 flex items-center justify-center gap-2 rounded-field border border-dashed border-line-strong"
+          class="absolute right-0 left-14 flex items-center gap-2 rounded-field border border-dashed border-line-strong px-2"
           :style="gap.style"
         >
-          <span class="text-meta text-fg-subtle">{{ gap.label }}</span>
-          <AppButton
-            variant="quiet-accent"
-            size="2xs"
-            :aria-label="gap.fillLabel"
+          <div class="flex flex-1 items-center justify-center gap-2">
+            <span class="text-meta text-fg-subtle">{{ gap.label }}</span>
+            <AppButton
+              variant="quiet-accent"
+              size="2xs"
+              :aria-label="gap.fillLabel"
+              :disabled="!isOnline"
+              @click="emit('fill', gap.range)"
+            >
+              <Plus :size="13" aria-hidden="true" />
+              {{ t("timeline.fill") }}
+            </AppButton>
+          </div>
+          <AppIconButton
+            size="xs"
+            :label="gap.hideLabel"
+            class="z-10"
             :disabled="!isOnline"
-            @click="emit('fill', gap.range)"
+            @click="emit('hide', gap.range)"
           >
-            <Plus :size="13" aria-hidden="true" />
-            {{ t("timeline.fill") }}
-          </AppButton>
+            <X :size="15" aria-hidden="true" />
+          </AppIconButton>
         </div>
         <TimelineSession
           v-for="placed in placedSessions"

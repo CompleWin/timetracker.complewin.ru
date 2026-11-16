@@ -1,5 +1,6 @@
 import {
   availableNotionDatabasesResponse,
+  hiddenGapsResponse,
   notionConnectionResponse,
   notionDatabaseResponse,
   notionPagesResponse,
@@ -22,6 +23,7 @@ import {
   type CreateTaskBody,
   type LinkNotionPageBody,
   type DevLoginBody,
+  type HiddenGap,
   type NotionConnection,
   type NotionDatabase,
   type NotionPage,
@@ -195,6 +197,15 @@ export async function fetchPeriodSessions(
   const query: Record<string, string> = taskId === undefined ? { from, to } : { from, to, taskId };
   const path = `/api/sessions?${new URLSearchParams(query)}`;
   return sessionsWithTaskResponse.parse(await request("GET", path)).sessions;
+}
+
+export async function fetchHiddenGaps(from: string, to: string): Promise<HiddenGap[]> {
+  const path = `/api/hidden-gaps?${new URLSearchParams({ from, to })}`;
+  return hiddenGapsResponse.parse(await request("GET", path)).hiddenGaps;
+}
+
+export async function hideGap(gap: HiddenGap): Promise<void> {
+  await request("POST", "/api/hidden-gaps", gap);
 }
 
 export async function stopSession(id: string): Promise<Session> {

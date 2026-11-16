@@ -5,7 +5,7 @@ import { users } from "../db/schema.ts";
 
 type UserRow = typeof users.$inferSelect;
 
-export type UserFields = Omit<User, "id" | "telegramId" | "timezone" | "reminderThresholdMin">;
+export type UserFields = Pick<User, "name" | "username" | "photoUrl" | "locale" | "botCanMessage">;
 
 export type UserChanges = Partial<Omit<User, "id" | "telegramId">>;
 
@@ -44,6 +44,7 @@ export function toUser(row: UserRow): User {
     locale: row.locale,
     botCanMessage: row.botCanMessage,
     reminderThresholdMin: row.reminderThresholdMin,
+    showGaps: row.showGaps,
   };
 }
 

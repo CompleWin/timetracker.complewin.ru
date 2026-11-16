@@ -23,6 +23,7 @@ export {
   type DayRange,
 } from "./dates.ts";
 export { elapsedSec, formatClock, formatDuration } from "./duration.ts";
+export { hiddenGapsResponse, hideGapBody, type HiddenGap } from "./hidden-gap.ts";
 export { isLocale, localeFromLanguage, locales, type Locale } from "./i18n/locale.ts";
 export { messages, type MessageKey, type Messages } from "./i18n/messages.ts";
 export { t, tc, type MessageParams } from "./i18n/t.ts";
@@ -117,7 +118,7 @@ export {
   type TaskListQuery,
   type UpdateTaskBody,
 } from "./task.ts";
-export { isoDateTime } from "./time.ts";
+export { isoDateTime, periodQuery, type PeriodQuery } from "./time.ts";
 export {
   parallelSec,
   timelineGaps,

@@ -11,6 +11,7 @@ export type TestUser = {
   locale: "ru" | "en";
   botCanMessage: boolean;
   reminderThresholdMin: number;
+  showGaps: boolean;
 };
 
 export type LoginAsInput = {

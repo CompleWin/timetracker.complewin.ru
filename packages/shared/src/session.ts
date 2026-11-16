@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { atLeastOneField } from "./patch.ts";
-import { isoDateTime } from "./time.ts";
+import { isoDateTime, periodQuery } from "./time.ts";
 
 export const MAX_RUNNING_TIMERS = 20;
 
@@ -69,23 +69,8 @@ export const taskSessionsQuery = z.object({
 
 export type TaskSessionsQuery = z.infer<typeof taskSessionsQuery>;
 
-export const SESSION_PERIOD_MAX_SEC = 31 * 24 * 60 * 60;
+export { PERIOD_MAX_SEC as SESSION_PERIOD_MAX_SEC } from "./time.ts";
 
-const MS_PER_SECOND = 1000;
-
-export const sessionPeriodQuery = z
-  .object({
-    from: isoDateTime,
-    to: isoDateTime,
-    taskId: z.string().optional(),
-  })
-  .refine(({ from, to }) => isValidPeriod(Date.parse(from), Date.parse(to)), {
-    path: ["to"],
-    message: "Must be later than from and at most 31 days after it",
-  });
+export const sessionPeriodQuery = periodQuery.safeExtend({ taskId: z.string().optional() });
 
 export type SessionPeriodQuery = z.infer<typeof sessionPeriodQuery>;
-
-function isValidPeriod(fromMs: number, toMs: number): boolean {
-  return toMs > fromMs && toMs - fromMs <= SESSION_PERIOD_MAX_SEC * MS_PER_SECOND;
-}

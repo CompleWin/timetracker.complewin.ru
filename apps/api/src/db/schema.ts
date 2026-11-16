@@ -8,7 +8,14 @@ import {
   REMINDER_THRESHOLD_DEFAULT_MIN,
 } from "@stt/shared";
 import { isNull } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import type { TrackerPropertyIds } from "../notion/tracker-properties.ts";
 import type { TimeBlockLink } from "../sync/block-links.ts";
 import type { SentPage } from "../sync/page-state.ts";
@@ -25,10 +32,23 @@ export const users = sqliteTable("users", {
   reminderThresholdMin: integer("reminder_threshold_min")
     .notNull()
     .default(REMINDER_THRESHOLD_DEFAULT_MIN),
+  showGaps: integer("show_gaps", { mode: "boolean" }).notNull().default(true),
   timezone: text("timezone"),
   locale: text("locale", { enum: locales }).notNull(),
   createdAt: timestamp("created_at").notNull(),
 });
+
+export const hiddenGaps = sqliteTable(
+  "hidden_gaps",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at").notNull(),
+    endedAt: timestamp("ended_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.startedAt, table.endedAt] })],
+);
 
 export const sessions = sqliteTable(
   "sessions",
