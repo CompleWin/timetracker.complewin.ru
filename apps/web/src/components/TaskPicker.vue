@@ -123,7 +123,7 @@ watch(entries, (current) => {
   if (highlightedIndex.value >= current.length) highlightedIndex.value = 0;
 });
 
-onMounted(() => searchField.value?.focus());
+onMounted(() => searchField.value?.focus({ preventScroll: props.selectionOnly }));
 
 function projectOf(task: Task): Project | null {
   return projectsById.value.get(task.projectId ?? "") ?? null;
@@ -231,7 +231,13 @@ function onPanelKeydown(event: KeyboardEvent): void {
       />
     </div>
 
-    <div :class="selectionOnly ? 'max-h-[min(400px,55vh)] overflow-y-auto' : 'contents'">
+    <div
+      :class="
+        selectionOnly
+          ? 'max-h-[min(400px,55vh)] min-h-0 overflow-y-auto overscroll-contain'
+          : 'contents'
+      "
+    >
       <div
         v-if="!searching && pinned.length > 0"
         role="group"

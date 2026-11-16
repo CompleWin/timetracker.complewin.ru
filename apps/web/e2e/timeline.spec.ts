@@ -361,7 +361,11 @@ test("STT-38. в панели диалога работает поиск с кл
   await search.fill("xyz");
   await expect(textOf(picker, "Таких задач нет")).toBeVisible();
   await expect(button(picker, "Создать «xyz»")).toHaveCount(0);
+  await search.press("Tab");
+  await expect(field(form, "Начало")).toBeFocused();
+  await expect(picker).toBeHidden();
 
+  await openSessionTaskPicker(form);
   const found = group(picker, "Найдено");
   const treadmill = button(found, "Выбрать задачу: Беговая дорожка");
   await search.fill("#спорт");
@@ -456,29 +460,64 @@ test("STT-38. в панели можно выбрать закреплённую
   expect((await activeTimers(page)).map((session) => session.id)).toEqual([running.id]);
 });
 
-test("STT-38. на телефоне панель выбора полностью видна и не прокручивается по горизонтали", async ({
-  page,
-}) => {
-  await page.setViewportSize(PHONE_VIEWPORT);
-  for (let index = 1; index <= 10; index++) {
-    const task = await createTask(page, {
-      title: `Длинное название задачи ${index}, которое не помещается в одну строку на телефоне`,
-    });
-    await pinTask(page, task.id);
-  }
-  await page.goto("/");
+for (const [viewport, pickerWidth] of [
+  [{ width: 1280, height: 720 }, 640],
+  [PHONE_VIEWPORT, 358],
+] as const) {
+  test(`STT-38. на ширине ${viewport.width} px панель шире поля и сохраняет размер диалога`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    for (let index = 1; index <= 10; index++) {
+      const task = await createTask(page, {
+        title: `Длинное название задачи ${index}, которое не помещается в одну строку на телефоне`,
+      });
+      await pinTask(page, task.id);
+    }
+    await page.goto("/");
 
-  const form = await openNewSessionWith(page, "Добавить вручную");
-  const picker = await openSessionTaskPicker(form);
+    const form = await openNewSessionWith(page, "Добавить вручную");
+    await page.evaluate(() => document.fonts.ready);
+    const start = field(form, "Начало");
+    const taskField = button(form, "Задача: Выбери задачу");
+    const [formBox, startBox, taskFieldBox] = await Promise.all([
+      boxOf(form),
+      boxOf(start),
+      boxOf(taskField),
+    ]);
+    const formScrollHeight = await form.evaluate((element) => element.scrollHeight);
 
-  await expect(picker).toBeInViewport({ ratio: 1 });
-  const taskFieldBox = await boxOf(button(form, "Задача: Выбери задачу"));
-  const pickerBox = await boxOf(picker);
-  expect(pickerBox.x).toBeCloseTo(taskFieldBox.x, 0);
-  expect(pickerBox.width).toBeCloseTo(taskFieldBox.width, 0);
-  expect(pickerBox.y).toBeGreaterThanOrEqual(taskFieldBox.y + taskFieldBox.height);
-  await expect
-    .poll(() => picker.evaluate((element) => element.scrollWidth - element.clientWidth))
-    .toBe(0);
-  await expectNoHorizontalScroll(page);
-});
+    const picker = await openSessionTaskPicker(form);
+    await expect(picker).toBeInViewport({ ratio: 1 });
+    expect(await boxOf(form)).toEqual(formBox);
+    expect(await form.evaluate((element) => element.scrollHeight)).toBe(formScrollHeight);
+    expect(await boxOf(start)).toEqual(startBox);
+    expect(await boxOf(taskField)).toEqual(taskFieldBox);
+
+    const pickerBox = await boxOf(picker);
+    expect(pickerBox.width).toBeCloseTo(pickerWidth, 0);
+    expect(pickerBox.width).toBeGreaterThan(taskFieldBox.width);
+    expect(pickerBox.x + pickerBox.width / 2).toBeCloseTo(
+      taskFieldBox.x + taskFieldBox.width / 2,
+      0,
+    );
+    expect(pickerBox.y).toBeGreaterThanOrEqual(taskFieldBox.y + taskFieldBox.height);
+    expect(
+      await picker.evaluate((element, box) => {
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return element.contains(hit);
+      }, startBox),
+    ).toBe(true);
+    await expect
+      .poll(() => picker.evaluate((element) => element.scrollWidth - element.clientWidth))
+      .toBe(0);
+    await expectNoHorizontalScroll(page);
+
+    if (viewport.width > PHONE_VIEWPORT.width) {
+      await page.setViewportSize(PHONE_VIEWPORT);
+      await expect.poll(async () => (await boxOf(picker)).width).toBeCloseTo(358, 0);
+      await expect(picker).toBeInViewport({ ratio: 1 });
+      expect((await boxOf(picker)).x).toBeCloseTo(16, 0);
+    }
+  });
+}
