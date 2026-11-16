@@ -34,17 +34,28 @@ type PickerEntry = { key: string; task: Task | null };
 
 const CREATE_KEY = "create";
 
-const props = defineProps<{
-  tasks: Task[];
-  projects: Project[];
-  running: Map<string, SessionWithTask>;
-  todaySec: Map<string, number>;
-  now: number;
-  canAddFromNotion: boolean;
-  listHeight: number | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    tasks: Task[];
+    projects: Project[];
+    running?: Map<string, SessionWithTask>;
+    todaySec: Map<string, number>;
+    now?: number;
+    canAddFromNotion?: boolean;
+    listHeight?: number | null;
+    selectionOnly?: boolean;
+  }>(),
+  {
+    running: undefined,
+    now: undefined,
+    canAddFromNotion: false,
+    listHeight: null,
+    selectionOnly: false,
+  },
+);
 const emit = defineEmits<{
   start: [task: Task];
+  select: [task: Task];
   create: [request: NewTaskRequest];
   pin: [task: Task];
   newTask: [];
@@ -75,8 +86,9 @@ const search = computed(() => parseSearch(query.value));
 const pinned = computed(() => pinnedTasks(props.tasks));
 const recent = computed(() => recentTasks(props.tasks));
 const found = computed(() => foundTasks(props.tasks, props.projects, search.value));
-const showCreate = computed(() => canCreate(search.value, found.value));
+const showCreate = computed(() => !props.selectionOnly && canCreate(search.value, found.value));
 const target = computed(() => createTarget(props.projects, search.value));
+const runningByTask = computed(() => (props.selectionOnly ? undefined : props.running));
 
 const listStyle = computed(() =>
   props.listHeight === null ? undefined : { maxHeight: `${props.listHeight}px` },
@@ -131,8 +143,16 @@ function highlight(key: string): void {
 }
 
 function choose(task: Task): void {
-  if (props.running.has(task.id)) emit("close");
+  if (props.selectionOnly) emit("select", task);
+  else if (runningByTask.value?.has(task.id)) emit("close");
   else emit("start", task);
+}
+
+function chooseLabel(task: Task): string {
+  if (props.selectionOnly) return t("picker.chooseTask", { title: task.title });
+  return t(runningByTask.value?.has(task.id) ? "picker.alreadyRunning" : "timers.startTask", {
+    title: task.title,
+  });
 }
 
 function createFromSearch(): void {
@@ -164,7 +184,7 @@ function onSearchKeydown(event: KeyboardEvent): void {
     void moveHighlight(event.key === "ArrowDown" ? 1 : -1);
   } else if (event.key === "Enter") {
     event.preventDefault();
-    if (event.ctrlKey || event.metaKey) createFromSearch();
+    if (!props.selectionOnly && (event.ctrlKey || event.metaKey)) createFromSearch();
     else activateHighlighted();
   }
 }
@@ -196,12 +216,13 @@ function onPanelKeydown(event: KeyboardEvent): void {
           type="text"
           autocomplete="off"
           :aria-label="t('home.search')"
-          :placeholder="t('picker.placeholder')"
+          :placeholder="t(selectionOnly ? 'picker.findPlaceholder' : 'picker.placeholder')"
           class="h-12 w-full min-w-0 rounded-full border-2 border-primary bg-transparent pr-4 pl-11 text-input text-fg placeholder:text-fg-faint"
           @keydown="onSearchKeydown"
         />
       </div>
       <AppMenu
+        v-if="!selectionOnly"
         :label="t('form.create')"
         :icon="Plus"
         :items="createItems"
@@ -210,151 +231,161 @@ function onPanelKeydown(event: KeyboardEvent): void {
       />
     </div>
 
-    <div
-      v-if="!searching && pinned.length > 0"
-      role="group"
-      :aria-label="t('picker.pinned')"
-      class="flex flex-wrap gap-2 px-3 pb-2"
-    >
-      <button
-        v-for="task in pinned"
-        :key="task.id"
-        type="button"
-        :aria-label="
-          running.has(task.id)
-            ? t('picker.alreadyRunning', { title: task.title })
-            : t('timers.startTask', { title: task.title })
-        "
-        class="inline-flex h-[30px] max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-primary-soft px-3 text-meta text-primary-ink transition-colors duration-150 hover:bg-primary-soft-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        @click="choose(task)"
+    <div :class="selectionOnly ? 'max-h-[min(400px,55vh)] overflow-y-auto' : 'contents'">
+      <div
+        v-if="!searching && pinned.length > 0"
+        role="group"
+        :aria-label="t('picker.pinned')"
+        class="flex flex-wrap gap-2 px-3 pb-2"
       >
-        <span class="truncate">{{ task.title }}</span>
-        <Star :size="13" aria-hidden="true" class="flex-none fill-current text-project-yellow" />
-      </button>
-    </div>
+        <button
+          v-for="task in pinned"
+          :key="task.id"
+          type="button"
+          :aria-label="chooseLabel(task)"
+          class="inline-flex h-[30px] max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-primary-soft px-3 text-meta text-primary-ink transition-colors duration-150 hover:bg-primary-soft-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          @click="choose(task)"
+        >
+          <span class="truncate">{{ task.title }}</span>
+          <Star :size="13" aria-hidden="true" class="flex-none fill-current text-project-yellow" />
+        </button>
+      </div>
 
-    <div ref="list" class="max-h-[min(400px,55vh)] overflow-y-auto px-2 pb-2" :style="listStyle">
-      <template v-if="!searching">
-        <p v-if="tasks.length === 0" class="px-3 py-2 text-small text-fg-subtle">
-          {{ t("home.empty") }}
-        </p>
-        <div v-if="recent.length > 0" role="group" :aria-labelledby="recentLabelId">
-          <AppSectionLabel :id="recentLabelId" class="px-3 pt-3 pb-1">
-            {{ t("picker.recent") }}
-          </AppSectionLabel>
-          <PickerTaskRow
-            v-for="task in recent"
-            :key="task.id"
-            :task
-            :project="projectOf(task)"
-            with-project
-            :nested="false"
-            :running="running.get(task.id)"
-            :today-sec="todaySec.get(task.id) ?? 0"
-            :highlighted="highlightedKey === `recent:${task.id}`"
-            :entry-key="`recent:${task.id}`"
-            :now
-            @choose="choose(task)"
-            @pin="emit('pin', task)"
-            @hover="highlight(`recent:${task.id}`)"
-          />
-        </div>
-        <div v-if="branches.length > 0" role="group" :aria-labelledby="treeLabelId">
-          <AppSectionLabel :id="treeLabelId" class="px-3 pt-3 pb-1">
-            {{ t("picker.tree") }}
-          </AppSectionLabel>
-          <PickerBranch
-            v-for="branch in branches"
-            :key="branch.key"
-            :branch
-            :expanded="isExpanded(branch.key)"
-            @toggle="toggleBranch(branch.key)"
-            @edit-project="(project) => emit('editProject', project)"
-            @archive-project="(project) => emit('archiveProject', project)"
-          >
+      <div
+        ref="list"
+        class="px-2 pb-2"
+        :class="{ 'max-h-[min(400px,55vh)] overflow-y-auto': !selectionOnly }"
+        :style="listStyle"
+      >
+        <template v-if="!searching">
+          <p v-if="tasks.length === 0" class="px-3 py-2 text-small text-fg-subtle">
+            {{ t("home.empty") }}
+          </p>
+          <div v-if="recent.length > 0" role="group" :aria-labelledby="recentLabelId">
+            <AppSectionLabel :id="recentLabelId" class="px-3 pt-3 pb-1">
+              {{ t("picker.recent") }}
+            </AppSectionLabel>
             <PickerTaskRow
-              v-for="task in branch.tasks"
+              v-for="task in recent"
               :key="task.id"
               :task
-              :project="branch.project"
-              :with-project="false"
-              nested
-              :running="running.get(task.id)"
+              :choose-label="chooseLabel(task)"
+              :project="projectOf(task)"
+              with-project
+              :nested="false"
+              :running="runningByTask?.get(task.id)"
               :today-sec="todaySec.get(task.id) ?? 0"
-              :highlighted="highlightedKey === `tree:${task.id}`"
-              :entry-key="`tree:${task.id}`"
+              :highlighted="highlightedKey === `recent:${task.id}`"
+              :entry-key="`recent:${task.id}`"
               :now
+              :selection-only
               @choose="choose(task)"
               @pin="emit('pin', task)"
-              @hover="highlight(`tree:${task.id}`)"
+              @hover="highlight(`recent:${task.id}`)"
             />
-          </PickerBranch>
-        </div>
-      </template>
-      <template v-else>
-        <div v-if="found.length > 0" role="group" :aria-labelledby="foundLabelId">
-          <AppSectionLabel :id="foundLabelId" class="px-3 pt-3 pb-1">
-            {{ t("picker.found") }}
-          </AppSectionLabel>
-          <PickerTaskRow
-            v-for="task in found"
-            :key="task.id"
-            :task
-            :project="projectOf(task)"
-            with-project
-            :nested="false"
-            :running="running.get(task.id)"
-            :today-sec="todaySec.get(task.id) ?? 0"
-            :highlighted="highlightedKey === `found:${task.id}`"
-            :entry-key="`found:${task.id}`"
-            :now
-            @choose="choose(task)"
-            @pin="emit('pin', task)"
-            @hover="highlight(`found:${task.id}`)"
-          />
-        </div>
-        <p v-else class="px-3 py-2 text-small text-fg-subtle">{{ t("picker.nothingFound") }}</p>
-        <div
-          v-if="showCreate"
-          :data-entry="CREATE_KEY"
-          class="mt-1 flex min-h-[46px] items-center gap-2 rounded-field px-3 transition-colors duration-150"
-          :class="{ 'bg-primary-soft': highlightedKey === CREATE_KEY }"
-          @pointerenter="highlight(CREATE_KEY)"
-        >
-          <button
-            type="button"
-            :aria-describedby="createCaptionId"
-            class="flex min-h-[46px] min-w-0 flex-1 cursor-pointer items-center gap-2 text-left text-body font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            @click="createFromSearch"
+          </div>
+          <div v-if="branches.length > 0" role="group" :aria-labelledby="treeLabelId">
+            <AppSectionLabel :id="treeLabelId" class="px-3 pt-3 pb-1">
+              {{ t("picker.tree") }}
+            </AppSectionLabel>
+            <PickerBranch
+              v-for="branch in branches"
+              :key="branch.key"
+              :branch
+              :expanded="isExpanded(branch.key)"
+              :selection-only
+              @toggle="toggleBranch(branch.key)"
+              @edit-project="(project) => emit('editProject', project)"
+              @archive-project="(project) => emit('archiveProject', project)"
+            >
+              <PickerTaskRow
+                v-for="task in branch.tasks"
+                :key="task.id"
+                :task
+                :choose-label="chooseLabel(task)"
+                :project="branch.project"
+                :with-project="false"
+                nested
+                :running="runningByTask?.get(task.id)"
+                :today-sec="todaySec.get(task.id) ?? 0"
+                :highlighted="highlightedKey === `tree:${task.id}`"
+                :entry-key="`tree:${task.id}`"
+                :now
+                :selection-only
+                @choose="choose(task)"
+                @pin="emit('pin', task)"
+                @hover="highlight(`tree:${task.id}`)"
+              />
+            </PickerBranch>
+          </div>
+        </template>
+        <template v-else>
+          <div v-if="found.length > 0" role="group" :aria-labelledby="foundLabelId">
+            <AppSectionLabel :id="foundLabelId" class="px-3 pt-3 pb-1">
+              {{ t("picker.found") }}
+            </AppSectionLabel>
+            <PickerTaskRow
+              v-for="task in found"
+              :key="task.id"
+              :task
+              :choose-label="chooseLabel(task)"
+              :project="projectOf(task)"
+              with-project
+              :nested="false"
+              :running="runningByTask?.get(task.id)"
+              :today-sec="todaySec.get(task.id) ?? 0"
+              :highlighted="highlightedKey === `found:${task.id}`"
+              :entry-key="`found:${task.id}`"
+              :now
+              :selection-only
+              @choose="choose(task)"
+              @pin="emit('pin', task)"
+              @hover="highlight(`found:${task.id}`)"
+            />
+          </div>
+          <p v-else class="px-3 py-2 text-small text-fg-subtle">{{ t("picker.nothingFound") }}</p>
+          <div
+            v-if="showCreate"
+            :data-entry="CREATE_KEY"
+            class="mt-1 flex min-h-[46px] items-center gap-2 rounded-field px-3 transition-colors duration-150"
+            :class="{ 'bg-primary-soft': highlightedKey === CREATE_KEY }"
+            @pointerenter="highlight(CREATE_KEY)"
           >
-            <Plus :size="17" aria-hidden="true" class="flex-none" />
-            <span class="min-w-0 truncate">
-              {{ t("picker.createTask", { text: search.taskText }) }}
+            <button
+              type="button"
+              :aria-describedby="createCaptionId"
+              class="flex min-h-[46px] min-w-0 flex-1 cursor-pointer items-center gap-2 text-left text-body font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              @click="createFromSearch"
+            >
+              <Plus :size="17" aria-hidden="true" class="flex-none" />
+              <span class="min-w-0 truncate">
+                {{ t("picker.createTask", { text: search.taskText }) }}
+              </span>
+            </button>
+            <span
+              :id="createCaptionId"
+              class="max-w-[40%] flex-none truncate text-meta text-fg-subtle"
+            >
+              {{ createCaption }}
             </span>
-          </button>
-          <span
-            :id="createCaptionId"
-            class="max-w-[40%] flex-none truncate text-meta text-fg-subtle"
-          >
-            {{ createCaption }}
-          </span>
-        </div>
-      </template>
-      <button
-        v-if="canAddFromNotion"
-        type="button"
-        class="mt-1 flex min-h-[46px] w-full cursor-pointer items-center gap-2 rounded-field px-3 text-left text-body text-primary transition-colors duration-150 hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        @click="emit('addFromNotion')"
-      >
-        <ExternalLink :size="17" aria-hidden="true" class="flex-none" />
-        {{ t("notionPages.title") }}
-      </button>
+          </div>
+        </template>
+        <button
+          v-if="!selectionOnly && canAddFromNotion"
+          type="button"
+          class="mt-1 flex min-h-[46px] w-full cursor-pointer items-center gap-2 rounded-field px-3 text-left text-body text-primary transition-colors duration-150 hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          @click="emit('addFromNotion')"
+        >
+          <ExternalLink :size="17" aria-hidden="true" class="flex-none" />
+          {{ t("notionPages.title") }}
+        </button>
+      </div>
     </div>
 
     <div class="flex items-end gap-x-3 bg-surface-page px-4 py-2.5 text-meta text-fg-subtle">
       <div class="flex max-w-[520px] min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span>{{ t("picker.hint") }}</span>
-        <span class="inline-flex items-center gap-1.5">
+        <span v-if="!selectionOnly">{{ t("picker.hint") }}</span>
+        <span v-if="!selectionOnly" class="inline-flex items-center gap-1.5">
           <AppKbd>#</AppKbd>
           {{ t("picker.hintProject") }}
         </span>
@@ -367,7 +398,7 @@ function onPanelKeydown(event: KeyboardEvent): void {
           {{ t("picker.hintClose") }}
         </span>
       </div>
-      <slot name="footer-end" />
+      <slot v-if="!selectionOnly" name="footer-end" />
     </div>
   </div>
 </template>

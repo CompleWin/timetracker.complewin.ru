@@ -19,6 +19,7 @@ import ProjectMarker from "./ui/ProjectMarker.vue";
 
 const props = defineProps<{
   task: Task;
+  chooseLabel: string;
   project: Project | null;
   withProject: boolean;
   nested: boolean;
@@ -26,22 +27,20 @@ const props = defineProps<{
   todaySec: number;
   highlighted: boolean;
   entryKey: string;
-  now: number;
+  now: number | undefined;
+  selectionOnly: boolean;
 }>();
 const emit = defineEmits<{ choose: []; pin: []; hover: [] }>();
 
 const { t } = useI18n();
 
-const chooseLabel = computed(() =>
-  props.running === undefined
-    ? t("timers.startTask", { title: props.task.title })
-    : t("picker.alreadyRunning", { title: props.task.title }),
-);
 const pinLabel = computed(() =>
   t(props.task.pinned ? "picker.unpin" : "picker.pin", { title: props.task.title }),
 );
 const clock = computed(() =>
-  props.running === undefined ? "" : formatClock(elapsedSec(props.running.startedAt, props.now)),
+  props.running === undefined || props.now === undefined
+    ? ""
+    : formatClock(elapsedSec(props.running.startedAt, props.now)),
 );
 const today = computed(() => formatDuration(props.todaySec, currentLocale()));
 </script>
@@ -78,7 +77,7 @@ const today = computed(() => formatDuration(props.todaySec, currentLocale()));
         {{ today }}
       </span>
     </button>
-    <AppIconButton :label="pinLabel" size="sm" @click="emit('pin')">
+    <AppIconButton v-if="!selectionOnly" :label="pinLabel" size="sm" @click="emit('pin')">
       <Star
         :size="17"
         aria-hidden="true"
@@ -86,6 +85,7 @@ const today = computed(() => formatDuration(props.todaySec, currentLocale()));
       />
     </AppIconButton>
     <RouterLink
+      v-if="!selectionOnly"
       :to="`/tasks/${task.id}`"
       :aria-label="t('picker.openTask', { title: task.title })"
       :title="t('picker.openTask', { title: task.title })"
@@ -94,7 +94,7 @@ const today = computed(() => formatDuration(props.todaySec, currentLocale()));
       <ArrowUpRight :size="17" aria-hidden="true" />
     </RouterLink>
     <span
-      v-if="highlighted && !running"
+      v-if="!selectionOnly && highlighted && !running"
       aria-hidden="true"
       class="flex size-8 flex-none cursor-pointer items-center justify-center rounded-full bg-primary text-white"
       @click="emit('choose')"

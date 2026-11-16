@@ -7,7 +7,7 @@ import type { ProjectBranch } from "../task-picker.ts";
 import AppMenu, { type MenuItem } from "./ui/AppMenu.vue";
 import ProjectMarker from "./ui/ProjectMarker.vue";
 
-const props = defineProps<{ branch: ProjectBranch; expanded: boolean }>();
+const props = defineProps<{ branch: ProjectBranch; expanded: boolean; selectionOnly: boolean }>();
 const emit = defineEmits<{ toggle: []; editProject: [Project]; archiveProject: [Project] }>();
 
 const { t } = useI18n();
@@ -46,7 +46,7 @@ function projectMenu(project: Project): MenuItem[] {
         </span>
       </button>
       <AppMenu
-        v-if="branch.project"
+        v-if="branch.project && !selectionOnly"
         :label="t('projects.actions', { name: branch.project.name })"
         :items="projectMenu(branch.project)"
         size="sm"
