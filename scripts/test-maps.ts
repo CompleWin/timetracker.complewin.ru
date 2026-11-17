@@ -1,6 +1,7 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import * as prettier from "prettier";
+import ts from "typescript";
 
 type TestMap = {
   map: string;
@@ -33,10 +34,10 @@ const TEST_MAPS: TestMap[] = [
 ];
 
 const HEADER = ["| Файл | Описание | Функции |", "| --- | --- | --- |"];
-const EXPORTED_FUNCTION = /^export (?:async )?function\*? ?(\w+)/gm;
 const MODULE_FILE = /^(?!.*\.d\.ts$).*\.ts$/;
 const SAMPLES_SECTION = /^## Образцы\n([\s\S]*?)(?=^## |(?![\s\S]))/m;
-const SAMPLE_FILE = /`([\w.-]+\.(?:test|spec)\.ts)`/g;
+const SAMPLE_ITEM = /^\s*(?:[-*+]|\d+[.)])(?:\s+|$)/;
+const SAMPLE_FILE = /^`([\w.-]+\.(?:test|spec)\.ts)`(?=\s|:|$)/;
 
 const root = path.resolve(import.meta.dirname, "..");
 const shouldWrite = process.argv.includes("--write");
@@ -105,10 +106,29 @@ function readDescriptions(table: string): Map<string, string> {
 }
 
 function buildRows(helpersDir: string, descriptions: Map<string, string>): Row[] {
-  return helperFiles(helpersDir).map((file) => ({
+  const files = helperFiles(helpersDir);
+  const directory = path.join(root, helpersDir);
+  const configPath = ts.findConfigFile(directory, ts.sys.fileExists);
+  if (!configPath) throw new Error(`No tsconfig.json for ${helpersDir}`);
+  const config = ts.getParsedCommandLineOfConfigFile(
+    configPath,
+    {},
+    {
+      ...ts.sys,
+      onUnRecoverableConfigFileDiagnostic: (diagnostic) => {
+        throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+      },
+    },
+  );
+  if (!config) throw new Error(`Cannot read ${configPath}`);
+  const program = ts.createProgram(
+    files.map((file) => path.join(directory, file)),
+    config.options,
+  );
+  return files.map((file) => ({
     file,
     description: descriptions.get(file) ?? "",
-    functions: exportedFunctions(path.join(helpersDir, file)),
+    functions: exportedFunctions(program, path.join(directory, file)),
   }));
 }
 
@@ -127,11 +147,15 @@ function renderExample({ testsDir, example }: TestMap): string {
 
 function sampleProblems(text: string, testsDir: string): string[] {
   const section = SAMPLES_SECTION.exec(text)?.[1] ?? "";
-  const samples = matches(section, SAMPLE_FILE);
-  if (samples.length === 0) return ['list a test file in the "Образцы" section'];
-  return samples
-    .filter((file) => !existsSync(path.join(root, testsDir, file)))
-    .map((file) => `sample ${file} does not exist`);
+  const items = section.split("\n").filter((line) => SAMPLE_ITEM.test(line));
+  if (items.length === 0) return ['list a test file in the "Образцы" section'];
+  return items.flatMap((item) => {
+    const file = SAMPLE_FILE.exec(item.replace(SAMPLE_ITEM, ""))?.[1];
+    if (!file) return [`invalid sample item: ${item.trim()}`];
+    return statSync(path.join(root, testsDir, file), { throwIfNoEntry: false })?.isFile()
+      ? []
+      : [`sample ${file} does not exist`];
+  });
 }
 
 function helperFiles(dir: string): string[] {
@@ -141,18 +165,25 @@ function helperFiles(dir: string): string[] {
     .sort();
 }
 
-function exportedFunctions(file: string): string[] {
-  return matches(readText(file), EXPORTED_FUNCTION);
+function exportedFunctions(program: ts.Program, file: string): string[] {
+  const source = program.getSourceFile(file);
+  if (!source) throw new Error(`Cannot read ${file}`);
+  const checker = program.getTypeChecker();
+  const moduleSymbol = checker.getSymbolAtLocation(source);
+  if (!moduleSymbol) return [];
+  return checker
+    .getTypeOfSymbolAtLocation(moduleSymbol, source)
+    .getProperties()
+    .filter(
+      (symbol) => checker.getTypeOfSymbolAtLocation(symbol, source).getCallSignatures().length > 0,
+    )
+    .map((symbol) => symbol.getName());
 }
 
 async function formatMarkdown(file: string, text: string): Promise<string> {
   const filepath = path.join(root, file);
   const options = await prettier.resolveConfig(filepath);
   return prettier.format(text, { ...options, filepath });
-}
-
-function matches(text: string, pattern: RegExp): string[] {
-  return [...text.matchAll(pattern)].flatMap(([, name]) => (name ? [name] : []));
 }
 
 function unquote(cell: string): string {
