@@ -15,7 +15,9 @@ let opener: HTMLElement | null = null;
 onMounted(() => {
   opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   dialog.value?.showModal();
-  dialog.value?.querySelector<HTMLElement>("input, select, textarea")?.focus();
+  if (!dialog.value?.querySelector("[autofocus]")) {
+    dialog.value?.querySelector<HTMLElement>("input, select, textarea")?.focus();
+  }
 });
 
 onBeforeUnmount(() => {
