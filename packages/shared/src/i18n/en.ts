@@ -244,6 +244,9 @@ export const en: Messages = {
   "picker.resize": "Resize panel",
   "picker.resizeHint": "Arrow keys change the size, Home restores the default",
   "timeline.title": "Timeline",
+  "timeline.week": "Week",
+  "timeline.previousWeek": "Previous week",
+  "timeline.nextWeek": "Next week",
   "timeline.add": "Session",
   "timeline.scale": "Time scale",
   "timeline.editSession": "Edit session {title}, {range}",
@@ -256,6 +259,7 @@ export const en: Messages = {
   "timelineSettings.showGapsNote":
     "Idle time of 20 minutes or more between sessions, you can fill it in one click",
   "summary.title": "Today's summary",
+  "summary.titleDay": "Summary for {date}",
   "summary.sessions": "{count} session|{count} sessions",
   "summary.parallel": "{sessions} · in parallel {duration}",
   "summary.day": "{date}: {duration}",

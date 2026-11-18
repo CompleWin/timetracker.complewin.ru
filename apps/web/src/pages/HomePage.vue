@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import {
+  calendarWeek,
   lastDays,
+  shiftDay,
+  type DayRange,
   type HiddenGap,
   type NotionDatabase,
   type Project,
@@ -22,11 +25,12 @@ import TaskDeleteDialog from "../components/TaskDeleteDialog.vue";
 import TaskDialog from "../components/TaskDialog.vue";
 import type { NewTaskRequest } from "../components/TaskPicker.vue";
 import TimelineIsland from "../components/TimelineIsland.vue";
+import TimelineWeek from "../components/TimelineWeek.vue";
 import AppIsland from "../components/ui/AppIsland.vue";
 import AppSkeleton from "../components/ui/AppSkeleton.vue";
 import { isOnline } from "../connection.ts";
 import { secondsByTask, startedIn } from "../day-sessions.ts";
-import { serverNowMs, useServerNow } from "../server-clock.ts";
+import { useServerNow } from "../server-clock.ts";
 import { useSessionStore } from "../stores/session.ts";
 import { recentTasks } from "../task-picker.ts";
 import { changeTimer } from "../timers.ts";
@@ -47,21 +51,30 @@ const projects = ref<Project[]>([]);
 const tasks = ref<Task[]>([]);
 const running = ref<SessionWithTask[]>([]);
 const weekSessions = ref<SessionWithTask[]>([]);
+const recentTodaySessions = ref<SessionWithTask[]>([]);
 const hiddenGaps = shallowRef<HiddenGap[]>([]);
 const pendingHiddenGaps = shallowRef<HiddenGap[]>([]);
 const notionDatabases = ref<NotionDatabase[]>([]);
 const loaded = ref(false);
 const dialog = ref<OpenDialog | null>(null);
+const pastDay = shallowRef<DayRange>();
 const now = useServerNow();
 let latestReload = 0;
+let latestDayReload = 0;
 
 const timeZone = computed(() => account.user?.timezone ?? null);
 const currentMinute = computed(() => Math.floor(now.value / MS_PER_MINUTE));
-const days = computed(() => weekOf(currentMinute.value * MS_PER_MINUTE));
-const today = computed(() => days.value[days.value.length - 1]);
-const todaySessions = computed(() =>
-  today.value === undefined ? [] : startedIn(today.value, weekSessions.value),
-);
+const today = computed<DayRange>((previous) => {
+  const currentIso = new Date(currentMinute.value * MS_PER_MINUTE).toISOString();
+  const day = shiftDay(currentIso, timeZone.value, 0);
+  return previous?.from === day.from && previous.to === day.to ? previous : day;
+});
+const selectedDay = computed(() => pastDay.value ?? today.value);
+const isToday = computed(() => pastDay.value === undefined);
+const week = computed(() => calendarWeek(selectedDay.value.from, timeZone.value));
+const summaryDays = computed(() => lastDays(selectedDay.value.from, timeZone.value, WEEK_DAYS));
+const selectedSessions = computed(() => startedIn(selectedDay.value, weekSessions.value));
+const todaySessions = computed(() => startedIn(today.value, recentTodaySessions.value));
 const todaySecByTask = computed(() => secondsByTask(todaySessions.value, now.value));
 const effectiveHiddenGaps = computed(() => [...hiddenGaps.value, ...pendingHiddenGaps.value]);
 const projectsById = computed(
@@ -74,33 +87,52 @@ const lastStartedTaskId = computed(() => recentTasks(tasks.value)[0]?.id ?? null
 onMounted(reload);
 onMounted(loadNotionDatabases);
 useAutoRefresh(reload);
-watch(timeZone, reload);
+watch([today, selectedDay], async () => {
+  try {
+    await reloadDays();
+  } catch (error) {
+    if (!(error instanceof api.NetworkError)) throw error;
+  }
+});
 
-function weekOf(epochMs: number) {
-  return lastDays(new Date(epochMs).toISOString(), timeZone.value, WEEK_DAYS);
+function selectDay(day: DayRange): void {
+  pastDay.value = day.from < today.value.from ? day : undefined;
+}
+
+function moveWeek(direction: -1 | 1): void {
+  selectDay(shiftDay(selectedDay.value.from, timeZone.value, direction * WEEK_DAYS));
 }
 
 async function reload(): Promise<void> {
   const reloadNumber = ++latestReload;
-  const week = weekOf(serverNowMs());
-  const from = week[0]?.from ?? "";
-  const to = week[week.length - 1]?.to ?? "";
-  const gapsBeforeReload = hiddenGaps.value;
-  const loadedData = await Promise.all([
+  const [nextProjects, nextTasks, nextRunning] = await Promise.all([
     api.fetchProjects("all"),
     api.fetchTasks("false"),
     api.fetchActiveSessions(),
-    api.fetchPeriodSessions(from, to),
-    api.fetchHiddenGaps(from, to),
+    reloadDays(),
   ]);
   if (reloadNumber !== latestReload) return;
-  const [nextProjects, nextTasks, nextRunning, nextSessions, nextHiddenGaps] = loadedData;
-  if (hiddenGaps.value === gapsBeforeReload) hiddenGaps.value = nextHiddenGaps;
   projects.value = nextProjects;
   tasks.value = nextTasks;
   running.value = nextRunning;
-  weekSessions.value = nextSessions;
   loaded.value = true;
+}
+
+async function reloadDays(): Promise<void> {
+  const reloadNumber = ++latestDayReload;
+  const day = selectedDay.value;
+  const current = today.value;
+  const from = summaryDays.value[0]?.from ?? day.from;
+  const hiddenCount = hiddenGaps.value.length;
+  const [sessions, gaps, currentSessions] = await Promise.all([
+    api.fetchPeriodSessions(from, day.to),
+    api.fetchHiddenGaps(day.from, day.to),
+    isToday.value ? undefined : api.fetchPeriodSessions(current.from, current.to),
+  ]);
+  if (reloadNumber !== latestDayReload) return;
+  weekSessions.value = sessions;
+  recentTodaySessions.value = currentSessions ?? startedIn(current, sessions);
+  hiddenGaps.value = [...gaps, ...hiddenGaps.value.slice(hiddenCount)];
 }
 
 async function loadNotionDatabases(): Promise<void> {
@@ -183,6 +215,7 @@ async function onTaskDeleted(id: string): Promise<void> {
   tasks.value = tasks.value.filter((task) => task.id !== id);
   running.value = running.value.filter((session) => session.taskId !== id);
   weekSessions.value = weekSessions.value.filter((session) => session.taskId !== id);
+  recentTodaySessions.value = recentTodaySessions.value.filter((session) => session.taskId !== id);
   await onSaved();
 }
 </script>
@@ -216,9 +249,9 @@ async function onTaskDeleted(id: string): Promise<void> {
       @add-from-notion="openDialog({ kind: 'notionPages' })"
     />
     <TimelineIsland
-      v-if="today"
-      :sessions="todaySessions"
-      :day="today"
+      :sessions="selectedSessions"
+      :day="selectedDay"
+      :is-today
       :projects="projectsById"
       :show-gaps="account.user?.showGaps ?? true"
       :hidden-gaps="effectiveHiddenGaps"
@@ -228,8 +261,27 @@ async function onTaskDeleted(id: string): Promise<void> {
       @fill="(range) => openDialog({ kind: 'newSession', range })"
       @hide="hideGap"
       @edit="(session) => openDialog({ kind: 'session', session })"
+    >
+      <template #week>
+        <TimelineWeek
+          :days="week"
+          :selected="selectedDay"
+          :today
+          :time-zone
+          @select="selectDay"
+          @shift-week="moveWeek"
+        />
+      </template>
+    </TimelineIsland>
+    <SummaryIsland
+      :week-sessions
+      :days="summaryDays"
+      :day="selectedDay"
+      :is-today
+      :projects
+      :now
+      :time-zone
     />
-    <SummaryIsland :week-sessions :days :projects :now :time-zone />
   </template>
 
   <SessionDialog

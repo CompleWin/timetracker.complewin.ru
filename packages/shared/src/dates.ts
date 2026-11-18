@@ -116,14 +116,20 @@ export function formatSessionRange(
 }
 
 export function lastDays(iso: string, timeZone: string | null, count: number): DayRange[] {
-  const { year, month, day } = wallClock(Date.parse(iso), timeZone);
-  return Array.from({ length: count }, (_, index) => {
-    const dayNumber = day - (count - 1 - index);
-    return {
-      from: zonedMidnight(year, month, dayNumber, timeZone),
-      to: zonedMidnight(year, month, dayNumber + 1, timeZone),
-    };
-  });
+  const date = wallClock(Date.parse(iso), timeZone);
+  return Array.from({ length: count }, (_, index) => dayRange(date, index - count + 1, timeZone));
+}
+
+export function calendarWeek(iso: string, timeZone: string | null): DayRange[] {
+  const date = wallClock(Date.parse(iso), timeZone);
+  const monday = 1 - isoWeekday(date);
+  return Array.from({ length: DAYS_PER_WEEK }, (_, index) =>
+    dayRange(date, monday + index, timeZone),
+  );
+}
+
+export function shiftDay(iso: string, timeZone: string | null, days: number): DayRange {
+  return dayRange(wallClock(Date.parse(iso), timeZone), days, timeZone);
 }
 
 export function toDateTimeLocal(iso: string, timeZone: string | null): string {
@@ -133,6 +139,17 @@ export function toDateTimeLocal(iso: string, timeZone: string | null): string {
 
 export function fromDateTimeLocal(value: string, timeZone: string | null): string {
   return new Date(zonedEpochMs(Date.parse(`${value}Z`), timeZone)).toISOString();
+}
+
+function dayRange(
+  { year, month, day }: WallClock,
+  offset: number,
+  timeZone: string | null,
+): DayRange {
+  return {
+    from: zonedMidnight(year, month, day + offset, timeZone),
+    to: zonedMidnight(year, month, day + offset + 1, timeZone),
+  };
 }
 
 function zonedMidnight(year: number, month: number, day: number, timeZone: string | null): string {

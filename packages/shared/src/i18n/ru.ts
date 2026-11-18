@@ -242,6 +242,9 @@ export const ru = {
   "picker.resize": "Изменить размер панели",
   "picker.resizeHint": "Стрелки меняют размер, Home возвращает обычный",
   "timeline.title": "Хронология",
+  "timeline.week": "Неделя",
+  "timeline.previousWeek": "Предыдущая неделя",
+  "timeline.nextWeek": "Следующая неделя",
   "timeline.add": "Сессия",
   "timeline.scale": "Шкала времени",
   "timeline.editSession": "Изменить сессию {title}, {range}",
@@ -254,6 +257,7 @@ export const ru = {
   "timelineSettings.showGapsNote":
     "Пустое время между сессиями от 20 минут, его можно заполнить в один клик",
   "summary.title": "Сводка за сегодня",
+  "summary.titleDay": "Сводка за {date}",
   "summary.sessions": "{count} сессия|{count} сессии|{count} сессий",
   "summary.parallel": "{sessions} · параллельно {duration}",
   "summary.day": "{date}: {duration}",
