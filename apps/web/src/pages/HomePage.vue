@@ -248,6 +248,14 @@ async function onTaskDeleted(id: string): Promise<void> {
       @archive-task="archiveTask"
       @add-from-notion="openDialog({ kind: 'notionPages' })"
     />
+    <TimelineWeek
+      :days="week"
+      :selected="selectedDay"
+      :today
+      :time-zone
+      @select="selectDay"
+      @shift-week="moveWeek"
+    />
     <TimelineIsland
       :sessions="selectedSessions"
       :day="selectedDay"
@@ -261,18 +269,7 @@ async function onTaskDeleted(id: string): Promise<void> {
       @fill="(range) => openDialog({ kind: 'newSession', range })"
       @hide="hideGap"
       @edit="(session) => openDialog({ kind: 'session', session })"
-    >
-      <template #week>
-        <TimelineWeek
-          :days="week"
-          :selected="selectedDay"
-          :today
-          :time-zone
-          @select="selectDay"
-          @shift-week="moveWeek"
-        />
-      </template>
-    </TimelineIsland>
+    />
     <SummaryIsland
       :week-sessions
       :days="summaryDays"

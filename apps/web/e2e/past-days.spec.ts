@@ -21,7 +21,7 @@ import {
   waitPastFullHour,
   zoneAtHour,
 } from "./helpers/timeline.ts";
-import { button, dialog, field, group, island, textOf } from "./helpers/ui.ts";
+import { button, dialog, field, group, heading, island, textOf } from "./helpers/ui.ts";
 
 const ZONE = zoneAtHour(13);
 const WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
@@ -38,7 +38,7 @@ const UTC = { timezoneId: "Etc/UTC", offsetHours: 0 };
 const REFRESH_INTERVAL_MS = 20_000;
 
 function week(page: Page): Locator {
-  return group(timeline(page), "Неделя");
+  return group(page, "Неделя");
 }
 
 function dayName(daysAgo: number): string {
@@ -109,14 +109,24 @@ test.describe("Прошлые дни", () => {
     await loginInZone(page, ZONE);
   });
 
-  test("1–2. полоса показывает дни по порядку и отмечает сегодняшний", async ({ page }) => {
+  test("1 и 2. полоса над хронологией показывает дни по порядку и отмечает сегодняшний", async ({
+    page,
+  }) => {
     await page.goto("/");
 
-    await expect(week(page)).toBeVisible();
+    const strip = week(page);
+    const chronology = timeline(page);
+    const title = heading(chronology, "Хронология");
+    await expect(strip).toBeVisible();
+    await expect(title).toBeVisible();
+    await expect(group(chronology, "Неделя")).toHaveCount(0);
+    const stripBox = await boxOf(strip);
+    expect(stripBox.y + stripBox.height).toBeLessThanOrEqual((await boxOf(title)).y);
+
     await expectWeek(page, TODAY_FROM_MONDAY);
-    await expect(button(week(page), PREVIOUS_WEEK)).toHaveAttribute("title", PREVIOUS_WEEK);
-    await expect(button(week(page), NEXT_WEEK)).toHaveAttribute("title", NEXT_WEEK);
-    await expect(button(week(page), NEXT_WEEK)).toBeDisabled();
+    await expect(button(strip, PREVIOUS_WEEK)).toHaveAttribute("title", PREVIOUS_WEEK);
+    await expect(button(strip, NEXT_WEEK)).toHaveAttribute("title", NEXT_WEEK);
+    await expect(button(strip, NEXT_WEEK)).toBeDisabled();
 
     for (let index = 0; index < WEEKDAYS.length; index++) {
       const daysAgo = TODAY_FROM_MONDAY - index;

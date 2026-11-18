@@ -35,7 +35,7 @@ const canGoNext = computed(() => buttons.value.every((button) => !button.today &
 </script>
 
 <template>
-  <div role="group" :aria-label="t('timeline.week')" class="mb-4 flex w-full items-center gap-1">
+  <div role="group" :aria-label="t('timeline.week')" class="flex w-full items-center gap-1">
     <AppIconButton
       size="sm"
       class="max-md:size-8!"
@@ -59,15 +59,17 @@ const canGoNext = computed(() => buttons.value.every((button) => !button.today &
         class="flex size-8 items-center justify-center rounded-full text-small font-semibold"
         :class="{
           'bg-primary text-white': button.selected,
-          'border-2 border-primary text-primary': button.today && !button.selected,
-          'text-fg group-enabled:group-hover:bg-surface-page': !button.today && !button.selected,
+          'border-2 border-primary bg-surface-island text-primary':
+            button.today && !button.selected,
+          'border border-line-strong bg-surface-island text-fg group-enabled:group-hover:bg-surface-active':
+            !button.today && !button.selected,
         }"
       >
         {{ button.number }}
       </span>
       <span
-        class="text-caps uppercase"
-        :class="button.selected || button.today ? 'text-fg' : 'text-fg-faint'"
+        class="text-meta capitalize"
+        :class="button.selected || button.today ? 'text-fg' : 'text-fg-subtle'"
       >
         {{ button.weekday }}
       </span>

@@ -65,7 +65,6 @@ const emit = defineEmits<{
   fill: [range: SessionRange];
   hide: [gap: HiddenGap];
 }>();
-defineSlots<{ week(): unknown }>();
 
 const { t } = useI18n();
 const titleId = useId();
@@ -194,7 +193,6 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
         {{ t("timeline.add") }}
       </AppButton>
     </div>
-    <slot name="week" />
     <div
       ref="scroller"
       role="region"
