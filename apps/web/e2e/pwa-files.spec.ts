@@ -42,12 +42,21 @@ test(`4. GET ${MANIFEST_PATH} содержит name, short_name, start_url, disp
 
   expect(manifest).toMatchObject({
     name: "SimpleTimeTracker",
-    short_name: "Трекер",
+    short_name: "SimpleTimeTracker",
     start_url: "/",
     display: "standalone",
     background_color: "#F3F2F2",
     theme_color: "#125B3A",
   });
+});
+
+test("STT-40. HTML главной содержит имя приложения для iOS", async ({ request }) => {
+  const response = await request.get("/");
+
+  expect(response.status()).toBe(200);
+  expect(await response.text()).toContain(
+    '<meta name="apple-mobile-web-app-title" content="SimpleTimeTracker"',
+  );
 });
 
 test(`4. в ${MANIFEST_PATH} есть иконки 192x192 и 512x512, одна из них с purpose maskable`, async ({
