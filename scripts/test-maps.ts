@@ -37,7 +37,7 @@ const HEADER = ["| Файл | Описание | Функции |", "| --- | ---
 const MODULE_FILE = /^(?!.*\.d\.ts$).*\.ts$/;
 const SAMPLES_SECTION = /^## Образцы\n([\s\S]*?)(?=^## |(?![\s\S]))/m;
 const SAMPLE_ITEM = /^\s*(?:[-*+]|\d+[.)])(?:\s+|$)/;
-const SAMPLE_FILE = /^`([\w.-]+\.(?:test|spec)\.ts)`(?=\s|:|$)/;
+const SAMPLE_FILE = /^`((?:(?!\.\.\/)[\w.-]+\/)*[\w.-]+\.(?:test|spec)\.ts)`(?=\s|:|$)/;
 
 const root = path.resolve(import.meta.dirname, "..");
 const shouldWrite = process.argv.includes("--write");
