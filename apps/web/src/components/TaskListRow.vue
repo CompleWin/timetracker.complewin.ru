@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Archive, Pencil } from "@lucide/vue";
+import { Archive, Pencil, Trash2 } from "@lucide/vue";
 import { formatDuration, formatTime, type SessionWithTask, type Task } from "@stt/shared";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -20,7 +20,7 @@ const props = defineProps<{
   now: number;
   timeZone: string | null;
 }>();
-const emit = defineEmits<{ toggle: []; edit: []; archive: [] }>();
+const emit = defineEmits<{ toggle: []; edit: []; archive: []; delete: [] }>();
 
 const { t } = useI18n();
 
@@ -78,6 +78,15 @@ const timerLine = computed(() =>
         @click="emit('archive')"
       >
         <Archive :size="17" aria-hidden="true" />
+      </AppIconButton>
+      <AppIconButton
+        size="toolbar"
+        tone="danger"
+        :label="t('tasksPage.deleteTask', { title: task.title })"
+        :disabled="!isOnline"
+        @click="emit('delete')"
+      >
+        <Trash2 :size="17" aria-hidden="true" />
       </AppIconButton>
     </div>
   </div>

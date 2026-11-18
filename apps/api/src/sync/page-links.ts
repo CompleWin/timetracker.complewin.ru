@@ -1,8 +1,18 @@
-import { and, eq, getTableColumns, inArray, notExists, sql, type Column } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  isNull,
+  notExists,
+  sql,
+  type Column,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { Database } from "../db/client.ts";
 import { tasks, timeEntries } from "../db/schema.ts";
-import type { NewTask, TaskPageLink } from "../tasks/tasks.ts";
+import { alreadyLinked, notFound } from "../http/errors.ts";
+import { forgetDeletedNotionPage, pageWasNotDeleted } from "../notion/deleted-pages.ts";
 import type { SentPage } from "./page-state.ts";
 
 const NO_PAGE = {
@@ -48,40 +58,64 @@ export async function unlinkTask(db: Database, taskId: string): Promise<void> {
   ]);
 }
 
-type LinkedPage = TaskPageLink & { notionPageId: string };
+type TaskRow = typeof tasks.$inferSelect;
+
+export type TaskPageLink = Pick<
+  TaskRow,
+  "notionDatabaseId" | "notionPageUrl" | "notionSent" | "notionDefaultProject"
+> & { notionPageId: string };
+
+type PageTaskInsert = typeof tasks.$inferInsert & TaskPageLink;
 
 const pageOwner = alias(tasks, "page_owner");
 
-export function attachPage(db: Database, taskId: string, link: LinkedPage, now: Date) {
+export async function createPageTask(db: Database, values: PageTaskInsert): Promise<TaskRow> {
+  const { userId, notionPageId, id } = values;
+  const [created] = await db.batch([
+    insertPageTask(db, values, "manual").returning(),
+    forgetDeletedNotionPage(db, userId, notionPageId, id),
+  ]);
+  const [row] = created;
+  if (row !== undefined) return row;
+  const existing = await db.query.tasks.findFirst({
+    columns: { id: true },
+    where: and(eq(tasks.userId, userId), eq(tasks.notionPageId, notionPageId)),
+  });
+  if (existing === undefined) throw notFound();
+  throw alreadyLinked(existing.id);
+}
+
+export function attachPage(
+  db: Database,
+  userId: string,
+  taskId: string,
+  link: TaskPageLink,
+  now: Date,
+) {
   return db
     .update(tasks)
     .set({ ...link, updatedAt: now })
-    .where(and(eq(tasks.id, taskId), pageIsFree(db, tasks.userId, link.notionPageId)));
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.id, taskId),
+        isNull(tasks.notionPageId),
+        pageIsFree(db, userId, link.notionPageId),
+        pageWasNotDeleted(db, userId, link.notionPageId),
+      ),
+    );
 }
 
-export function insertPageTask(
-  db: Database,
-  userId: string,
-  task: NewTask,
-  link: LinkedPage,
-  now: Date,
-) {
-  const row: typeof tasks.$inferInsert = {
-    id: crypto.randomUUID(),
-    userId,
-    ...task,
-    ...link,
-    createdAt: now,
-    updatedAt: now,
-  };
+export function insertPageTask(db: Database, row: PageTaskInsert, mode: "automatic" | "manual") {
+  const { userId, notionPageId: pageId } = row;
   const values = Object.entries(getTableColumns(tasks)).map(([key, column]) =>
     driverValue(column, row[key as keyof typeof row]),
   );
-  return db
-    .insert(tasks)
-    .select(
-      sql`select ${sql.join(values, sql`, `)} where ${pageIsFree(db, sql`${userId}`, link.notionPageId)}`,
-    );
+  const allowed = and(
+    pageIsFree(db, userId, pageId),
+    mode === "automatic" ? pageWasNotDeleted(db, userId, pageId) : undefined,
+  );
+  return db.insert(tasks).select(sql`select ${sql.join(values, sql`, `)} where ${allowed}`);
 }
 
 function driverValue(column: Column, value: unknown) {
@@ -89,7 +123,7 @@ function driverValue(column: Column, value: unknown) {
   return filled === null ? sql`null` : sql`${column.mapToDriverValue(filled)}`;
 }
 
-function pageIsFree(db: Database, userId: Parameters<typeof eq>[0], pageId: string) {
+function pageIsFree(db: Database, userId: string, pageId: string) {
   return notExists(
     db
       .select({ id: pageOwner.id })

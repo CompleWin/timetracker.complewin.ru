@@ -34,6 +34,9 @@ const emit = defineEmits<{
   newProject: [];
   editProject: [project: Project];
   archiveProject: [project: Project];
+  editTask: [task: Task];
+  deleteTask: [task: Task];
+  archiveTask: [task: Task];
   addFromNotion: [];
 }>();
 
@@ -122,6 +125,7 @@ function closeOnPressOutside(event: PointerEvent): void {
   const target = event.target;
   if (!(target instanceof Node)) return;
   if (panel.value?.contains(target) || trigger.value?.contains(target)) return;
+  if (hasOpenDialog()) return;
   pickerOpen.value = false;
 }
 
@@ -185,6 +189,9 @@ function stopListening(): void {
             @add-from-notion="closeThen(() => emit('addFromNotion'))"
             @edit-project="(project) => closeThen(() => emit('editProject', project))"
             @archive-project="(project) => emit('archiveProject', project)"
+            @edit-task="(task) => emit('editTask', task)"
+            @delete-task="(task) => emit('deleteTask', task)"
+            @archive-task="(task) => emit('archiveTask', task)"
             @close="closePicker"
           >
             <template v-if="pickerSize !== null" #footer-end>

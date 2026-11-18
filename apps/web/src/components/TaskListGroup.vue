@@ -21,6 +21,7 @@ const emit = defineEmits<{
   toggle: [task: Task];
   edit: [task: Task];
   archive: [task: Task];
+  delete: [task: Task];
   editProject: [project: Project];
   archiveProject: [project: Project];
 }>();
@@ -65,6 +66,7 @@ function projectMenu(project: Project): MenuItem[] {
       @toggle="emit('toggle', task)"
       @edit="emit('edit', task)"
       @archive="emit('archive', task)"
+      @delete="emit('delete', task)"
     />
     <p v-if="branch.tasks.length === 0" class="px-4 pb-4 text-small text-fg-subtle md:px-6">
       {{ t("picker.emptyProject") }}

@@ -8,6 +8,7 @@ import { useAutoRefresh } from "../auto-refresh.ts";
 import { changeEach, type BulkResult } from "../bulk-change.ts";
 import ProjectDialog from "../components/ProjectDialog.vue";
 import SelectionPanel, { NO_MOVE_TARGET } from "../components/SelectionPanel.vue";
+import TaskDeleteDialog from "../components/TaskDeleteDialog.vue";
 import TaskDialog from "../components/TaskDialog.vue";
 import TaskListGroup from "../components/TaskListGroup.vue";
 import AppButton from "../components/ui/AppButton.vue";
@@ -28,6 +29,7 @@ type OpenDialog =
   | { kind: "project"; project?: Project }
   | { kind: "newTask" }
   | { kind: "editTask"; task: Task }
+  | { kind: "deleteTask"; task: Task }
   | { kind: "archiveSelected"; count: number };
 
 const { t } = useI18n();
@@ -153,6 +155,13 @@ async function onSaved(): Promise<void> {
   dialog.value = null;
   await reload();
 }
+
+async function onTaskDeleted(id: string): Promise<void> {
+  tasks.value = tasks.value.filter((task) => task.id !== id);
+  running.value = running.value.filter((session) => session.taskId !== id);
+  select([...selectedIds.value].filter((selectedId) => selectedId !== id));
+  await onSaved();
+}
 </script>
 
 <template>
@@ -222,6 +231,7 @@ async function onSaved(): Promise<void> {
       @toggle="toggle"
       @edit="(task) => (dialog = { kind: 'editTask', task })"
       @archive="archiveTask"
+      @delete="(task) => (dialog = { kind: 'deleteTask', task })"
       @edit-project="(project) => (dialog = { kind: 'project', project })"
       @archive-project="archiveProject"
     />
@@ -260,6 +270,12 @@ async function onSaved(): Promise<void> {
     online-only
     @close="dialog = null"
     @saved="onSaved"
+  />
+  <TaskDeleteDialog
+    v-if="dialog?.kind === 'deleteTask'"
+    :task="dialog.task"
+    @close="dialog = null"
+    @deleted="onTaskDeleted"
   />
   <AppConfirmDialog
     v-if="dialog?.kind === 'archiveSelected'"

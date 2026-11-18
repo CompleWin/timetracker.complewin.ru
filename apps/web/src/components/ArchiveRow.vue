@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ArchiveRestore } from "@lucide/vue";
+import { ArchiveRestore, Trash2 } from "@lucide/vue";
 import { formatDuration, type ProjectColor } from "@stt/shared";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { isOnline } from "../connection.ts";
 import { currentLocale } from "../i18n.ts";
 import AppButton from "./ui/AppButton.vue";
+import AppIconButton from "./ui/AppIconButton.vue";
 import NotionMark from "./ui/NotionMark.vue";
 import ProjectMarker from "./ui/ProjectMarker.vue";
 
@@ -17,8 +19,9 @@ const props = defineProps<{
   color: ProjectColor | null;
   markerAt: MarkerPlace;
   fromNotion?: boolean;
+  deletable?: boolean;
 }>();
-const emit = defineEmits<{ restore: [] }>();
+const emit = defineEmits<{ restore: []; delete: [] }>();
 
 const { t } = useI18n();
 
@@ -44,14 +47,26 @@ const total = computed(() => formatDuration(props.totalSec, currentLocale()));
         <span class="min-w-0 break-words">{{ meta }}</span>
       </p>
     </div>
-    <AppButton
-      variant="outline-primary"
-      size="sm"
-      :aria-label="t('archive.restoreItem', { name })"
-      @click="emit('restore')"
-    >
-      <ArchiveRestore :size="17" aria-hidden="true" />
-      {{ t("archive.restore") }}
-    </AppButton>
+    <div class="flex flex-wrap items-center gap-2">
+      <AppButton
+        variant="outline-primary"
+        size="sm"
+        :aria-label="t('archive.restoreItem', { name })"
+        @click="emit('restore')"
+      >
+        <ArchiveRestore :size="17" aria-hidden="true" />
+        {{ t("archive.restore") }}
+      </AppButton>
+      <AppIconButton
+        v-if="deletable"
+        size="toolbar"
+        tone="danger"
+        :label="t('archive.deleteItem', { name })"
+        :disabled="!isOnline"
+        @click="emit('delete')"
+      >
+        <Trash2 :size="17" aria-hidden="true" />
+      </AppIconButton>
+    </div>
   </li>
 </template>

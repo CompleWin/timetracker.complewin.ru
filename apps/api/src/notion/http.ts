@@ -8,6 +8,7 @@ export type NotionApiRequest = {
   path: string;
   body?: unknown;
   signal?: AbortSignal;
+  beforeSend?: () => Promise<void>;
 };
 
 export type NotionRequest = NotionApiRequest & {
@@ -41,10 +42,11 @@ export async function callNotion(env: Bindings, request: NotionRequest): Promise
 
 async function send(
   env: Bindings,
-  { method, path, body, authorization, signal }: NotionRequest,
+  { method, path, body, authorization, signal, beforeSend }: NotionRequest,
 ): Promise<Response> {
   const headers = new Headers({ Authorization: authorization, "Notion-Version": NOTION_VERSION });
   if (body !== undefined) headers.set("Content-Type", "application/json");
+  await beforeSend?.();
   try {
     return await fetch(notionUrl(env, path), {
       method,

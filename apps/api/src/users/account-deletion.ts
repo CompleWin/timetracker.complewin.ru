@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { database, type Database } from "../db/client.ts";
 import {
+  deletedNotionPages,
   hiddenGaps,
   notionConnections,
   notionDatabases,
@@ -32,6 +33,7 @@ async function revokeNotionAccess(env: Bindings, db: Database, userId: string): 
 
 async function deleteUserRows(db: Database, userId: string): Promise<void> {
   await db.batch([
+    db.delete(deletedNotionPages).where(eq(deletedNotionPages.userId, userId)),
     db.delete(hiddenGaps).where(eq(hiddenGaps.userId, userId)),
     db.delete(timeEntries).where(eq(timeEntries.userId, userId)),
     db.delete(syncOutbox).where(eq(syncOutbox.userId, userId)),

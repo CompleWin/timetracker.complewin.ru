@@ -1,5 +1,5 @@
 import type { Locale } from "@stt/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { projects, tasks } from "../db/schema.ts";
 import type { NotionClient } from "../notion/client.ts";
@@ -56,12 +56,40 @@ type LinkedTask = LoadedTask & { notionPageId: string; notionSent: SentPage };
 
 type PageSender = (target: NotionDatabaseRow) => Promise<PageReply>;
 
+class TaskNoLongerLinked extends Error {}
+
 export async function pushTask(run: SyncRun, taskId: string): Promise<void> {
   const task = await loadTask(run, taskId);
   if (task === undefined || !isLinked(task)) return;
   const target = run.databases.find((database) => database.id === task.notionDatabaseId);
   if (target === undefined) return;
-  if (await updateTaskPage(run, task, target)) await syncTimeBlock(run, taskId);
+  const taskRun = { ...run, client: taskPushClient(run, task) };
+  try {
+    if (await updateTaskPage(taskRun, task, target)) await syncTimeBlock(taskRun, taskId);
+  } catch (error) {
+    if (!(error instanceof TaskNoLongerLinked)) throw error;
+  } finally {
+    run.databases = taskRun.databases;
+  }
+}
+
+function taskPushClient(run: SyncRun, task: LinkedTask): NotionClient {
+  async function beforeSend(): Promise<void> {
+    const linked = await run.db.query.tasks.findFirst({
+      columns: { id: true },
+      where: and(
+        eq(tasks.id, task.id),
+        eq(tasks.userId, run.owner.id),
+        eq(tasks.notionPageId, task.notionPageId),
+      ),
+    });
+    if (linked === undefined) throw new TaskNoLongerLinked();
+  }
+
+  return {
+    request: (request) =>
+      run.client.request(request.method === "GET" ? request : { ...request, beforeSend }),
+  };
 }
 
 async function loadTask(run: SyncRun, taskId: string): Promise<LoadedTask | undefined> {

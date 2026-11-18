@@ -157,6 +157,83 @@ test.describe("открытие и закрытие панели", () => {
   });
 });
 
+test.describe("контекстное меню задачи", () => {
+  test("ПКМ открывает меню, Esc возвращает фокус строке, «Изменить» сохраняет открытый поиск", async ({
+    page,
+  }) => {
+    await createTask(page, { title: "Anki" });
+    await page.goto("/");
+    await searchTasks(page, "Anki");
+    const row = startTimerButton(foundTasks(page), "Anki");
+    const menu = page.getByRole("menu", { name: "Действия с задачей Anki", exact: true });
+
+    await row.click({ button: "right" });
+    await expect(menu.getByRole("menuitem")).toHaveText(["Изменить", "В архив", "Удалить"]);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(row).toBeFocused();
+
+    await row.press("Shift+F10");
+    await menuItem(page, "Изменить").click();
+    const editor = dialog(page, "Изменить задачу");
+    const title = field(editor, "Название");
+    await title.click();
+    await expect(menu).toBeHidden();
+    await expect(taskSearch(page)).toBeVisible();
+    await title.fill("Anki: испанский");
+    await button(editor, "Сохранить").click();
+    await expect(editor).toBeHidden();
+
+    await expect(taskSearch(page)).toHaveValue("Anki");
+    await expect(startTimerButton(foundTasks(page), "Anki: испанский")).toBeVisible();
+    await expect(row).toHaveCount(0);
+  });
+
+  test("«Удалить» запрашивает подтверждение и сохраняет открытый поиск", async ({ page }) => {
+    await createTask(page, { title: "Anki" });
+    await createTask(page, { title: "Anki: чтение" });
+    await page.goto("/");
+    await searchTasks(page, "Anki");
+    const row = startTimerButton(foundTasks(page), "Anki");
+
+    await row.click({ button: "right" });
+    await menuItem(page, "Удалить").click();
+    const confirm = dialog(page, "Удалить задачу?");
+    await expect(button(confirm, "Отмена")).toBeFocused();
+    await expect(taskSearch(page)).toBeVisible();
+    await button(confirm, "Отмена").click();
+    await expect(confirm).toBeHidden();
+    await expect(taskSearch(page)).toHaveValue("Anki");
+
+    await row.click({ button: "right" });
+    await menuItem(page, "Удалить").click();
+    await button(confirm, "Удалить").click();
+    await expect(confirm).toBeHidden();
+
+    await expect(taskSearch(page)).toHaveValue("Anki");
+    await expect(startTimerButton(foundTasks(page), "Anki: чтение")).toBeVisible();
+    await expect(row).toHaveCount(0);
+  });
+
+  test("«В архив» останавливает таймер задачи и сохраняет открытый поиск", async ({ page }) => {
+    const task = await createTask(page, { title: "Anki" });
+    await createTask(page, { title: "Anki: чтение" });
+    await startTimer(page, task.id);
+    await page.goto("/");
+    await searchTasks(page, "Anki");
+
+    const results = foundTasks(page);
+    await alreadyRunningButton(results, "Anki").click({ button: "right" });
+    await menuItem(page, "В архив").click();
+
+    await expect.poll(async () => (await getTask(page, task.id)).archived).toBe(true);
+    await expect.poll(() => activeTimers(page)).toEqual([]);
+    await expect(taskSearch(page)).toHaveValue("Anki");
+    await expectStartRows(results, ["Anki: чтение"]);
+    await expect(alreadyRunningButton(results, "Anki")).toHaveCount(0);
+  });
+});
+
 test.describe("список при пустом поиске", () => {
   test("24. в «Недавних» пять последних запущенных активных задач, свежие первыми, архивной нет", async ({
     page,

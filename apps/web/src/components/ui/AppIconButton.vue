@@ -1,7 +1,7 @@
 <script setup lang="ts">
 export type IconButtonSize = "xs" | "sm" | "md" | "toolbar" | "lg" | "xl" | "2xl";
 
-export type IconButtonTone = "calm" | "stop" | "start" | "outlined";
+export type IconButtonTone = "calm" | "stop" | "start" | "outlined" | "danger";
 
 withDefaults(
   defineProps<{
@@ -29,6 +29,7 @@ const toneClasses: Record<IconButtonTone, string> = {
   stop: "border-2 border-fg text-fg hover:bg-fg hover:text-surface-page",
   start: "bg-primary text-white hover:bg-primary-hover",
   outlined: "border border-line-strong text-primary hover:bg-primary-soft",
+  danger: "text-danger-ink hover:bg-danger-soft",
 };
 
 const PRESSED_TONE = "bg-primary-soft text-primary hover:bg-primary-soft-hover";

@@ -8,7 +8,7 @@ import {
   type SessionWithTask,
   type Task,
 } from "@stt/shared";
-import { computed } from "vue";
+import { computed, useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterLink } from "vue-router";
 import { currentLocale } from "../i18n.ts";
@@ -30,9 +30,16 @@ const props = defineProps<{
   now: number | undefined;
   selectionOnly: boolean;
 }>();
-const emit = defineEmits<{ choose: []; pin: []; hover: [] }>();
+const emit = defineEmits<{
+  choose: [];
+  pin: [];
+  hover: [];
+  context: [event: MouseEvent, trigger: HTMLButtonElement];
+  taskKeydown: [event: KeyboardEvent];
+}>();
 
 const { t } = useI18n();
+const trigger = useTemplateRef("trigger");
 
 const pinLabel = computed(() =>
   t(props.task.pinned ? "picker.unpin" : "picker.pin", { title: props.task.title }),
@@ -43,6 +50,10 @@ const clock = computed(() =>
     : formatClock(elapsedSec(props.running.startedAt, props.now)),
 );
 const today = computed(() => formatDuration(props.todaySec, currentLocale()));
+
+function openContext(event: MouseEvent): void {
+  if (trigger.value !== null) emit("context", event, trigger.value);
+}
 </script>
 
 <template>
@@ -51,12 +62,17 @@ const today = computed(() => formatDuration(props.todaySec, currentLocale()));
     class="flex min-h-[42px] items-center gap-1 rounded-field pr-1 transition-colors duration-150"
     :class="[nested ? 'pl-10' : 'pl-3', highlighted ? 'bg-surface-page' : '']"
     @pointerenter="emit('hover')"
+    @contextmenu="openContext"
   >
     <button
+      ref="trigger"
       type="button"
       :aria-label="chooseLabel"
+      :aria-haspopup="selectionOnly ? undefined : 'menu'"
+      :aria-keyshortcuts="selectionOnly ? undefined : 'Shift+F10'"
       class="flex min-h-[42px] min-w-0 flex-1 cursor-pointer items-center gap-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       @click="emit('choose')"
+      @keydown="emit('taskKeydown', $event)"
     >
       <AppPulseDot v-if="running" :size="8" />
       <span class="flex min-w-[45%] flex-1 items-center gap-1.5">
