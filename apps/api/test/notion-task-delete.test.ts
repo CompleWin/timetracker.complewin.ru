@@ -31,7 +31,15 @@ import {
 } from "./harness/notion-webhooks.ts";
 import { NOTION_V1 } from "./harness/notion-workspace.ts";
 import { tablesContaining } from "./harness/storage.ts";
-import { createTask, deleteTask, expectTaskTitles, listTasks } from "./harness/tasks.ts";
+import {
+  createTask,
+  deleteTask,
+  expectTaskTitles,
+  getTask,
+  listTasks,
+  requestDeleteTask,
+} from "./harness/tasks.ts";
+import { getTimerSession } from "./harness/timers.ts";
 
 const DELETED_AT = atMinute(12);
 const LINKED_AGAIN_AT = atMinute(21);
@@ -73,6 +81,63 @@ describe("удаление задачи со страницей Notion", () => {
     });
 
     expect(calls).toEqual([]);
+  });
+
+  it("7.1. удаление во время PATCH полей останавливает последующие записи в страницу и блоки", async () => {
+    fakeNotionBlocks(fake.pages);
+    const { session, task, page } = await importedTask({ ...TASKS_BASE, blockPosition: "start" });
+    const times = { startedAt: atMinute(11).now, endedAt: atMinute(12).now };
+    const entry = await addSession(session, task.id, times, atMinute(13));
+    expect(await syncStatus(session, atMinute(13))).toMatchObject({ pendingTasks: 1 });
+
+    const pageUrl = `${NOTION_V1}/pages/${page.id}`;
+    const deletedAt = atMinute(15);
+    const observedDuringPatch: {
+      deleteStatus: number;
+      taskStatus: number;
+      sessionStatus: number;
+      pendingTasks: number;
+    }[] = [];
+    external.on("PATCH", pageUrl, async () => {
+      const deletion = await requestDeleteTask(session, task.id, deletedAt);
+      const deletedTask = await getTask(session, task.id, deletedAt);
+      const deletedSession = await getTimerSession(session, entry.id, deletedAt);
+      const queue = await syncStatus(session, deletedAt);
+      observedDuringPatch.push({
+        deleteStatus: deletion.status,
+        taskStatus: deletedTask.status,
+        sessionStatus: deletedSession.status,
+        pendingTasks: queue.pendingTasks,
+      });
+      return Response.json(fake.pages.json(page));
+    });
+
+    const baseline = external.calls().length;
+    function writesSinceStart() {
+      return external
+        .calls()
+        .slice(baseline)
+        .filter(
+          ({ method, url }) =>
+            ["PATCH", "POST", "PUT", "DELETE"].includes(method) &&
+            /^\/v1\/(pages|blocks)(\/|$)/.test(new URL(url).pathname),
+        );
+    }
+
+    await cronAt(atMinute(14));
+    expect(observedDuringPatch).toEqual([
+      { deleteStatus: 204, taskStatus: 404, sessionStatus: 404, pendingTasks: 0 },
+    ]);
+    const writes = writesSinceStart();
+    expect(writes).toMatchObject([{ method: "PATCH", url: pageUrl }]);
+    expect(writes.map((call) => JSON.parse(call.body))).toMatchObject([
+      { properties: expect.any(Object) },
+    ]);
+
+    await cronAt(NEXT_RUN);
+    expectTaskTitles(await listTasks(session, { archived: "all" }, NEXT_RUN), []);
+    expect(await syncStatus(session, NEXT_RUN)).toMatchObject({ pendingTasks: 0 });
+    expect(writesSinceStart()).toHaveLength(1);
   });
 
   it("не повторяет запрос записи в Notion после удаления задачи во время cron", async () => {
