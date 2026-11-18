@@ -159,9 +159,12 @@ function sampleProblems(text: string, testsDir: string): string[] {
 }
 
 function helperFiles(dir: string): string[] {
-  return readdirSync(path.join(root, dir), { withFileTypes: true })
+  const directory = path.join(root, dir);
+  return readdirSync(directory, { withFileTypes: true, recursive: true })
     .filter((entry) => entry.isFile() && MODULE_FILE.test(entry.name))
-    .map((entry) => entry.name)
+    .map((entry) =>
+      path.relative(directory, path.join(entry.parentPath, entry.name)).split(path.sep).join("/"),
+    )
     .sort();
 }
 
