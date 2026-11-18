@@ -13,9 +13,10 @@
   "scripts": {
     "dev": "npm run build -w @stt/web && concurrently -k -n web,api \"npm run dev -w @stt/web\" \"npm run dev -w @stt/api\"",
     "build": "npm run build -w @stt/web && npm run build -w @stt/api",
-    "typecheck": "npm run typecheck --workspaces",
-    "lint": "eslint . && prettier --check .",
-    "format": "eslint . --fix && prettier --write .",
+    "typecheck": "npm run typecheck --workspaces && tsc --noEmit -p scripts",
+    "lint": "eslint . && prettier --check . && npm run test-maps",
+    "format": "eslint . --fix && prettier --write . && npm run test-maps -- --write",
+    "test-maps": "node --experimental-strip-types scripts/test-maps.ts",
     "test": "npm run test -w @stt/shared && npm run test -w @stt/api",
     "test:e2e": "npm run test:e2e -w @stt/web",
     "db:migrate:staging": "npm run db:migrate:staging -w @stt/api",

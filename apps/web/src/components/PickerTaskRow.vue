@@ -19,6 +19,7 @@ import ProjectMarker from "./ui/ProjectMarker.vue";
 
 const props = defineProps<{
   task: Task;
+  chooseLabel: string;
   project: Project | null;
   withProject: boolean;
   nested: boolean;
@@ -26,7 +27,8 @@ const props = defineProps<{
   todaySec: number;
   highlighted: boolean;
   entryKey: string;
-  now: number;
+  now: number | undefined;
+  selectionOnly: boolean;
 }>();
 const emit = defineEmits<{
   choose: [];
@@ -39,16 +41,13 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const trigger = useTemplateRef("trigger");
 
-const chooseLabel = computed(() =>
-  props.running === undefined
-    ? t("timers.startTask", { title: props.task.title })
-    : t("picker.alreadyRunning", { title: props.task.title }),
-);
 const pinLabel = computed(() =>
   t(props.task.pinned ? "picker.unpin" : "picker.pin", { title: props.task.title }),
 );
 const clock = computed(() =>
-  props.running === undefined ? "" : formatClock(elapsedSec(props.running.startedAt, props.now)),
+  props.running === undefined || props.now === undefined
+    ? ""
+    : formatClock(elapsedSec(props.running.startedAt, props.now)),
 );
 const today = computed(() => formatDuration(props.todaySec, currentLocale()));
 
@@ -69,8 +68,8 @@ function openContext(event: MouseEvent): void {
       ref="trigger"
       type="button"
       :aria-label="chooseLabel"
-      aria-haspopup="menu"
-      aria-keyshortcuts="Shift+F10"
+      :aria-haspopup="selectionOnly ? undefined : 'menu'"
+      :aria-keyshortcuts="selectionOnly ? undefined : 'Shift+F10'"
       class="flex min-h-[42px] min-w-0 flex-1 cursor-pointer items-center gap-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       @click="emit('choose')"
       @keydown="emit('taskKeydown', $event)"
@@ -94,7 +93,7 @@ function openContext(event: MouseEvent): void {
         {{ today }}
       </span>
     </button>
-    <AppIconButton :label="pinLabel" size="sm" @click="emit('pin')">
+    <AppIconButton v-if="!selectionOnly" :label="pinLabel" size="sm" @click="emit('pin')">
       <Star
         :size="17"
         aria-hidden="true"
@@ -102,6 +101,7 @@ function openContext(event: MouseEvent): void {
       />
     </AppIconButton>
     <RouterLink
+      v-if="!selectionOnly"
       :to="`/tasks/${task.id}`"
       :aria-label="t('picker.openTask', { title: task.title })"
       :title="t('picker.openTask', { title: task.title })"
@@ -110,7 +110,7 @@ function openContext(event: MouseEvent): void {
       <ArrowUpRight :size="17" aria-hidden="true" />
     </RouterLink>
     <span
-      v-if="highlighted && !running"
+      v-if="!selectionOnly && highlighted && !running"
       aria-hidden="true"
       class="flex size-8 flex-none cursor-pointer items-center justify-center rounded-full bg-primary text-white"
       @click="emit('choose')"

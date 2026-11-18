@@ -1,5 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { createProject, createTask, startTimer, type Session } from "./helpers/api.ts";
+import {
+  activeTimers,
+  createProject,
+  createTask,
+  pinTask,
+  startTimer,
+  type Session,
+} from "./helpers/api.ts";
 import {
   addLocalSession,
   afternoonZone,
@@ -9,7 +16,17 @@ import {
   weekdayDateRu,
 } from "./helpers/afternoon.ts";
 import { expectNoHorizontalScroll, PHONE_VIEWPORT } from "./helpers/layout.ts";
-import { button, dialog, expectInSection, field, heading, link, textOf } from "./helpers/ui.ts";
+import { boxOf } from "./helpers/picker-size.ts";
+import {
+  button,
+  dialog,
+  expectInSection,
+  field,
+  group,
+  heading,
+  link,
+  textOf,
+} from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
 const ZONE = afternoonZone();
@@ -56,6 +73,14 @@ async function openNewSessionWith(page: Page, opener: string): Promise<Locator> 
   const form = dialog(page, "Новая сессия");
   await expect(form).toBeVisible();
   return form;
+}
+
+async function openSessionTaskPicker(form: Locator): Promise<Locator> {
+  const taskField = form.getByRole("button", { name: /^Задача: / });
+  await expect(taskField).toHaveAttribute("aria-expanded", "false");
+  await taskField.click();
+  await expect(taskField).toHaveAttribute("aria-expanded", "true");
+  return form.getByRole("region", { name: "Выбор задачи", exact: true });
 }
 
 test("35. в «Хронологии» сегодняшняя дата, блоки двух остановленных и идущей сессии, между остановленными «Пропуск 45 мин» и «Заполнить пропуск», вчерашней сессии нет", async ({
@@ -141,7 +166,7 @@ test("37. «Заполнить пропуск» открывает «Новая 
 
   await expect(field(form, "Начало")).toHaveValue(localInput(ZONE, "10:30"));
   await expect(field(form, "Конец")).toHaveValue(localInput(ZONE, "11:15"));
-  await expect(field(form, "Задача").getByRole("option", { selected: true })).toHaveText("Бег");
+  await expect(button(form, "Задача: Бег")).toBeVisible();
 
   await button(form, "Сохранить").click();
 
@@ -263,7 +288,7 @@ test("STT-37. на телефоне можно скрыть видимый пр�
   await expect(dialog(page, "Сессия")).toBeVisible();
 });
 
-test("38. «Добавить вручную» и «Сессия» открывают «Новая сессия» с пустыми «Начало» и «Конец»; в «Задача» варианты «<название> · <проект>» и «<название>»", async ({
+test("38. «Добавить вручную» и «Сессия» открывают пустую форму с панелью выбора задачи", async ({
   page,
 }) => {
   const sport = await createProject(page, { name: "Спорт" });
@@ -276,11 +301,16 @@ test("38. «Добавить вручную» и «Сессия» открыва
 
     await expect(field(form, "Начало")).toHaveValue("");
     await expect(field(form, "Конец")).toHaveValue("");
-    const tasks = field(form, "Задача");
-    await expect(
-      tasks.getByRole("option", { name: "Беговая дорожка · Спорт", exact: true }),
-    ).toHaveCount(1);
-    await expect(tasks.getByRole("option", { name: "Anki", exact: true })).toHaveCount(1);
+    await expect(textOf(form, "Задача")).toBeVisible();
+    const picker = await openSessionTaskPicker(form);
+    const tree = group(picker, "Проекты и задачи");
+    await button(tree, "Без проекта").click();
+    await expect(button(group(tree, "Без проекта"), "Выбрать задачу: Anki")).toBeVisible();
+
+    await button(group(tree, "Спорт"), "Выбрать задачу: Беговая дорожка").click();
+
+    await expect(picker).toBeHidden();
+    await expect(button(form, "Задача: Беговая дорожка · Спорт")).toBeVisible();
 
     await button(form, "Закрыть").click();
     await expect(form).toBeHidden();
@@ -295,11 +325,199 @@ test("38. у пользователя, который ничего не запу
   const form = await openNewSessionWith(page, "Добавить вручную");
   const save = button(form, "Сохранить");
 
-  await expect(field(form, "Задача")).toHaveValue("");
+  await expect(button(form, "Задача: Выбери задачу")).toBeVisible();
   await field(form, "Начало").fill(localInput(ZONE, "10:00"));
   await field(form, "Конец").fill(localInput(ZONE, "10:40"));
   await expect(save).toBeDisabled();
 
-  await field(form, "Задача").selectOption({ label: "Anki" });
+  const picker = await openSessionTaskPicker(form);
+  await button(group(picker, "Без проекта"), "Выбрать задачу: Anki").click();
   await expect(save).toBeEnabled();
+  await save.click();
+
+  await expect(form).toBeHidden();
+  await expect(sessionBlock(page, "Anki", "10:00–10:40")).toBeVisible();
 });
+
+test("STT-38. в панели диалога работает поиск с клавиатуры, Enter выбирает задачу", async ({
+  page,
+}) => {
+  const sport = await createProject(page, { name: "Спорт" });
+  await createTask(page, { title: "Беговая дорожка", projectId: sport.id });
+  await createTask(page, { title: "Разминка", projectId: sport.id });
+  await createTask(page, { title: "Anki" });
+  await page.goto("/");
+
+  const form = await openNewSessionWith(page, "Добавить вручную");
+  const picker = await openSessionTaskPicker(form);
+  const search = field(picker, "Поиск задач");
+  await expect(search).toHaveAttribute("placeholder", "Найди задачу");
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
+  await page.keyboard.press("KeyN");
+  await expect(search).toHaveValue("n");
+  await expect(form).toBeVisible();
+
+  await search.fill("xyz");
+  await expect(textOf(picker, "Таких задач нет")).toBeVisible();
+  await expect(button(picker, "Создать «xyz»")).toHaveCount(0);
+  await search.press("Tab");
+  await expect(field(form, "Начало")).toBeFocused();
+  await expect(picker).toBeHidden();
+
+  await openSessionTaskPicker(form);
+  const found = group(picker, "Найдено");
+  const treadmill = button(found, "Выбрать задачу: Беговая дорожка");
+  await search.fill("#спорт");
+  await expect(treadmill).toBeVisible();
+  await search.press("ArrowDown");
+  await search.press("Enter");
+  await expect(button(form, "Задача: Разминка · Спорт")).toBeFocused();
+
+  await openSessionTaskPicker(form);
+  await search.fill("бег");
+  await expect(treadmill).toBeVisible();
+  await expect(button(found, "Выбрать задачу: Anki")).toHaveCount(0);
+  await search.press("Enter");
+
+  const taskField = button(form, "Задача: Беговая дорожка · Спорт");
+  await expect(picker).toBeHidden();
+  await expect(taskField).toHaveAttribute("aria-expanded", "false");
+  await expect(taskField).toBeFocused();
+  expect(await activeTimers(page)).toHaveLength(0);
+});
+
+test("STT-38. «Добавить вручную» предлагает последнюю задачу, Esc и клик мимо сохраняют выбор", async ({
+  page,
+}) => {
+  const run = await createTask(page, { title: "Бег" });
+  await startTimer(page, run.id);
+  await page.goto("/");
+
+  const form = await openNewSessionWith(page, "Добавить вручную");
+  const taskField = button(form, "Задача: Бег");
+  await expect(taskField).toBeVisible();
+  const picker = await openSessionTaskPicker(form);
+
+  await page.keyboard.press("Escape");
+
+  await expect(form).toBeVisible();
+  await expect(picker).toBeHidden();
+  await expect(taskField).toHaveAttribute("aria-expanded", "false");
+  await expect(taskField).toBeFocused();
+
+  await openSessionTaskPicker(form);
+  await heading(form, "Новая сессия").click();
+
+  await expect(picker).toBeHidden();
+  await expect(taskField).toHaveAttribute("aria-expanded", "false");
+});
+
+test("STT-38. в панели можно выбрать закреплённую и идущую задачу, действий запуска нет", async ({
+  page,
+}) => {
+  const sport = await createProject(page, { name: "Спорт" });
+  const run = await createTask(page, { title: "Бег", projectId: sport.id });
+  const anki = await createTask(page, { title: "Anki" });
+  await addLocalSession(page, ZONE, run.id, { start: "10:00", end: "10:30" });
+  await pinTask(page, run.id);
+  const running = await startTimer(page, anki.id);
+  await page.goto("/");
+
+  const form = await openNewSessionWith(page, "Добавить вручную");
+  const picker = await openSessionTaskPicker(form);
+  const recent = group(picker, "Недавние");
+  const recentRun = button(recent, "Выбрать задачу: Бег");
+  await expect(textOf(recentRun, "Спорт")).toBeVisible();
+  await expect(textOf(recentRun, "30 мин")).toBeVisible();
+  await expect(group(picker, "Проекты и задачи")).toBeVisible();
+  await expect(textOf(picker, "выбор")).toBeVisible();
+  await expect(picker.getByText(/^Esc\s*закрыть$/)).toBeVisible();
+  await expect(picker.getByText(/сразу в проект$/)).toHaveCount(0);
+
+  for (const name of [
+    "Создать",
+    "Новая задача",
+    "Новый проект",
+    "Добавить из Notion",
+    "Закрепить: Anki",
+    "Открепить: Бег",
+    "Действия с проектом Спорт",
+    "Изменить размер панели",
+    "Уже идёт: Anki",
+  ]) {
+    await expect(button(picker, name)).toHaveCount(0);
+  }
+  await expect(link(picker, "Открыть задачу: Anki")).toHaveCount(0);
+
+  await button(group(picker, "Закреплённые"), "Выбрать задачу: Бег").click();
+  await expect(button(form, "Задача: Бег · Спорт")).toBeVisible();
+  await openSessionTaskPicker(form);
+  await button(recent, "Выбрать задачу: Anki").click();
+
+  await expect(picker).toBeHidden();
+  await expect(button(form, "Задача: Anki")).toBeFocused();
+  expect((await activeTimers(page)).map((session) => session.id)).toEqual([running.id]);
+});
+
+for (const [viewport, pickerWidth] of [
+  [{ width: 1280, height: 720 }, 640],
+  [PHONE_VIEWPORT, 358],
+] as const) {
+  test(`STT-38. на ширине ${viewport.width} px панель шире поля и сохраняет размер диалога`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    for (let index = 1; index <= 10; index++) {
+      const task = await createTask(page, {
+        title: `Длинное название задачи ${index}, которое не помещается в одну строку на телефоне`,
+      });
+      await pinTask(page, task.id);
+    }
+    await page.goto("/");
+
+    const form = await openNewSessionWith(page, "Добавить вручную");
+    await page.evaluate(() => document.fonts.ready);
+    const start = field(form, "Начало");
+    const taskField = button(form, "Задача: Выбери задачу");
+    const [formBox, startBox, taskFieldBox] = await Promise.all([
+      boxOf(form),
+      boxOf(start),
+      boxOf(taskField),
+    ]);
+    const formScrollHeight = await form.evaluate((element) => element.scrollHeight);
+
+    const picker = await openSessionTaskPicker(form);
+    await expect(picker).toBeInViewport({ ratio: 1 });
+    expect(await boxOf(form)).toEqual(formBox);
+    expect(await form.evaluate((element) => element.scrollHeight)).toBe(formScrollHeight);
+    expect(await boxOf(start)).toEqual(startBox);
+    expect(await boxOf(taskField)).toEqual(taskFieldBox);
+
+    const pickerBox = await boxOf(picker);
+    expect(pickerBox.width).toBeCloseTo(pickerWidth, 0);
+    expect(pickerBox.width).toBeGreaterThan(taskFieldBox.width);
+    expect(pickerBox.x + pickerBox.width / 2).toBeCloseTo(
+      taskFieldBox.x + taskFieldBox.width / 2,
+      0,
+    );
+    expect(pickerBox.y).toBeGreaterThanOrEqual(taskFieldBox.y + taskFieldBox.height);
+    expect(
+      await picker.evaluate((element, box) => {
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return element.contains(hit);
+      }, startBox),
+    ).toBe(true);
+    await expect
+      .poll(() => picker.evaluate((element) => element.scrollWidth - element.clientWidth))
+      .toBe(0);
+    await expectNoHorizontalScroll(page);
+
+    if (viewport.width > PHONE_VIEWPORT.width) {
+      await page.setViewportSize(PHONE_VIEWPORT);
+      await expect.poll(async () => (await boxOf(picker)).width).toBeCloseTo(358, 0);
+      await expect(picker).toBeInViewport({ ratio: 1 });
+      expect((await boxOf(picker)).x).toBeCloseTo(16, 0);
+    }
+  });
+}

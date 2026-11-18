@@ -8,7 +8,6 @@ import {
   type Task,
 } from "@stt/shared";
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
-import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
 import LaunchIsland from "../components/LaunchIsland.vue";
@@ -17,7 +16,6 @@ import ProjectDialog from "../components/ProjectDialog.vue";
 import SessionDialog, {
   type SessionRange,
   type SessionTask,
-  type TaskChoice,
 } from "../components/SessionDialog.vue";
 import SummaryIsland from "../components/SummaryIsland.vue";
 import TaskDeleteDialog from "../components/TaskDeleteDialog.vue";
@@ -44,7 +42,6 @@ type OpenDialog =
 const WEEK_DAYS = 7;
 const MS_PER_MINUTE = 60_000;
 
-const { t } = useI18n();
 const account = useSessionStore();
 const projects = ref<Project[]>([]);
 const tasks = ref<Task[]>([]);
@@ -72,18 +69,6 @@ const projectsById = computed(
 );
 const activeProjects = computed(() => projects.value.filter((project) => !project.archived));
 
-const taskChoices = computed<TaskChoice[]>(() =>
-  tasks.value.map((task) => {
-    const project = projectsById.value.get(task.projectId ?? "");
-    return {
-      id: task.id,
-      label:
-        project === undefined
-          ? task.title
-          : t("sessions.taskOption", { title: task.title, project: project.name }),
-    };
-  }),
-);
 const lastStartedTaskId = computed(() => recentTasks(tasks.value)[0]?.id ?? null);
 
 onMounted(reload);
@@ -250,7 +235,7 @@ async function onTaskDeleted(id: string): Promise<void> {
   <SessionDialog
     v-if="dialog?.kind === 'newSession'"
     :time-zone
-    :choices="taskChoices"
+    :task-picker="{ tasks, projects, todaySec: todaySecByTask }"
     :chosen-task-id="lastStartedTaskId"
     :range="dialog.range"
     @close="dialog = null"
