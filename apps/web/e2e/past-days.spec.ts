@@ -175,6 +175,35 @@ test.describe("Прошлые дни", () => {
     await expect(nextWeek).toBeDisabled();
   });
 
+  test("15–16. незагруженный день без сети показывает ошибку и обновляется после подключения", async ({
+    page,
+    context,
+  }) => {
+    const task = await createTask(page, { title: "Прошлое чтение" });
+    await addLocalSession(page, ZONE, task.id, { start: "10:00", end: "11:00", daysAgo: 7 });
+    await page.goto("/");
+    await expect(island(page, "Сводка за сегодня")).toBeVisible();
+
+    await context.setOffline(true);
+    await button(week(page), PREVIOUS_WEEK).click();
+
+    const summary = island(page, `Сводка за ${dayMonthRu(ZONE, 7)}`);
+    const unavailable = page
+      .getByRole("alert")
+      .filter({ hasText: "Не удалось загрузить данные за выбранный день." });
+    await expect(dayButton(page, 7)).toHaveAttribute("aria-pressed", "true");
+    await expect(unavailable).toBeVisible();
+    await expect(textOf(summary, "0 сессий")).toHaveCount(0);
+
+    await context.setOffline(false);
+
+    await expect(unavailable).toBeHidden();
+    await expect(timelineDate(page, dayName(7))).toBeVisible();
+    await expect(sessionBlock(page, task.title, "10:00–11:00")).toBeVisible();
+    await expect(textOf(summary, "1 сессия")).toBeVisible();
+    await expect(textOf(summary, "1 ч").first()).toBeVisible();
+  });
+
   test("9. во вчерашней хронологии нет линии текущего времени", async ({ page }) => {
     await waitPastFullHour();
     await page.goto("/");

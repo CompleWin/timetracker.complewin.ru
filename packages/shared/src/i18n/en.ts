@@ -34,6 +34,7 @@ export const en: Messages = {
   "home.search": "Search tasks",
   "home.empty": "No tasks yet",
   "home.noProject": "No project",
+  "home.dayLoadFailed": "Could not load data for the selected day.",
   "projects.new": "New project",
   "projects.edit": "Edit project",
   "projects.rename": "Rename",

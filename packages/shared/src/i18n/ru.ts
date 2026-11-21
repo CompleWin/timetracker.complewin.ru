@@ -32,6 +32,7 @@ export const ru = {
   "home.search": "Поиск задач",
   "home.empty": "Пока нет задач",
   "home.noProject": "Без проекта",
+  "home.dayLoadFailed": "Не удалось загрузить данные за выбранный день.",
   "projects.new": "Новый проект",
   "projects.edit": "Изменить проект",
   "projects.rename": "Переименовать",
