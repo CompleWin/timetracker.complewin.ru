@@ -36,7 +36,7 @@ const bars = computed<DayBar[]>(() => {
         duration: formatDuration(seconds, locale),
       }),
       seconds,
-      today: index === props.days.length - 1,
+      highlighted: index === props.days.length - 1,
     };
   });
 });

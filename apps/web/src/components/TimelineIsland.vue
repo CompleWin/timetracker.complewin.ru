@@ -12,11 +12,12 @@ import {
   type SessionWithTask,
   type TimelineGap,
 } from "@stt/shared";
-import { computed, onMounted, useId, useTemplateRef } from "vue";
+import { computed, onMounted, useId, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { isOnline } from "../connection.ts";
 import { timelineItems } from "../day-sessions.ts";
 import { currentLocale } from "../i18n.ts";
+import { HOUR_MS, pastScaleHours, timelineHours } from "../timeline-scale.ts";
 import type { SessionRange } from "./SessionDialog.vue";
 import TimelineSession from "./TimelineSession.vue";
 import AppButton from "./ui/AppButton.vue";
@@ -41,18 +42,17 @@ type PlacedGap = {
 };
 
 const HOUR_HEIGHT_PX = 64;
-const HOUR_MS = 60 * 60 * 1000;
 const GAP_MIN_SEC = 20 * 60;
 const MS_PER_SECOND = 1000;
 const BLOCK_MIN_HEIGHT_PX = 24;
 const BLOCK_INSET_PX = 3;
 const SCALE_LABEL_WIDTH = "56px";
-const HOURS_PER_DAY = 24;
 const NOW_WINDOW_SHARE = 2 / 3;
 
 const props = defineProps<{
   sessions: SessionWithTask[];
   day: DayRange;
+  isToday: boolean;
   projects: Map<string, Project>;
   showGaps: boolean;
   hiddenGaps: HiddenGap[];
@@ -75,13 +75,13 @@ const nowIso = computed(() => new Date(props.now).toISOString());
 const dateLabel = computed(() =>
   formatWeekdayDate(props.day.from, props.timeZone, currentLocale()),
 );
-const scaleHeight = HOURS_PER_DAY * HOUR_HEIGHT_PX;
-const hourMarks = Array.from({ length: HOURS_PER_DAY + 1 }, (_, hour) => ({
-  key: hour,
-  label: `${String(hour % HOURS_PER_DAY).padStart(2, "0")}:00`,
-  top: hour * HOUR_HEIGHT_PX,
-}));
 const items = computed(() => timelineItems(props.sessions, props.now));
+const dayHours = computed(() => timelineHours(props.day, props.timeZone, props.isToday));
+const scaleHours = computed(() =>
+  props.isToday ? dayHours.value : pastScaleHours(dayHours.value, items.value),
+);
+const scaleStart = computed(() => scaleHours.value[0]?.at ?? dayHours.value[0].at);
+const scaleHeight = computed(() => offsetOf(scaleHours.value.at(-1)?.at ?? scaleStart.value));
 
 const placedSessions = computed<PlacedSession[]>(() => {
   const lanes = new Map(timelineLanes(items.value).map((lane) => [lane.id, lane]));
@@ -89,7 +89,7 @@ const placedSessions = computed<PlacedSession[]>(() => {
     const item = items.value[index];
     const lane = lanes.get(session.id) ?? { lane: 0, lanes: 1 };
     const top = offsetOf(item?.startMs ?? 0);
-    const bottom = Math.min(offsetOf(item?.endMs ?? 0), scaleHeight);
+    const bottom = Math.min(offsetOf(item?.endMs ?? 0), scaleHeight.value);
     const heightPx = Math.max(BLOCK_MIN_HEIGHT_PX, bottom - top - BLOCK_INSET_PX);
     return {
       session,
@@ -119,16 +119,18 @@ const placedGaps = computed<PlacedGap[]>(() => {
 const nowTop = computed(() => offsetOf(props.now));
 const nowLabel = computed(() => formatTime(nowIso.value, props.timeZone));
 
-onMounted(scrollToNow);
+onMounted(scrollToDay);
+watch(() => props.day.from, scrollToDay, { flush: "post" });
 
-function scrollToNow(): void {
+function scrollToDay(): void {
   if (scroller.value === null || scale.value === null) return;
-  scroller.value.scrollTop =
-    scale.value.offsetTop + nowTop.value - scroller.value.clientHeight * NOW_WINDOW_SHARE;
+  scroller.value.scrollTop = props.isToday
+    ? scale.value.offsetTop + nowTop.value - scroller.value.clientHeight * NOW_WINDOW_SHARE
+    : 0;
 }
 
 function offsetOf(epochMs: number): number {
-  return ((epochMs - Date.parse(props.day.from)) / HOUR_MS) * HOUR_HEIGHT_PX;
+  return ((epochMs - scaleStart.value) / HOUR_MS) * HOUR_HEIGHT_PX;
 }
 
 function gapKey(startMs: number, endMs: number): string {
@@ -200,10 +202,10 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
     >
       <div ref="scale" class="relative isolate" :style="{ height: `${scaleHeight}px` }">
         <div
-          v-for="mark in hourMarks"
-          :key="mark.key"
+          v-for="mark in scaleHours"
+          :key="mark.at"
           class="absolute inset-x-0 border-t border-line"
-          :style="{ top: `${mark.top}px` }"
+          :style="{ top: `${offsetOf(mark.at)}px` }"
         >
           <span
             class="absolute left-0 -translate-y-1/2 bg-surface-island pr-1.5 font-code text-caps tracking-normal text-fg-faint"
@@ -252,7 +254,11 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
           :time-zone
           @edit="emit('edit', placed.session)"
         />
-        <div class="absolute right-0 left-12 z-20 h-0.5 bg-primary" :style="{ top: `${nowTop}px` }">
+        <div
+          v-if="isToday"
+          class="absolute right-0 left-12 z-20 h-0.5 bg-primary"
+          :style="{ top: `${nowTop}px` }"
+        >
           <span
             class="absolute right-full -translate-y-1/2 bg-surface-island pr-1 font-code text-caps tracking-normal text-primary"
           >

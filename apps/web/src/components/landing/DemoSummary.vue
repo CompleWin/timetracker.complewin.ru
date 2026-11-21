@@ -52,7 +52,7 @@ const bars = computed<DayBar[]>(() => {
       duration: formatDuration(day.seconds, locale),
     }),
     seconds: day.seconds,
-    today: day.today,
+    highlighted: day.today,
   }));
 });
 

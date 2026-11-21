@@ -13,10 +13,12 @@ type WallClock = {
   day: number;
   hour: number;
   minute: number;
+  second: number;
 };
 
 const UTC = "UTC";
-const MS_PER_MINUTE = 60_000;
+const MS_PER_SECOND = 1_000;
+const MS_PER_DAY = 86_400 * MS_PER_SECOND;
 const DAYS_PER_WEEK = 7;
 
 const MONTH_KEYS = [
@@ -103,6 +105,23 @@ export function formatWeekdayShort(iso: string, timeZone: string | null, locale:
   return t(locale, keyAt(WEEKDAY_SHORT_KEYS, isoWeekday(wallClock(Date.parse(iso), timeZone))));
 }
 
+export function formatWeekRange(
+  firstDay: string,
+  lastDay: string,
+  timeZone: string | null,
+  locale: Locale,
+): string {
+  const first = Date.parse(firstDay);
+  const last = Date.parse(lastDay);
+  const crossesYear = wallClock(first, timeZone).year !== wallClock(last, timeZone).year;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: timeZone ?? UTC,
+    day: "numeric",
+    month: "long",
+    year: crossesYear ? "numeric" : undefined,
+  }).formatRange(first, last);
+}
+
 export function formatSessionRange(
   startedAt: string,
   endedAt: string,
@@ -116,14 +135,20 @@ export function formatSessionRange(
 }
 
 export function lastDays(iso: string, timeZone: string | null, count: number): DayRange[] {
-  const { year, month, day } = wallClock(Date.parse(iso), timeZone);
-  return Array.from({ length: count }, (_, index) => {
-    const dayNumber = day - (count - 1 - index);
-    return {
-      from: zonedMidnight(year, month, dayNumber, timeZone),
-      to: zonedMidnight(year, month, dayNumber + 1, timeZone),
-    };
-  });
+  const date = wallClock(Date.parse(iso), timeZone);
+  return Array.from({ length: count }, (_, index) => dayRange(date, index - count + 1, timeZone));
+}
+
+export function calendarWeek(iso: string, timeZone: string | null): DayRange[] {
+  const date = wallClock(Date.parse(iso), timeZone);
+  const monday = 1 - isoWeekday(date);
+  return Array.from({ length: DAYS_PER_WEEK }, (_, index) =>
+    dayRange(date, monday + index, timeZone),
+  );
+}
+
+export function shiftDay(iso: string, timeZone: string | null, days: number): DayRange {
+  return dayRange(wallClock(Date.parse(iso), timeZone), days, timeZone);
 }
 
 export function toDateTimeLocal(iso: string, timeZone: string | null): string {
@@ -135,8 +160,37 @@ export function fromDateTimeLocal(value: string, timeZone: string | null): strin
   return new Date(zonedEpochMs(Date.parse(`${value}Z`), timeZone)).toISOString();
 }
 
-function zonedMidnight(year: number, month: number, day: number, timeZone: string | null): string {
-  return new Date(zonedEpochMs(Date.UTC(year, month - 1, day), timeZone)).toISOString();
+function dayRange(
+  { year, month, day }: WallClock,
+  offset: number,
+  timeZone: string | null,
+): DayRange {
+  return {
+    from: startOfDay(Date.UTC(year, month - 1, day + offset), timeZone),
+    to: startOfDay(Date.UTC(year, month - 1, day + offset + 1), timeZone),
+  };
+}
+
+function startOfDay(wallMidnight: number, timeZone: string | null): string {
+  const previousOffset = offsetMs(wallMidnight - MS_PER_DAY, timeZone);
+  const nextOffset = offsetMs(wallMidnight + MS_PER_DAY, timeZone);
+  const withPreviousOffset = wallMidnight - previousOffset;
+  if (previousOffset === nextOffset || offsetMs(withPreviousOffset, timeZone) === previousOffset) {
+    return new Date(withPreviousOffset).toISOString();
+  }
+  const withNextOffset = wallMidnight - nextOffset;
+  if (offsetMs(withNextOffset, timeZone) === nextOffset) {
+    return new Date(withNextOffset).toISOString();
+  }
+
+  let beforeGap = withNextOffset;
+  let afterGap = withPreviousOffset;
+  while (afterGap - beforeGap > 1) {
+    const midpoint = beforeGap + Math.floor((afterGap - beforeGap) / 2);
+    if (offsetMs(midpoint, timeZone) === previousOffset) beforeGap = midpoint;
+    else afterGap = midpoint;
+  }
+  return new Date(afterGap).toISOString();
 }
 
 function zonedEpochMs(wallMs: number, timeZone: string | null): number {
@@ -178,9 +232,9 @@ function keyAt<Key extends MessageKey>(keys: readonly Key[], position: number): 
 }
 
 function offsetMs(epochMs: number, timeZone: string | null): number {
-  const { year, month, day, hour, minute } = wallClock(epochMs, timeZone);
-  const minuteStartMs = epochMs - (epochMs % MS_PER_MINUTE);
-  return Date.UTC(year, month - 1, day, hour, minute) - minuteStartMs;
+  const { year, month, day, hour, minute, second } = wallClock(epochMs, timeZone);
+  const secondStartMs = Math.floor(epochMs / MS_PER_SECOND) * MS_PER_SECOND;
+  return Date.UTC(year, month - 1, day, hour, minute, second) - secondStartMs;
 }
 
 function wallClock(epochMs: number, timeZone: string | null): WallClock {
@@ -193,6 +247,7 @@ function wallClock(epochMs: number, timeZone: string | null): WallClock {
     day: part("day"),
     hour: part("hour"),
     minute: part("minute"),
+    second: part("second"),
   };
 }
 
@@ -206,6 +261,7 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
     day: "numeric",
     hour: "numeric",
     minute: "numeric",
+    second: "numeric",
     hourCycle: "h23",
   });
   formatters.set(timeZone, formatter);
