@@ -117,7 +117,7 @@
 
 ## Форматы
 
-Длительности: `formatDuration(sec, locale)` и `formatClock(sec)`. Даты: `formatDate`, `formatDateTime`, `formatShortDate`, `formatTime`, `formatWeekdayDate`, `formatWeekdayShort`, `formatDayMonth`. Все из `@stt/shared`, всегда в часовом поясе пользователя.
+Длительности: `formatDuration(sec, locale)` и `formatClock(sec)`. Даты: `formatDate`, `formatDateTime`, `formatShortDate`, `formatTime`, `formatWeekdayDate`, `formatWeekdayShort`, `formatDayMonth`, `formatWeekRange`. Все из `@stt/shared`, всегда в часовом поясе пользователя.
 
 | Что                 | ru                | en                  |
 | ------------------- | ----------------- | ------------------- |
@@ -128,6 +128,8 @@
 | день недели и дата  | вторник, 3 ноября | Tuesday, November 3 |
 | день недели коротко | вт                | Tue                 |
 | день и месяц        | 31 октября        | October 31          |
+
+Диапазон недели показывает даты понедельника и воскресенья. В одном месяце название месяца пишется один раз, например "9–15 ноября". На границе года видны оба года.
 
 ## Решения
 

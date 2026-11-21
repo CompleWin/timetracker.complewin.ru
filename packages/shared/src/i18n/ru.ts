@@ -243,6 +243,7 @@ export const ru = {
   "picker.resizeHint": "Стрелки меняют размер, Home возвращает обычный",
   "timeline.title": "Хронология",
   "timeline.week": "Неделя",
+  "timeline.today": "Сегодня",
   "timeline.previousWeek": "Предыдущая неделя",
   "timeline.nextWeek": "Следующая неделя",
   "timeline.add": "Сессия",

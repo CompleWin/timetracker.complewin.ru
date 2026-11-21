@@ -27,6 +27,7 @@ const ZONE = zoneAtHour(13);
 const WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
 const PREVIOUS_WEEK = "Предыдущая неделя";
 const NEXT_WEEK = "Следующая неделя";
+const TODAY = "Сегодня";
 const TODAY_FROM_MONDAY = WEEKDAYS.indexOf(weekdayShortRu(ZONE));
 const DATE_FORMAT = new Intl.DateTimeFormat("ru-RU", {
   timeZone: ZONE.timezoneId,
@@ -311,10 +312,107 @@ test.describe("Прошлые дни", () => {
     await expect.poll(() => strip.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
     await expectNoHorizontalScroll(page);
   });
+
+  test("22. «Сегодня» возвращает текущую неделю, хронологию и сводку", async ({ page }) => {
+    const todayTask = await createTask(page, { title: "Сегодняшнее чтение" });
+    const pastTask = await createTask(page, { title: "Прошлое чтение" });
+    await addLocalSession(page, ZONE, todayTask.id, { start: "10:00", end: "10:20" });
+    await addLocalSession(page, ZONE, pastTask.id, {
+      start: "10:00",
+      end: "11:00",
+      daysAgo: 14,
+    });
+    await page.goto("/");
+
+    const strip = week(page);
+    const previousWeek = button(strip, PREVIOUS_WEEK);
+    const todayBlock = sessionBlock(page, todayTask.title, "10:00–10:20");
+    const pastBlock = sessionBlock(page, pastTask.title, "10:00–11:00");
+    await previousWeek.click();
+    await previousWeek.click();
+    await expect(timelineDate(page, dayName(14))).toBeVisible();
+    await expect(pastBlock).toBeVisible();
+    await expect(todayBlock).toHaveCount(0);
+    const pastSummary = island(page, `Сводка за ${dayMonthRu(ZONE, 14)}`);
+    await expect(
+      pastSummary.getByTitle(`${shortDateRu(ZONE, 14)}: 1 ч`, { exact: true }),
+    ).toBeVisible();
+
+    await button(page, TODAY).press("Enter");
+
+    await expect(dayButton(page, 0)).toHaveAttribute("aria-pressed", "true");
+    await expect(dayButton(page, 0)).toBeFocused();
+    await expect(button(strip, NEXT_WEEK)).toBeDisabled();
+    await expect(timelineDate(page, dayName(0))).toBeVisible();
+    await expect(todayBlock).toBeVisible();
+    await expect(pastBlock).toHaveCount(0);
+    await expect(pastSummary).toHaveCount(0);
+    const todaySummary = island(page, "Сводка за сегодня");
+    await expect(
+      todaySummary.getByTitle(`${shortDateRu(ZONE)}: 20 мин`, { exact: true }),
+    ).toBeVisible();
+  });
 });
 
 test.describe("Полоса недели в начале недели и в полночь", () => {
   test.use({ timezoneId: UTC.timezoneId, serviceWorkers: "block" });
+
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+
+  for (const { date, label } of [
+    { date: "2026-11-21", label: "9–15 ноября" },
+    { date: "2026-12-07", label: /^30 ноября\s*–\s*6 декабря$/ },
+    {
+      date: "2026-01-09",
+      label: /^29\s+декабря\s+2025(?:\s+г\.)?\s*–\s*4\s+января\s+2026(?:\s+г\.)?$/,
+    },
+  ]) {
+    test(`20. диапазон прошлой недели от ${date} виден слева над днями`, async ({ page }) => {
+      await openHomeAt(page, new Date(`${date}T13:00:00.000Z`));
+      const strip = week(page);
+
+      await button(strip, PREVIOUS_WEEK).click();
+
+      const range = page.getByText(label, { exact: true });
+      const rangeBox = await boxOf(range);
+      const stripBox = await boxOf(strip);
+      expect(rangeBox.y + rangeBox.height).toBeLessThanOrEqual(stripBox.y);
+      expect(rangeBox.x).toBeLessThan(stripBox.x + stripBox.width / 2);
+    });
+  }
+
+  for (const viewport of [{ width: 1280, height: 900 }, PHONE_VIEWPORT]) {
+    test(`21. «Сегодня» справа от диапазона, без сдвига дней на ширине ${viewport.width} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await openHomeAt(page, new Date("2026-11-14T13:00:00.000Z"));
+
+      const today = button(page, TODAY);
+      const strip = week(page);
+      const range = textOf(page, "9–15 ноября");
+      await expect(today).toBeHidden();
+      const initialGap = (await boxOf(strip)).y - (await boxOf(range)).y;
+
+      await button(strip, "пятница, 13 ноября").click();
+
+      const todayBox = await boxOf(today);
+      const rangeBox = await boxOf(range);
+      expect(todayBox.height).toBeGreaterThanOrEqual(44);
+      expect(todayBox.x).toBeGreaterThanOrEqual(rangeBox.x + rangeBox.width);
+      expect(todayBox.y).toBeLessThan(rangeBox.y + rangeBox.height);
+      expect(todayBox.y + todayBox.height).toBeGreaterThan(rangeBox.y);
+      expect((await boxOf(strip)).y - rangeBox.y).toBeCloseTo(initialGap);
+
+      await today.click();
+
+      await expect(button(strip, "суббота, 14 ноября")).toHaveAttribute("aria-pressed", "true");
+      await expect(today).toBeHidden();
+      expect((await boxOf(strip)).y - (await boxOf(range)).y).toBeCloseTo(initialGap);
+    });
+  }
 
   test("3 и 8. будущие дни выключены, переход с прошлого воскресенья выбирает сегодня", async ({
     page,

@@ -18,6 +18,7 @@ export {
   formatTime,
   formatWeekdayDate,
   formatWeekdayShort,
+  formatWeekRange,
   fromDateTimeLocal,
   lastDays,
   shiftDay,

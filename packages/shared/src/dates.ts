@@ -103,6 +103,23 @@ export function formatWeekdayShort(iso: string, timeZone: string | null, locale:
   return t(locale, keyAt(WEEKDAY_SHORT_KEYS, isoWeekday(wallClock(Date.parse(iso), timeZone))));
 }
 
+export function formatWeekRange(
+  firstDay: string,
+  lastDay: string,
+  timeZone: string | null,
+  locale: Locale,
+): string {
+  const first = Date.parse(firstDay);
+  const last = Date.parse(lastDay);
+  const crossesYear = wallClock(first, timeZone).year !== wallClock(last, timeZone).year;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: timeZone ?? UTC,
+    day: "numeric",
+    month: "long",
+    year: crossesYear ? "numeric" : undefined,
+  }).formatRange(first, last);
+}
+
 export function formatSessionRange(
   startedAt: string,
   endedAt: string,

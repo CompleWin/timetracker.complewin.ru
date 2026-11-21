@@ -245,6 +245,7 @@ export const en: Messages = {
   "picker.resizeHint": "Arrow keys change the size, Home restores the default",
   "timeline.title": "Timeline",
   "timeline.week": "Week",
+  "timeline.today": "Today",
   "timeline.previousWeek": "Previous week",
   "timeline.nextWeek": "Next week",
   "timeline.add": "Session",
