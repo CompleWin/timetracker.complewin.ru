@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  formatDayMonth,
   formatDuration,
   formatShortDate,
   formatWeekdayShort,
@@ -23,6 +24,8 @@ const PARALLEL_MIN_SEC = 60;
 const props = defineProps<{
   weekSessions: SessionWithTask[];
   days: DayRange[];
+  day: DayRange;
+  isToday: boolean;
   projects: Project[];
   now: number;
   timeZone: string | null;
@@ -31,27 +34,31 @@ const props = defineProps<{
 const { t } = useI18n();
 const titleId = useId();
 
-const todaySessions = computed(() => {
-  const today = props.days.at(-1);
-  return today === undefined ? [] : startedIn(today, props.weekSessions);
-});
-const todaySec = computed(() => totalSec(todaySessions.value, props.now));
-const total = computed(() => formatDuration(todaySec.value, currentLocale()));
+const title = computed(() =>
+  props.isToday
+    ? t("summary.title")
+    : t("summary.titleDay", {
+        date: formatDayMonth(props.day.from, props.timeZone, currentLocale()),
+      }),
+);
+const sessions = computed(() => startedIn(props.day, props.weekSessions));
+const daySec = computed(() => totalSec(sessions.value, props.now));
+const total = computed(() => formatDuration(daySec.value, currentLocale()));
 
 const countLine = computed(() => {
   const locale = currentLocale();
-  const sessions = tc(locale, "summary.sessions", todaySessions.value.length);
-  const parallel = parallelSec(timelineItems(todaySessions.value, props.now));
-  if (parallel < PARALLEL_MIN_SEC) return sessions;
+  const count = tc(locale, "summary.sessions", sessions.value.length);
+  const parallel = parallelSec(timelineItems(sessions.value, props.now));
+  if (parallel < PARALLEL_MIN_SEC) return count;
   return translate(locale, "summary.parallel", {
-    sessions,
+    sessions: count,
     duration: formatDuration(parallel, locale),
   });
 });
 
 const bars = computed<DayBar[]>(() => {
   const locale = currentLocale();
-  return props.days.map((day, index) => {
+  return props.days.map((day) => {
     const seconds = totalSec(startedIn(day, props.weekSessions), props.now);
     return {
       key: day.from,
@@ -61,12 +68,12 @@ const bars = computed<DayBar[]>(() => {
         duration: formatDuration(seconds, locale),
       }),
       seconds,
-      today: index === props.days.length - 1,
+      highlighted: day.from === props.day.from,
     };
   });
 });
 
-const shares = computed(() => projectShares(todaySessions.value, props.projects, props.now));
+const shares = computed(() => projectShares(sessions.value, props.projects, props.now));
 </script>
 
 <template>
@@ -76,7 +83,7 @@ const shares = computed(() => projectShares(todaySessions.value, props.projects,
     :aria-labelledby="titleId"
     class="px-3.5 pt-4 pb-5 md:px-6"
   >
-    <h2 :id="titleId" class="text-title">{{ t("summary.title") }}</h2>
+    <h2 :id="titleId" class="text-title">{{ title }}</h2>
     <div class="mt-3 flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-metric">{{ total }}</p>
@@ -84,7 +91,7 @@ const shares = computed(() => projectShares(todaySessions.value, props.projects,
       </div>
       <AppDayBars :bars />
     </div>
-    <template v-if="todaySec > 0">
+    <template v-if="daySec > 0">
       <div class="mt-5 flex h-2 gap-0.5 overflow-hidden rounded-full">
         <span
           v-for="share in shares.filter((part) => part.seconds > 0)"

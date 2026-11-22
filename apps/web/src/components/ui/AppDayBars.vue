@@ -6,7 +6,7 @@ export type DayBar = {
   label: string;
   title: string;
   seconds: number;
-  today: boolean;
+  highlighted: boolean;
 };
 
 export type DayBarsSpan = "week" | "fortnight";
@@ -56,7 +56,7 @@ function heightOf(bar: DayBar): string {
 }
 
 function fillOf(bar: DayBar): string {
-  if (bar.today) return "bg-primary";
+  if (bar.highlighted) return "bg-primary";
   return bar.seconds > 0 ? "bg-primary-muted" : "bg-surface-active";
 }
 </script>
@@ -72,7 +72,7 @@ function fillOf(bar: DayBar): string {
           :style="{ height: heightOf(bar) }"
         />
       </div>
-      <span class="text-caps uppercase" :class="bar.today ? 'text-fg' : 'text-fg-faint'">
+      <span class="text-caps uppercase" :class="bar.highlighted ? 'text-fg' : 'text-fg-faint'">
         {{ bar.label }}
       </span>
     </div>
