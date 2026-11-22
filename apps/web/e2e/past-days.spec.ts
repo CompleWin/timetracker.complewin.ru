@@ -38,7 +38,6 @@ const DATE_FORMAT = new Intl.DateTimeFormat("ru-RU", {
   day: "numeric",
   month: "long",
 });
-const UTC = { timezoneId: "Etc/UTC", offsetHours: 0 };
 const REFRESH_INTERVAL_MS = 20_000;
 
 function week(page: Page): Locator {
@@ -91,8 +90,9 @@ async function expectScaleLimits(page: Page, first: string, last: string): Promi
     .toEqual([first, last]);
 }
 
-async function openHomeAt(page: Page, time: Date, timeZone = UTC.timezoneId): Promise<void> {
+async function openHomeAt(page: Page, time: Date): Promise<void> {
   await loginAs(page);
+  const timeZone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   await setTimeZone(page, timeZone);
   await page.clock.install({ time: time.getTime() - 60_000 });
   await page.clock.pauseAt(time);
@@ -398,39 +398,47 @@ test.describe("Прошлые дни", () => {
 });
 
 test.describe("Неделя и шкала при фиксированном времени", () => {
-  test.use({ timezoneId: UTC.timezoneId, serviceWorkers: "block" });
+  test.use({ timezoneId: "Etc/UTC", serviceWorkers: "block" });
 
   test.afterEach(async ({ page }) => {
     await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 
-  test("1 и 6. пропущенная пятница недоступна, переход на её неделю открывает субботу", async ({
-    page,
-  }) => {
-    await openHomeAt(page, new Date("2012-01-05T22:00:00.000Z"), "Pacific/Apia");
-    const strip = week(page);
-    await button(strip, PREVIOUS_WEEK).click();
+  test.describe("Pacific/Apia", () => {
+    test.use({ timezoneId: "Pacific/Apia" });
 
-    const friday = button(strip, "пятница, 30 декабря");
-    const saturday = button(strip, "суббота, 31 декабря");
-    await expect(friday).toBeDisabled();
-    await expect(friday).toHaveAttribute("aria-pressed", "false");
-    await expect(saturday).toHaveCount(1);
-    await expect(saturday).toHaveAttribute("aria-pressed", "true");
-    await expect(timelineDate(page, "суббота, 31 декабря")).toBeVisible();
+    test("1 и 6. пропущенная пятница недоступна, переход на её неделю открывает субботу", async ({
+      page,
+    }) => {
+      await openHomeAt(page, new Date("2012-01-05T22:00:00.000Z"));
+      const strip = week(page);
+      await button(strip, PREVIOUS_WEEK).click();
+
+      const friday = button(strip, "пятница, 30 декабря");
+      const saturday = button(strip, "суббота, 31 декабря");
+      await expect(friday).toBeDisabled();
+      await expect(friday).toHaveAttribute("aria-pressed", "false");
+      await expect(saturday).toHaveCount(1);
+      await expect(saturday).toHaveAttribute("aria-pressed", "true");
+      await expect(timelineDate(page, "суббота, 31 декабря")).toBeVisible();
+    });
   });
 
-  test("9. в день без полуночи сегодняшняя шкала и линия сейчас показывают местное время", async ({
-    page,
-  }) => {
-    await openHomeAt(page, new Date("2026-09-06T15:30:00.000Z"), "America/Santiago");
+  test.describe("America/Santiago", () => {
+    test.use({ timezoneId: "America/Santiago" });
 
-    await expectScaleLimits(page, "01:00", "00:00");
-    const scale = timeScale(page);
-    const noon = middleOf(await spanOf(textOf(scale, "12:00")));
-    const one = middleOf(await spanOf(textOf(scale, "13:00")));
-    const now = middleOf(await spanOf(textOf(scale, "12:30")));
-    expect(Math.abs(now - (noon + one) / 2)).toBeLessThan(2);
+    test("9. в день без полуночи сегодняшняя шкала и линия сейчас показывают местное время", async ({
+      page,
+    }) => {
+      await openHomeAt(page, new Date("2026-09-06T15:30:00.000Z"));
+
+      await expectScaleLimits(page, "01:00", "00:00");
+      const scale = timeScale(page);
+      const noon = middleOf(await spanOf(textOf(scale, "12:00")));
+      const one = middleOf(await spanOf(textOf(scale, "13:00")));
+      const now = middleOf(await spanOf(textOf(scale, "12:30")));
+      expect(Math.abs(now - (noon + one) / 2)).toBeLessThan(2);
+    });
   });
 
   for (const { date, label } of [
