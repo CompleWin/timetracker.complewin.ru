@@ -7,10 +7,11 @@ import {
   shortDateRu,
   weekdayShortRu,
 } from "./helpers/afternoon.ts";
-import { addSession, createProject, createTask, setTimeZone } from "./helpers/api.ts";
+import { addSession, createProject, createTask, setTimeZone, startTimer } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
 import { expectNoHorizontalScroll, PHONE_VIEWPORT } from "./helpers/layout.ts";
 import { boxOf } from "./helpers/picker-size.ts";
+import { stopTimerButton } from "./helpers/picker.ts";
 import {
   fillGapButton,
   hourMarkTexts,
@@ -24,7 +25,8 @@ import {
   waitPastFullHour,
   zoneAtHour,
 } from "./helpers/timeline.ts";
-import { button, dialog, field, group, heading, island, textOf } from "./helpers/ui.ts";
+import { button, dialog, field, group, heading, island, runningNow, textOf } from "./helpers/ui.ts";
+import { urlMatching } from "./helpers/url.ts";
 
 const ZONE = zoneAtHour(13);
 const WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
@@ -337,6 +339,67 @@ test.describe("Прошлые дни", () => {
 
     await expect(timelineDate(page, dayName(0))).toBeVisible();
     await expect(dayButton(page, 0)).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test.describe("Ошибка загрузки истории", () => {
+    test.use({ serviceWorkers: "block" });
+
+    test("18. остановленный таймер исчезает при ошибке истории, прошлый день обновляется после восстановления", async ({
+      page,
+    }) => {
+      const task = await createTask(page, { title: "Чтение" });
+      await addLocalSession(page, ZONE, task.id, { start: "10:00", end: "10:20", daysAgo: 1 });
+      await startTimer(page, task.id);
+      const now = Date.now();
+      await page.clock.install({ time: now - 60_000 });
+      await page.clock.pauseAt(now);
+      await page.goto("/");
+      await selectYesterday(page);
+
+      const stop = stopTimerButton(runningNow(page), task.title);
+      const summary = island(page, `Сводка за ${dayMonthRu(ZONE, 1)}`);
+      const newBlock = sessionBlock(page, task.title, "11:00–11:40");
+      await expect(stop).toBeVisible();
+      await expect(sessionBlock(page, task.title, "10:00–10:20")).toBeVisible();
+      await expect(textOf(summary, "1 сессия")).toBeVisible();
+
+      const stopped = await page.request.post(`/api/tasks/${task.id}/stop`);
+      expect(stopped.status()).toBe(200);
+      await addLocalSession(page, ZONE, task.id, { start: "11:00", end: "11:40", daysAgo: 1 });
+
+      const pastPeriod = urlMatching("/api/sessions", {
+        to: new Date(localIso(ZONE, "00:00")).toISOString(),
+      });
+      await page.route(pastPeriod, (route) =>
+        route.fulfill({
+          status: 503,
+          headers: { "x-server-now": new Date().toISOString() },
+          json: { error: { code: "internal_error", message: "Service unavailable" } },
+        }),
+      );
+      const failedHistory = page.waitForResponse((response) => pastPeriod(new URL(response.url())));
+      const activeTimers = page.waitForResponse("**/api/timers/active");
+
+      await returnToTab(page);
+
+      const [history, active] = await Promise.all([failedHistory, activeTimers]);
+      expect(history.status()).toBe(503);
+      expect(active.status()).toBe(200);
+      expect(await active.json()).toMatchObject({ sessions: [] });
+      await expect(stop).toHaveCount(0);
+      await expect(newBlock).toHaveCount(0);
+
+      await page.unroute(pastPeriod);
+      await page.clock.runFor(REFRESH_INTERVAL_MS + 1_000);
+
+      await expect(dayButton(page, 1)).toHaveAttribute("aria-pressed", "true");
+      await expect(timelineDate(page, dayName(1))).toBeVisible();
+      await expect(newBlock).toBeVisible();
+      await expect(textOf(summary, "2 сессии")).toBeVisible();
+      await expect(
+        summary.getByTitle(`${shortDateRu(ZONE, 1)}: 1 ч`, { exact: true }),
+      ).toBeVisible();
+    });
   });
 
   test("19. на ширине 390 px девять кнопок в одной строке без прокрутки", async ({ page }) => {

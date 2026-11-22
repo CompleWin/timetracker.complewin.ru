@@ -97,13 +97,7 @@ const lastStartedTaskId = computed(() => recentTasks(tasks.value)[0]?.id ?? null
 onMounted(reload);
 onMounted(loadNotionDatabases);
 useAutoRefresh(reload);
-watch([today, selectedDay], async () => {
-  try {
-    await reloadDays();
-  } catch (error) {
-    if (!(error instanceof api.NetworkError)) throw error;
-  }
-});
+watch([today, selectedDay], reloadDays);
 
 function selectDay(day: DayRange): void {
   pastDay.value = day.from < today.value.from ? day : undefined;
@@ -116,12 +110,15 @@ function moveWeek(direction: -1 | 1): void {
 }
 
 async function reload(): Promise<void> {
+  await Promise.all([reloadOverview(), reloadDays()]);
+}
+
+async function reloadOverview(): Promise<void> {
   const reloadNumber = ++latestReload;
   const [nextProjects, nextTasks, nextRunning] = await Promise.all([
     api.fetchProjects("all"),
     api.fetchTasks("false"),
     api.fetchActiveSessions(),
-    reloadDays(),
   ]);
   if (reloadNumber !== latestReload) return;
   projects.value = nextProjects;
@@ -150,6 +147,12 @@ async function reloadDays(): Promise<void> {
     failedDay.value = undefined;
   } catch (error) {
     if (reloadNumber === latestDayReload) failedDay.value = day;
+    if (
+      error instanceof api.NetworkError ||
+      (error instanceof api.HttpError && error.status >= 500)
+    ) {
+      return;
+    }
     throw error;
   }
 }
