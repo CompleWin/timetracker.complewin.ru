@@ -12,10 +12,13 @@ export type CalendarDay = {
   range: DayRange | null;
 };
 
-type WallClock = {
+type DateParts = {
   year: number;
   month: number;
   day: number;
+};
+
+type WallClock = DateParts & {
   hour: number;
   minute: number;
   second: number;
@@ -54,6 +57,21 @@ const MONTH_LONG_KEYS = [
   "date.monthLong.10",
   "date.monthLong.11",
   "date.monthLong.12",
+] as const satisfies readonly MessageKey[];
+
+const MONTH_NAME_KEYS = [
+  "date.monthName.1",
+  "date.monthName.2",
+  "date.monthName.3",
+  "date.monthName.4",
+  "date.monthName.5",
+  "date.monthName.6",
+  "date.monthName.7",
+  "date.monthName.8",
+  "date.monthName.9",
+  "date.monthName.10",
+  "date.monthName.11",
+  "date.monthName.12",
 ] as const satisfies readonly MessageKey[];
 
 const WEEKDAY_KEYS = [
@@ -110,6 +128,11 @@ export function formatWeekdayShort(iso: string, timeZone: string | null, locale:
   return t(locale, keyAt(WEEKDAY_SHORT_KEYS, isoWeekday(wallClock(Date.parse(iso), timeZone))));
 }
 
+export function formatMonthYear(iso: string, timeZone: string | null, locale: Locale): string {
+  const { year, month } = wallClock(Date.parse(iso), timeZone);
+  return t(locale, "date.monthYear", { year, month: t(locale, keyAt(MONTH_NAME_KEYS, month)) });
+}
+
 export function formatWeekRange(
   firstDay: string,
   lastDay: string,
@@ -147,15 +170,29 @@ export function lastDays(iso: string, timeZone: string | null, count: number): D
 export function calendarWeek(iso: string, timeZone: string | null): CalendarDay[] {
   const date = wallClock(Date.parse(iso), timeZone);
   const monday = 1 - isoWeekday(date);
-  return Array.from({ length: DAYS_PER_WEEK }, (_, index) => {
-    const offset = monday + index;
-    const midnight = new Date(Date.UTC(date.year, date.month - 1, date.day + offset));
-    const range = dayRange(date, offset, timeZone);
-    return {
-      date: midnight.toISOString().slice(0, 10),
-      range: range.from === range.to ? null : range,
-    };
-  });
+  return Array.from({ length: DAYS_PER_WEEK }, (_, index) =>
+    calendarDay(date, monday + index, timeZone),
+  );
+}
+
+export function calendarMonth(
+  iso: string,
+  timeZone: string | null,
+  offset: number,
+): { start: string; days: (CalendarDay | null)[] } {
+  const { year, month } = wallClock(Date.parse(iso), timeZone);
+  const start = new Date(Date.UTC(year, month - 1 + offset, 1));
+  const first = { year: start.getUTCFullYear(), month: start.getUTCMonth() + 1, day: 1 };
+  const leading = isoWeekday(first) - 1;
+  const length = new Date(Date.UTC(first.year, first.month, 0)).getUTCDate();
+  const cells = Math.ceil((leading + length) / DAYS_PER_WEEK) * DAYS_PER_WEEK;
+  return {
+    start: start.toISOString(),
+    days: Array.from({ length: cells }, (_, index) => {
+      const dayOffset = index - leading;
+      return dayOffset < 0 || dayOffset >= length ? null : calendarDay(first, dayOffset, timeZone);
+    }),
+  };
 }
 
 export function shiftDay(iso: string, timeZone: string | null, days: number): DayRange {
@@ -171,8 +208,17 @@ export function fromDateTimeLocal(value: string, timeZone: string | null): strin
   return new Date(zonedEpochMs(Date.parse(`${value}Z`), timeZone)).toISOString();
 }
 
+function calendarDay(date: DateParts, offset: number, timeZone: string | null): CalendarDay {
+  const midnight = new Date(Date.UTC(date.year, date.month - 1, date.day + offset));
+  const range = dayRange(date, offset, timeZone);
+  return {
+    date: midnight.toISOString().slice(0, 10),
+    range: range.from === range.to ? null : range,
+  };
+}
+
 function dayRange(
-  { year, month, day }: WallClock,
+  { year, month, day }: DateParts,
   offset: number,
   timeZone: string | null,
 ): DayRange {
@@ -215,7 +261,7 @@ function isSameDay(first: string, second: string, timeZone: string | null): bool
   return a.year === b.year && a.month === b.month && a.day === b.day;
 }
 
-function isoWeekday({ year, month, day }: WallClock): number {
+function isoWeekday({ year, month, day }: DateParts): number {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay() || DAYS_PER_WEEK;
 }
 

@@ -9,10 +9,12 @@ export {
 } from "./bot-setup.ts";
 export { estimateClockOffset, type ClockSample } from "./clock-offset.ts";
 export {
+  calendarMonth,
   calendarWeek,
   formatDate,
   formatDateTime,
   formatDayMonth,
+  formatMonthYear,
   formatSessionRange,
   formatShortDate,
   formatTime,

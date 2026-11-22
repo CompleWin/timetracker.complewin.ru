@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatDate,
   formatDateTime,
+  formatMonthYear,
   formatSessionRange,
   formatShortDate,
   formatTime,
@@ -22,6 +23,18 @@ function inBothLocales(format: (locale: Locale) => string): ByLocale {
 function sessionRange(startedAt: string, endedAt: string, timeZone: string | null): ByLocale {
   return inBothLocales((locale) => formatSessionRange(startedAt, endedAt, timeZone, locale));
 }
+
+describe("formatMonthYear", () => {
+  it("10. 13 ноября в Europe/Moscow даёт «Ноябрь 2026» и «November 2026»", () => {
+    expect(
+      inBothLocales((locale) => formatMonthYear("2026-11-13T09:00:00.000Z", MOSCOW, locale)),
+    ).toEqual({ ru: "Ноябрь 2026", en: "November 2026" });
+  });
+
+  it("10. 30 ноября в 22:30 UTC в Europe/Moscow уже «Декабрь 2026»", () => {
+    expect(formatMonthYear("2026-11-30T22:30:00.000Z", MOSCOW, "ru")).toBe("Декабрь 2026");
+  });
+});
 
 describe("formatDateTime, formatShortDate, formatDate и formatTime", () => {
   it("17. 2026-10-31T11:32:00.000Z в Europe/Moscow: formatDateTime даёт «31.10.2026 14:32» и «Oct 31, 2026 14:32»", () => {

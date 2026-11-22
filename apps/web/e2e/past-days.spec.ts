@@ -165,19 +165,38 @@ test.describe("Прошлые дни", () => {
     await expect(ankiBlock).toHaveCount(0);
   });
 
-  test("6–7. стрелки меняют выбранный день на семь дней", async ({ page }) => {
+  test("6–7. стрелки листают недели и сохраняют выбранную дату, хронологию и сводку", async ({
+    page,
+  }) => {
+    const task = await createTask(page, { title: "Чтение" });
+    await addLocalSession(page, ZONE, task.id, { start: "10:00", end: "10:20" });
+    await addLocalSession(page, ZONE, task.id, { start: "11:00", end: "12:00", daysAgo: 7 });
     await page.goto("/");
     const nextWeek = button(week(page), NEXT_WEEK);
+    const todaySummary = island(page, "Сводка за сегодня");
+    const todayBlock = sessionBlock(page, task.title, "10:00–10:20");
+    const pastBlock = sessionBlock(page, task.title, "11:00–12:00");
+    await expect(todayBlock).toBeVisible();
 
     await button(week(page), PREVIOUS_WEEK).click();
 
-    await expect(timelineDate(page, dayName(7))).toBeVisible();
     await expectWeek(page, TODAY_FROM_MONDAY + 7);
     await expect(nextWeek).toBeEnabled();
+    await expect(week(page).getByRole("button", { pressed: true })).toHaveCount(0);
+    await expect(timelineDate(page, dayName(0))).toBeVisible();
+    await expect(todayBlock).toBeVisible();
+    await expect(pastBlock).toHaveCount(0);
+    await expect(
+      todaySummary.getByTitle(`${shortDateRu(ZONE)}: 20 мин`, { exact: true }),
+    ).toBeVisible();
 
     await nextWeek.click();
 
+    await expectWeek(page, TODAY_FROM_MONDAY);
+    await expect(dayButton(page, 0)).toHaveAttribute("aria-pressed", "true");
     await expect(timelineDate(page, dayName(0))).toBeVisible();
+    await expect(todayBlock).toBeVisible();
+    await expect(todaySummary).toBeVisible();
     await expect(nextWeek).toBeDisabled();
   });
 
@@ -191,12 +210,17 @@ test.describe("Прошлые дни", () => {
     await expect(island(page, "Сводка за сегодня")).toBeVisible();
 
     await context.setOffline(true);
-    await button(week(page), PREVIOUS_WEEK).click();
-
-    const summary = island(page, `Сводка за ${dayMonthRu(ZONE, 7)}`);
     const unavailable = page
       .getByRole("alert")
       .filter({ hasText: "Не удалось загрузить данные за выбранный день." });
+    await button(week(page), PREVIOUS_WEEK).click();
+    await expect(timelineDate(page, dayName(0))).toBeVisible();
+    await expect(island(page, "Сводка за сегодня")).toBeVisible();
+    await expect(unavailable).toBeHidden();
+
+    await dayButton(page, 7).click();
+
+    const summary = island(page, `Сводка за ${dayMonthRu(ZONE, 7)}`);
     await expect(dayButton(page, 7)).toHaveAttribute("aria-pressed", "true");
     await expect(unavailable).toBeVisible();
     await expect(textOf(summary, "0 сессий")).toHaveCount(0);
@@ -333,6 +357,7 @@ test.describe("Прошлые дни", () => {
     const previousWeek = button(week(page), PREVIOUS_WEEK);
     await previousWeek.click();
     await previousWeek.click();
+    await dayButton(page, 14).click();
     await expect(timelineDate(page, dayName(14))).toBeVisible();
 
     await page.reload();
@@ -436,6 +461,7 @@ test.describe("Прошлые дни", () => {
     const pastBlock = sessionBlock(page, pastTask.title, "10:00–11:00");
     await previousWeek.click();
     await previousWeek.click();
+    await dayButton(page, 14).click();
     await expect(timelineDate(page, dayName(14))).toBeVisible();
     await expect(pastBlock).toBeVisible();
     await expect(todayBlock).toHaveCount(0);
@@ -458,6 +484,28 @@ test.describe("Прошлые дни", () => {
       todaySummary.getByTitle(`${shortDateRu(ZONE)}: 20 мин`, { exact: true }),
     ).toBeVisible();
   });
+
+  test("22. «Сегодня» возвращает текущую неделю, когда сегодняшний день уже выбран", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const strip = week(page);
+    const today = button(page, TODAY);
+    await expect(today).toBeHidden();
+    await button(strip, PREVIOUS_WEEK).click();
+    await expect(timelineDate(page, dayName(0))).toBeVisible();
+    await expect(dayButton(page, 0)).toHaveCount(0);
+    await expect(today).toBeVisible();
+
+    await today.press("Enter");
+
+    await expect(dayButton(page, 0)).toHaveAttribute("aria-pressed", "true");
+    await expect(dayButton(page, 0)).toBeFocused();
+    await expect(button(strip, NEXT_WEEK)).toBeDisabled();
+    await expect(timelineDate(page, dayName(0))).toBeVisible();
+    await expect(today).toBeHidden();
+  });
 });
 
 test.describe("Неделя и шкала при фиксированном времени", () => {
@@ -470,7 +518,7 @@ test.describe("Неделя и шкала при фиксированном вр
   test.describe("Pacific/Apia", () => {
     test.use({ timezoneId: "Pacific/Apia" });
 
-    test("1 и 6. пропущенная пятница недоступна, переход на её неделю открывает субботу", async ({
+    test("1 и 6. в прошлой неделе пропущенная пятница недоступна, а субботу можно выбрать", async ({
       page,
     }) => {
       await openHomeAt(page, new Date("2012-01-05T22:00:00.000Z"));
@@ -479,9 +527,12 @@ test.describe("Неделя и шкала при фиксированном вр
 
       const friday = button(strip, "пятница, 30 декабря");
       const saturday = button(strip, "суббота, 31 декабря");
+      await expect(timelineDate(page, "пятница, 6 января")).toBeVisible();
       await expect(friday).toBeDisabled();
       await expect(friday).toHaveAttribute("aria-pressed", "false");
-      await expect(saturday).toHaveCount(1);
+      await expect(saturday).toHaveAttribute("aria-pressed", "false");
+      await saturday.click();
+
       await expect(saturday).toHaveAttribute("aria-pressed", "true");
       await expect(timelineDate(page, "суббота, 31 декабря")).toBeVisible();
     });
@@ -557,7 +608,7 @@ test.describe("Неделя и шкала при фиксированном вр
     });
   }
 
-  test("3 и 8. будущие дни выключены, переход с прошлого воскресенья выбирает сегодня", async ({
+  test("3 и 8. будущие дни выключены, переход на текущую неделю сохраняет прошлое воскресенье", async ({
     page,
   }) => {
     await openHomeAt(page, new Date("2026-11-16T13:00:00.000Z"));
@@ -581,8 +632,8 @@ test.describe("Неделя и шкала при фиксированном вр
 
     await button(strip, NEXT_WEEK).click();
 
-    await expect(timelineDate(page, monday)).toBeVisible();
-    await expect(button(strip, monday)).toHaveAttribute("aria-pressed", "true");
+    await expect(timelineDate(page, "воскресенье, 15 ноября")).toBeVisible();
+    await expect(button(strip, monday)).toHaveAttribute("aria-pressed", "false");
     await expect(button(strip, NEXT_WEEK)).toBeDisabled();
   });
 

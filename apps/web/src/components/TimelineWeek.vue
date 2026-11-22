@@ -59,9 +59,9 @@ async function returnToToday(): Promise<void> {
 <template>
   <div class="flex flex-col gap-2">
     <div class="flex min-h-[46px] items-center justify-between gap-2">
-      <span class="text-meta text-fg-subtle">{{ weekLabel }}</span>
+      <span class="text-meta text-fg-subtle" aria-live="polite">{{ weekLabel }}</span>
       <AppButton
-        v-if="selected.from !== today.from"
+        v-if="selected.from !== today.from || canGoNext"
         variant="quiet-accent"
         class="shrink-0"
         @click="returnToToday"

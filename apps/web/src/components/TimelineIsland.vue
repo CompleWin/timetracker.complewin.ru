@@ -3,7 +3,6 @@ import { Plus, X } from "@lucide/vue";
 import {
   formatDuration,
   formatTime,
-  formatWeekdayDate,
   timelineGaps,
   timelineLanes,
   type DayRange,
@@ -12,17 +11,20 @@ import {
   type SessionWithTask,
   type TimelineGap,
 } from "@stt/shared";
-import { computed, onMounted, useId, useTemplateRef, watch } from "vue";
+import { computed, useId, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { isOnline } from "../connection.ts";
 import { timelineItems } from "../day-sessions.ts";
 import { currentLocale } from "../i18n.ts";
 import { HOUR_MS, pastScaleHours, timelineHours } from "../timeline-scale.ts";
 import type { SessionRange } from "./SessionDialog.vue";
+import TimelineDayPicker from "./TimelineDayPicker.vue";
 import TimelineSession from "./TimelineSession.vue";
 import AppButton from "./ui/AppButton.vue";
+import AppFormError from "./ui/AppFormError.vue";
 import AppIconButton from "./ui/AppIconButton.vue";
 import AppIsland from "./ui/AppIsland.vue";
+import AppSkeleton from "./ui/AppSkeleton.vue";
 
 type PlacedSession = {
   session: SessionWithTask;
@@ -52,6 +54,8 @@ const NOW_WINDOW_SHARE = 2 / 3;
 const props = defineProps<{
   sessions: SessionWithTask[];
   day: DayRange;
+  today: DayRange;
+  dayStatus: "loading" | "error" | "ready";
   isToday: boolean;
   projects: Map<string, Project>;
   showGaps: boolean;
@@ -64,6 +68,7 @@ const emit = defineEmits<{
   edit: [session: SessionWithTask];
   fill: [range: SessionRange];
   hide: [gap: HiddenGap];
+  selectDay: [day: DayRange];
 }>();
 
 const { t } = useI18n();
@@ -72,9 +77,6 @@ const scroller = useTemplateRef("scroller");
 const scale = useTemplateRef("scale");
 
 const nowIso = computed(() => new Date(props.now).toISOString());
-const dateLabel = computed(() =>
-  formatWeekdayDate(props.day.from, props.timeZone, currentLocale()),
-);
 const items = computed(() => timelineItems(props.sessions, props.now));
 const dayHours = computed(() => timelineHours(props.day, props.timeZone));
 const scaleHours = computed(() =>
@@ -119,8 +121,7 @@ const placedGaps = computed<PlacedGap[]>(() => {
 const nowTop = computed(() => offsetOf(props.now));
 const nowLabel = computed(() => formatTime(nowIso.value, props.timeZone));
 
-onMounted(scrollToDay);
-watch(() => props.day.from, scrollToDay, { flush: "post" });
+watch([scroller, () => props.day.from], scrollToDay, { flush: "post" });
 
 function scrollToDay(): void {
   if (scroller.value === null || scale.value === null) return;
@@ -179,14 +180,14 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
     :aria-labelledby="titleId"
     class="px-3.5 pt-4 pb-6 md:px-6"
   >
-    <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+    <div class="relative mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
       <h2 :id="titleId" class="text-title">{{ t("timeline.title") }}</h2>
-      <span class="text-meta text-fg-subtle">{{ dateLabel }}</span>
+      <TimelineDayPicker :selected="day" :today :time-zone @select="emit('selectDay', $event)" />
       <AppButton
         variant="quiet-accent"
         size="xs"
         class="ml-auto"
-        :disabled="!isOnline"
+        :disabled="!isOnline || dayStatus !== 'ready'"
         @click="emit('add')"
       >
         <Plus :size="15" aria-hidden="true" />
@@ -194,6 +195,7 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
       </AppButton>
     </div>
     <div
+      v-if="dayStatus === 'ready'"
       ref="scroller"
       role="region"
       :aria-label="t('timeline.scale')"
@@ -266,6 +268,12 @@ function placeGap(gap: TimelineGap): PlacedGap | undefined {
           </span>
         </div>
       </div>
+    </div>
+    <AppFormError v-else-if="dayStatus === 'error'" placement="form">
+      {{ t("home.dayLoadFailed") }}
+    </AppFormError>
+    <div v-else aria-busy="true">
+      <AppSkeleton />
     </div>
   </AppIsland>
 </template>
