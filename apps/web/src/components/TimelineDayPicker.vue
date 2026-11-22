@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronLeft, ChevronRight } from "@lucide/vue";
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from "@lucide/vue";
 import {
   calendarMonth,
   calendarWeek,
   formatMonthYear,
   formatWeekdayDate,
   formatWeekdayShort,
+  toDateTimeLocal,
   type DayRange,
 } from "@stt/shared";
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
@@ -26,11 +27,15 @@ const calendarId = useId();
 const root = useTemplateRef("root");
 const panel = useTemplateRef("panel");
 const isOpen = ref(false);
+const monthAnchor = ref(props.selected.from);
 const monthOffset = ref(0);
 const dateLabel = computed(() =>
   formatWeekdayDate(props.selected.from, props.timeZone, currentLocale()),
 );
-const month = computed(() => calendarMonth(props.selected.from, props.timeZone, monthOffset.value));
+const selectedDayNumber = computed(() =>
+  Number(toDateTimeLocal(props.selected.from, props.timeZone).slice(8, 10)),
+);
+const month = computed(() => calendarMonth(monthAnchor.value, props.timeZone, monthOffset.value));
 const monthLabel = computed(() => formatMonthYear(month.value.start, null, currentLocale()));
 const weekdays = computed(() =>
   calendarWeek(month.value.start, null).map(({ date }) =>
@@ -72,6 +77,7 @@ async function toggle(): Promise<void> {
     closeAndFocus();
     return;
   }
+  monthAnchor.value = props.selected.from;
   monthOffset.value = 0;
   isOpen.value = true;
   await nextTick();
@@ -107,13 +113,22 @@ function dismissOnEscape(event: KeyboardEvent): void {
     <AppButton
       variant="quiet"
       size="xs"
+      class="max-md:size-11 max-md:p-0"
       :aria-label="t('timeline.pickDay', { date: dateLabel })"
       :aria-expanded="isOpen"
       :aria-controls="isOpen ? calendarId : undefined"
       @click="toggle"
     >
-      {{ dateLabel }}
-      <ChevronDown :size="15" aria-hidden="true" />
+      <span class="relative size-8 md:hidden" aria-hidden="true">
+        <Calendar :size="32" absolute-stroke-width />
+        <span
+          class="absolute inset-x-0 top-3.5 bottom-1 grid place-items-center leading-none font-semibold"
+        >
+          {{ selectedDayNumber }}
+        </span>
+      </span>
+      <span class="max-md:hidden">{{ dateLabel }}</span>
+      <ChevronDown :size="15" class="max-md:hidden" aria-hidden="true" />
     </AppButton>
     <div
       v-if="isOpen"
@@ -124,18 +139,12 @@ function dismissOnEscape(event: KeyboardEvent): void {
       class="absolute top-full left-0 z-30 mt-1 w-max max-w-[calc(100vw-32px)] rounded-panel border border-line bg-surface-island p-3 shadow-popover"
     >
       <div class="mb-2 flex items-center justify-between gap-2">
-        <AppIconButton
-          size="sm"
-          class="max-md:size-8!"
-          :label="t('calendar.previousMonth')"
-          @click="monthOffset--"
-        >
+        <AppIconButton size="sm" :label="t('calendar.previousMonth')" @click="monthOffset--">
           <ChevronLeft :size="17" aria-hidden="true" />
         </AppIconButton>
         <span class="text-small font-semibold" aria-live="polite">{{ monthLabel }}</span>
         <AppIconButton
           size="sm"
-          class="max-md:size-8!"
           :label="t('calendar.nextMonth')"
           :disabled="!canGoNext"
           @click="monthOffset++"
