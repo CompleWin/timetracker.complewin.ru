@@ -76,7 +76,7 @@ const dateLabel = computed(() =>
   formatWeekdayDate(props.day.from, props.timeZone, currentLocale()),
 );
 const items = computed(() => timelineItems(props.sessions, props.now));
-const dayHours = computed(() => timelineHours(props.day, props.timeZone, props.isToday));
+const dayHours = computed(() => timelineHours(props.day, props.timeZone));
 const scaleHours = computed(() =>
   props.isToday ? dayHours.value : pastScaleHours(dayHours.value, items.value),
 );

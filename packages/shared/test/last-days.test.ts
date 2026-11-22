@@ -33,10 +33,27 @@ describe("границы местного дня", () => {
     };
     const week = calendarWeek(saturday, zone);
 
-    expect(week.at(-2)?.to).toBe(sunday.from);
-    expect(week.at(-1)).toEqual(sunday);
+    expect(week.at(-2)?.range?.to).toBe(sunday.from);
+    expect(week.at(-1)).toEqual({ date: "2026-09-06", range: sunday });
     expect(shiftDay(saturday, zone, 1)).toEqual(sunday);
-    expect(lastDays(sunday.from, zone, 2)).toEqual(week.slice(-2));
+    expect(lastDays(sunday.from, zone, 2)).toEqual(week.slice(-2).map((day) => day.range));
+  });
+
+  it("1. пропущенная пятница в Апиа сохраняет своё место между четвергом и субботой", () => {
+    const week = calendarWeek("2011-12-30T22:00:00.000Z", "Pacific/Apia");
+
+    expect(week).toHaveLength(7);
+    expect(week.slice(3, 6)).toEqual([
+      {
+        date: "2011-12-29",
+        range: { from: "2011-12-29T10:00:00.000Z", to: "2011-12-30T10:00:00.000Z" },
+      },
+      { date: "2011-12-30", range: null },
+      {
+        date: "2011-12-31",
+        range: { from: "2011-12-30T10:00:00.000Z", to: "2011-12-31T10:00:00.000Z" },
+      },
+    ]);
   });
 
   it("1. сутки с двумя полуночами в Гаване начинаются с первой", () => {

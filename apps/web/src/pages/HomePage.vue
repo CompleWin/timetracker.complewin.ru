@@ -110,7 +110,9 @@ function selectDay(day: DayRange): void {
 }
 
 function moveWeek(direction: -1 | 1): void {
-  selectDay(shiftDay(selectedDay.value.from, timeZone.value, direction * WEEK_DAYS));
+  const zone = timeZone.value;
+  const day = shiftDay(selectedDay.value.from, zone, direction * WEEK_DAYS);
+  selectDay(day.from === day.to ? shiftDay(day.from, zone, 0) : day);
 }
 
 async function reload(): Promise<void> {
@@ -269,7 +271,6 @@ async function onTaskDeleted(id: string): Promise<void> {
       :days="week"
       :selected="selectedDay"
       :today
-      :time-zone
       @select="selectDay"
       @shift-week="moveWeek"
     />

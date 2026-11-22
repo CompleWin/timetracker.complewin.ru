@@ -23,6 +23,7 @@ export {
   lastDays,
   shiftDay,
   toDateTimeLocal,
+  type CalendarDay,
   type DayRange,
 } from "./dates.ts";
 export { elapsedSec, formatClock, formatDuration } from "./duration.ts";

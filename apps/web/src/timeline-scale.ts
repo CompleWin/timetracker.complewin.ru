@@ -8,21 +8,13 @@ const EVENING = "18:00";
 type TimelineHour = { at: number; label: string };
 type DayHours = [TimelineHour, ...TimelineHour[]];
 
-export function timelineHours(day: DayRange, timeZone: string | null, isToday: boolean): DayHours {
+export function timelineHours(day: DayRange, timeZone: string | null): DayHours {
   const from = Date.parse(day.from);
-  if (isToday) {
-    const hours = Array.from({ length: HOURS_PER_DAY }, (_, index) => ({
-      at: from + (index + 1) * HOUR_MS,
-      label: hourLabel((index + 1) % HOURS_PER_DAY),
-    }));
-    return [{ at: from, label: hourLabel(0) }, ...hours];
-  }
-
   const to = Date.parse(day.to);
   const midnightAtEndOffset = to - HOURS_PER_DAY * HOUR_MS;
   const hours: TimelineHour[] = [];
   for (const midnight of new Set([from, midnightAtEndOffset])) {
-    for (let hour = 1; hour < HOURS_PER_DAY; hour++) {
+    for (let hour = 0; hour < HOURS_PER_DAY; hour++) {
       const at = midnight + hour * HOUR_MS;
       const label = hourLabel(hour);
       if (at > from && at < to && formatTime(new Date(at).toISOString(), timeZone) === label) {

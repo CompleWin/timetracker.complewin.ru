@@ -7,15 +7,18 @@ import {
   shortDateRu,
   weekdayShortRu,
 } from "./helpers/afternoon.ts";
-import { createProject, createTask } from "./helpers/api.ts";
+import { addSession, createProject, createTask, setTimeZone } from "./helpers/api.ts";
+import { loginAs } from "./helpers/auth.ts";
 import { expectNoHorizontalScroll, PHONE_VIEWPORT } from "./helpers/layout.ts";
 import { boxOf } from "./helpers/picker-size.ts";
 import {
   fillGapButton,
   hourMarkTexts,
+  middleOf,
   nextApiRead,
   returnToTab,
   sessionBlock,
+  spanOf,
   timeScale,
   timeline,
   waitPastFullHour,
@@ -88,8 +91,9 @@ async function expectScaleLimits(page: Page, first: string, last: string): Promi
     .toEqual([first, last]);
 }
 
-async function openHomeAt(page: Page, time: Date): Promise<void> {
-  await loginInZone(page, UTC);
+async function openHomeAt(page: Page, time: Date, timeZone = UTC.timezoneId): Promise<void> {
+  await loginAs(page);
+  await setTimeZone(page, timeZone);
   await page.clock.install({ time: time.getTime() - 60_000 });
   await page.clock.pauseAt(time);
   await page.route("**/api/**", async (route) => {
@@ -243,10 +247,14 @@ test.describe("Прошлые дни", () => {
     await expectScaleLimits(page, "08:00", "18:00");
   });
 
-  test("13. между вчерашними сессиями виден пропуск и его можно заполнить", async ({ page }) => {
+  test("13. вчерашний пропуск с секундами в границах заполняется без правки времени", async ({
+    page,
+  }) => {
     const task = await createTask(page, { title: "Anki" });
-    await addLocalSession(page, ZONE, task.id, { start: "10:00", end: "10:30", daysAgo: 1 });
-    await addLocalSession(page, ZONE, task.id, { start: "11:15", end: "11:45", daysAgo: 1 });
+    const startedAt = new Date(Date.parse(localIso(ZONE, "10:30", 1)) + 45_000).toISOString();
+    const endedAt = new Date(Date.parse(localIso(ZONE, "11:15", 1)) + 45_000).toISOString();
+    await addSession(page, task.id, { startedAt: localIso(ZONE, "10:00", 1), endedAt: startedAt });
+    await addSession(page, task.id, { startedAt: endedAt, endedAt: localIso(ZONE, "11:45", 1) });
     await page.goto("/");
     await selectYesterday(page);
 
@@ -258,8 +266,14 @@ test.describe("Прошлые дни", () => {
     const form = dialog(page, "Новая сессия");
     await expect(field(form, "Начало")).toHaveValue(yesterdayInput("10:30"));
     await expect(field(form, "Конец")).toHaveValue(yesterdayInput("11:15"));
+    const save = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        new URL(request.url()).pathname === `/api/tasks/${task.id}/sessions`,
+    );
     await button(form, "Сохранить").click();
 
+    expect((await save).postDataJSON()).toMatchObject({ startedAt, endedAt });
     await expect(form).toBeHidden();
     await expect(fillGap).toHaveCount(0);
     await expect(sessionBlock(page, "Anki", "10:00–11:45")).toBeVisible();
@@ -383,11 +397,40 @@ test.describe("Прошлые дни", () => {
   });
 });
 
-test.describe("Полоса недели в начале недели и в полночь", () => {
+test.describe("Неделя и шкала при фиксированном времени", () => {
   test.use({ timezoneId: UTC.timezoneId, serviceWorkers: "block" });
 
   test.afterEach(async ({ page }) => {
     await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+
+  test("1 и 6. пропущенная пятница недоступна, переход на её неделю открывает субботу", async ({
+    page,
+  }) => {
+    await openHomeAt(page, new Date("2012-01-05T22:00:00.000Z"), "Pacific/Apia");
+    const strip = week(page);
+    await button(strip, PREVIOUS_WEEK).click();
+
+    const friday = button(strip, "пятница, 30 декабря");
+    const saturday = button(strip, "суббота, 31 декабря");
+    await expect(friday).toBeDisabled();
+    await expect(friday).toHaveAttribute("aria-pressed", "false");
+    await expect(saturday).toHaveCount(1);
+    await expect(saturday).toHaveAttribute("aria-pressed", "true");
+    await expect(timelineDate(page, "суббота, 31 декабря")).toBeVisible();
+  });
+
+  test("9. в день без полуночи сегодняшняя шкала и линия сейчас показывают местное время", async ({
+    page,
+  }) => {
+    await openHomeAt(page, new Date("2026-09-06T15:30:00.000Z"), "America/Santiago");
+
+    await expectScaleLimits(page, "01:00", "00:00");
+    const scale = timeScale(page);
+    const noon = middleOf(await spanOf(textOf(scale, "12:00")));
+    const one = middleOf(await spanOf(textOf(scale, "13:00")));
+    const now = middleOf(await spanOf(textOf(scale, "12:30")));
+    expect(Math.abs(now - (noon + one) / 2)).toBeLessThan(2);
   });
 
   for (const { date, label } of [

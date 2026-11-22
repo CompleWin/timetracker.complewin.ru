@@ -219,7 +219,7 @@ async function save(): Promise<void> {
 }
 
 function editedSession(): EditedSession {
-  const original = props.session;
+  const original = props.session ?? props.range;
   return {
     startedAt: editedTime(form.start, original?.startedAt ?? null, props.timeZone),
     endedAt:

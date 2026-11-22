@@ -7,6 +7,11 @@ export type DayRange = {
   to: string;
 };
 
+export type CalendarDay = {
+  date: string;
+  range: DayRange | null;
+};
+
 type WallClock = {
   year: number;
   month: number;
@@ -139,12 +144,18 @@ export function lastDays(iso: string, timeZone: string | null, count: number): D
   return Array.from({ length: count }, (_, index) => dayRange(date, index - count + 1, timeZone));
 }
 
-export function calendarWeek(iso: string, timeZone: string | null): DayRange[] {
+export function calendarWeek(iso: string, timeZone: string | null): CalendarDay[] {
   const date = wallClock(Date.parse(iso), timeZone);
   const monday = 1 - isoWeekday(date);
-  return Array.from({ length: DAYS_PER_WEEK }, (_, index) =>
-    dayRange(date, monday + index, timeZone),
-  );
+  return Array.from({ length: DAYS_PER_WEEK }, (_, index) => {
+    const offset = monday + index;
+    const midnight = new Date(Date.UTC(date.year, date.month - 1, date.day + offset));
+    const range = dayRange(date, offset, timeZone);
+    return {
+      date: midnight.toISOString().slice(0, 10),
+      range: range.from === range.to ? null : range,
+    };
+  });
 }
 
 export function shiftDay(iso: string, timeZone: string | null, days: number): DayRange {
