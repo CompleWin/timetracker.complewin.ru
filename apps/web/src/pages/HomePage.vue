@@ -11,7 +11,6 @@ import {
   type Task,
 } from "@stt/shared";
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
-import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
 import { useAutoRefresh } from "../auto-refresh.ts";
 import LaunchIsland from "../components/LaunchIsland.vue";
@@ -27,7 +26,6 @@ import TaskDialog from "../components/TaskDialog.vue";
 import type { NewTaskRequest } from "../components/TaskPicker.vue";
 import TimelineIsland from "../components/TimelineIsland.vue";
 import TimelineWeek from "../components/TimelineWeek.vue";
-import AppFormError from "../components/ui/AppFormError.vue";
 import AppIsland from "../components/ui/AppIsland.vue";
 import AppSkeleton from "../components/ui/AppSkeleton.vue";
 import { isOnline } from "../connection.ts";
@@ -49,7 +47,6 @@ const WEEK_DAYS = 7;
 const MS_PER_MINUTE = 60_000;
 
 const account = useSessionStore();
-const { t } = useI18n();
 const projects = ref<Project[]>([]);
 const tasks = ref<Task[]>([]);
 const running = ref<SessionWithTask[]>([]);
@@ -61,6 +58,7 @@ const notionDatabases = ref<NotionDatabase[]>([]);
 const loaded = ref(false);
 const dialog = ref<OpenDialog | null>(null);
 const pastDay = shallowRef<DayRange>();
+const browsedWeek = ref<string>();
 const loadedDay = shallowRef<DayRange>();
 const failedDay = shallowRef<DayRange>();
 const now = useServerNow();
@@ -79,9 +77,14 @@ const selectedDayLoaded = computed(
   () =>
     loadedDay.value?.from === selectedDay.value.from && loadedDay.value.to === selectedDay.value.to,
 );
-const dayLoadFailed = computed(() => failedDay.value === selectedDay.value);
+const dayStatus = computed(() => {
+  if (selectedDayLoaded.value) return "ready";
+  return failedDay.value === selectedDay.value ? "error" : "loading";
+});
 const isToday = computed(() => pastDay.value === undefined);
-const week = computed(() => calendarWeek(selectedDay.value.from, timeZone.value));
+const week = computed(() =>
+  calendarWeek(browsedWeek.value ?? selectedDay.value.from, timeZone.value),
+);
 const summaryDays = computed(() => lastDays(selectedDay.value.from, timeZone.value, WEEK_DAYS));
 const selectedSessions = computed(() => startedIn(selectedDay.value, weekSessions.value));
 const todaySessions = computed(() => startedIn(today.value, recentTodaySessions.value));
@@ -100,13 +103,19 @@ useAutoRefresh(reload);
 watch([today, selectedDay], reloadDays);
 
 function selectDay(day: DayRange): void {
+  browsedWeek.value = undefined;
   pastDay.value = day.from < today.value.from ? day : undefined;
 }
 
 function moveWeek(direction: -1 | 1): void {
+  const firstDay = week.value.find(({ range }) => range !== null)?.range;
+  if (!firstDay) return;
   const zone = timeZone.value;
-  const day = shiftDay(selectedDay.value.from, zone, direction * WEEK_DAYS);
-  selectDay(day.from === day.to ? shiftDay(day.from, zone, 0) : day);
+  const target = shiftDay(firstDay.from, zone, direction * WEEK_DAYS).from;
+  const containsSelected = calendarWeek(target, zone).some(
+    ({ range }) => range?.from === selectedDay.value.from,
+  );
+  browsedWeek.value = containsSelected ? undefined : target;
 }
 
 async function reload(): Promise<void> {
@@ -277,37 +286,33 @@ async function onTaskDeleted(id: string): Promise<void> {
       @select="selectDay"
       @shift-week="moveWeek"
     />
-    <template v-if="selectedDayLoaded">
-      <TimelineIsland
-        :sessions="selectedSessions"
-        :day="selectedDay"
-        :is-today
-        :projects="projectsById"
-        :show-gaps="account.user?.showGaps ?? true"
-        :hidden-gaps="effectiveHiddenGaps"
-        :now
-        :time-zone
-        @add="openDialog({ kind: 'newSession' })"
-        @fill="(range) => openDialog({ kind: 'newSession', range })"
-        @hide="hideGap"
-        @edit="(session) => openDialog({ kind: 'session', session })"
-      />
-      <SummaryIsland
-        :week-sessions
-        :days="summaryDays"
-        :day="selectedDay"
-        :is-today
-        :projects
-        :now
-        :time-zone
-      />
-    </template>
-    <AppIsland v-else :aria-busy="!dayLoadFailed">
-      <AppFormError v-if="dayLoadFailed" placement="form">
-        {{ t("home.dayLoadFailed") }}
-      </AppFormError>
-      <AppSkeleton v-else />
-    </AppIsland>
+    <TimelineIsland
+      :sessions="selectedSessions"
+      :day="selectedDay"
+      :today
+      :day-status
+      :is-today
+      :projects="projectsById"
+      :show-gaps="account.user?.showGaps ?? true"
+      :hidden-gaps="effectiveHiddenGaps"
+      :now
+      :time-zone
+      @select-day="selectDay"
+      @add="openDialog({ kind: 'newSession' })"
+      @fill="(range) => openDialog({ kind: 'newSession', range })"
+      @hide="hideGap"
+      @edit="(session) => openDialog({ kind: 'session', session })"
+    />
+    <SummaryIsland
+      v-if="selectedDayLoaded"
+      :week-sessions
+      :days="summaryDays"
+      :day="selectedDay"
+      :is-today
+      :projects
+      :now
+      :time-zone
+    />
   </template>
 
   <SessionDialog
