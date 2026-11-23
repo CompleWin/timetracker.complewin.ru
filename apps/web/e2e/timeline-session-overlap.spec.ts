@@ -105,19 +105,12 @@ test("2. три короткие карточки попарно не перек
   await expectPx(() => widthOf(card(page, isolated)), fullWidth);
 });
 
-test("3. начало карточек соответствует времени, масштаб 64 px в час и минимальная высота сохранены", async ({
-  page,
-}) => {
+test("3. начало карточек соответствует времени, масштаб шкалы 64 px в час", async ({ page }) => {
   const reference = { title: "Чтение", start: "15:00", end: "16:00" };
-  await addSessions(page, reference, ANKI);
+  await addSessions(page, reference, ANKI, MATH);
   await page.goto("/");
+
   const anki = card(page, ANKI);
-  const { height } = await boxOf(anki);
-  expect(height).toBeGreaterThan((9 * HOUR_PX) / 60);
-
-  await addSessions(page, MATH);
-  await page.reload();
-
   const mark16 = textOf(timeScale(page), "16:00");
   const mark17 = textOf(timeScale(page), "17:00");
   await expectPx(async () => (await boxOf(mark17)).y - (await boxOf(mark16)).y, HOUR_PX);
@@ -127,7 +120,6 @@ test("3. начало карточек соответствует времени
     async () => (await boxOf(card(page, MATH))).y - (await boxOf(anchor)).y,
     (92 * HOUR_PX) / 60,
   );
-  await expectPx(async () => (await boxOf(anki)).height, height);
 });
 
 test("3. сводка соседних коротких сессий показывает 24 минуты без параллельного времени", async ({
@@ -142,6 +134,20 @@ test("3. сводка соседних коротких сессий показ�
   await expect(textOf(summary, "2 сессии")).toBeVisible();
 });
 
+test("3.1. высота карточки Anki равна 24 px до и после добавления соседней сессии", async ({
+  page,
+}) => {
+  await addSessions(page, ANKI);
+  await page.goto("/");
+  const anki = card(page, ANKI);
+  await expectPx(async () => (await boxOf(anki)).height, 24);
+
+  await addSessions(page, MATH);
+  await page.reload();
+  await expect(card(page, MATH)).toBeVisible();
+  await expectPx(async () => (await boxOf(anki)).height, 24);
+});
+
 test("4. реально пересекающиеся сессии видны рядом и открываются по отдельности", async ({
   page,
 }) => {
@@ -153,4 +159,23 @@ test("4. реально пересекающиеся сессии видны р�
   await expectSideBySide(page, first, second);
   await expectOpensSession(page, first);
   await expectOpensSession(page, second);
+});
+
+test("4.1. пересечение в одну минуту разводит карточки по колонкам и учитывается в сводке", async ({
+  page,
+}) => {
+  const study = await createProject(page, { name: "Учёба" });
+  const first = { title: "Чтение", start: "10:00", end: "11:00", projectId: study.id };
+  const second = { title: "Конспект", start: "10:59", end: "11:30" };
+  await addSessions(page, first, second);
+  await page.goto("/");
+
+  const [a, b] = await Promise.all([boxOf(card(page, first)), boxOf(card(page, second))]);
+  expect(overlap(a, b).x).toBeLessThanOrEqual(SUBPIXEL_PX);
+  await expectOpensSession(page, first);
+  await expectOpensSession(page, second);
+
+  const summary = island(page, "Сводка за сегодня");
+  await expect(textOf(summary, "1 ч 31 мин")).toBeVisible();
+  await expect(textOf(summary, "2 сессии · параллельно 1 мин")).toBeVisible();
 });

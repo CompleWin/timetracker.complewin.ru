@@ -89,16 +89,17 @@ const placedSessions = computed<PlacedSession[]>(() => {
   const blocks = props.sessions.map((session, index) => {
     const item = items.value[index];
     const startMs = item?.startMs ?? 0;
+    const endMs = item?.endMs ?? 0;
     const top = offsetOf(startMs);
-    const bottom = Math.min(offsetOf(item?.endMs ?? 0), scaleHeight.value);
+    const bottom = Math.min(offsetOf(endMs), scaleHeight.value);
     const heightPx = Math.max(BLOCK_MIN_HEIGHT_PX, bottom - top - BLOCK_INSET_PX);
-    return { session, startMs, top, heightPx };
+    return { session, startMs, endMs, top, heightPx };
   });
   const lanes = timelineLanes(
-    blocks.map(({ session, startMs, heightPx }) => ({
+    blocks.map(({ session, startMs, endMs, heightPx }) => ({
       id: session.id,
       startMs,
-      endMs: startMs + (heightPx * HOUR_MS) / HOUR_HEIGHT_PX,
+      endMs: Math.max(endMs, startMs + (heightPx * HOUR_MS) / HOUR_HEIGHT_PX),
     })),
   );
   return blocks.map(({ session, startMs, top, heightPx }, index) => {
