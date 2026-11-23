@@ -8,6 +8,7 @@ import { urlMatching } from "./helpers/url.ts";
 
 const HEALTH = "/api/health";
 const TELEGRAM_START = "/auth/telegram/start";
+const TELEGRAM_START_PAGE = "Telegram OAuth start";
 const PROTECTED_PATH = "/settings?from=link#profile";
 
 const signInErrors = [
@@ -40,7 +41,7 @@ async function recordTelegramStarts(page: Page): Promise<Request[]> {
   const requests: Request[] = [];
   await page.route(urlMatching(TELEGRAM_START), (route) => {
     requests.push(route.request());
-    return route.fulfill({ status: 200, contentType: "text/plain", body: "Telegram OAuth start" });
+    return route.fulfill({ status: 200, contentType: "text/plain", body: TELEGRAM_START_PAGE });
   });
   return requests;
 }
@@ -151,25 +152,20 @@ test("3. до ответа health кнопка dev скрыта и «Войти�
     await healthGate;
     await route.continue();
   });
-  await page.route(urlMatching(TELEGRAM_START), (route) => route.fulfill({ status: 204 }));
+  const requests = await recordTelegramStarts(page);
 
   try {
     await Promise.all([page.waitForRequest(isHealthRead), page.goto("/", { waitUntil: "commit" })]);
     await expectGuestHome(page);
     await expect(devButton(page)).toHaveCount(0);
 
-    const [request] = await Promise.all([
-      page.waitForRequest((request) =>
-        urlMatching(TELEGRAM_START, { returnTo: "/" })(new URL(request.url())),
-      ),
-      link(page.getByRole("banner"), "Войти").click(),
-    ]);
-    expect(request.method()).toBe("GET");
+    await link(page.getByRole("banner"), "Войти").click();
+
+    await expectTelegramStart(page, requests, "/");
+    await expect(textOf(page, TELEGRAM_START_PAGE)).toBeVisible();
   } finally {
     releaseHealth();
   }
-
-  await expect(devButton(page)).toBeVisible();
 });
 
 for (const scenario of ["test", "staging", "production", "HTTP 503", "сетевая ошибка"]) {
