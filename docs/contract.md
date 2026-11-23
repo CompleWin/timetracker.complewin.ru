@@ -92,7 +92,7 @@
 - Словари `@stt/shared`: `messages: Record<Locale, Messages>`, `t(locale, key, params?)` с подстановкой `{name}`, `tc(locale, key, count, params?)` для текстов с числом. Фронтенд подключает их через vue-i18n, Worker использует напрямую.
 - `tc` выбирает форму по `Intl.PluralRules` языка. Пример: `{count} сессия|{count} сессии|{count} сессий` и `{count} session|{count} sessions`.
 - Язык вошедшего пользователя хранится в `user.locale`. На нём сервер пишет в бот и в Notion.
-- До входа язык берётся из `navigator.language`: `ru*` даёт `ru`, остальное `en`. Выбор на странице входа запоминается в `localStorage`.
+- До входа язык берётся из `navigator.language`: `ru*` даёт `ru`, остальное `en`. Выбор в меню шапки гостевой главной запоминается в `localStorage`.
 
 ### Контракт текстов
 
@@ -101,7 +101,8 @@
 
 | ru                            | en                    |
 | ----------------------------- | --------------------- |
-| Войти через Telegram          | Sign in with Telegram |
+| Войти                         | Sign in               |
+| Попробовать бесплатно         | Try it free           |
 | Выйти                         | Sign out              |
 | Настройки                     | Settings              |
 | Новый проект                  | New project           |

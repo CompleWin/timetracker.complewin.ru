@@ -73,6 +73,14 @@ function basicAuth(user: string, password: string): string {
 }
 
 describe("успешный вход через Telegram", () => {
+  it("1. вход с гостевой главной возвращает на / с рабочей сессией", async () => {
+    const response = await telegram.callback(await telegram.start("/"));
+
+    expectRedirect(response, "/");
+    expectSessionCookie(response);
+    expect(await currentUser(sessionFrom(response))).toMatchObject(telegramProfile);
+  });
+
   it("3. callback отвечает 302 на returnTo и выставляет cookie со всеми атрибутами", async () => {
     const response = await telegram.callback(await telegram.start("/tasks/1"));
 

@@ -7,6 +7,7 @@ import { applyLocale } from "../i18n.ts";
 export const useSessionStore = defineStore("session", () => {
   const user = ref<User | null>(null);
   const unverified = ref(false);
+  const devSignInPending = ref(false);
   const savingShowGaps = ref(false);
   let loading: Promise<void> | undefined;
 
@@ -28,8 +29,14 @@ export const useSessionStore = defineStore("session", () => {
     }
   }
 
-  async function signInAsTestUser(): Promise<void> {
-    signedIn(await api.devLogin());
+  async function signInAsTestUser(navigate: () => Promise<unknown>): Promise<void> {
+    devSignInPending.value = true;
+    try {
+      signedIn(await api.devLogin());
+      await navigate();
+    } finally {
+      devSignInPending.value = false;
+    }
   }
 
   async function signOut(): Promise<void> {
@@ -98,6 +105,7 @@ export const useSessionStore = defineStore("session", () => {
     user,
     unverified,
     isGuest,
+    devSignInPending,
     savingShowGaps,
     ensureLoaded,
     signInAsTestUser,

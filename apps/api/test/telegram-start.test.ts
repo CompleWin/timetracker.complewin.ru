@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { api, testEnv } from "./harness/index.ts";
+import { api, external, testEnv } from "./harness/index.ts";
 import { expectRedirect } from "./harness/redirect.ts";
 import {
   fakeTelegram,
+  expectSignInError,
   startPath,
   TELEGRAM_CALLBACK_URL,
   telegramEndpoints,
@@ -30,6 +31,12 @@ function endpointOf(url: URL): string {
 }
 
 describe("GET /auth/telegram/start", () => {
+  it("6. недоступный Telegram при старте возвращает гостя на главную с ошибкой", async () => {
+    external.on("GET", telegramEndpoints.discovery, () => new Response(null, { status: 503 }));
+
+    expectSignInError(await api.get(startPath("/")), "unavailable");
+  });
+
   it("1. отвечает 302 на authorization_endpoint со всеми параметрами из таблицы", async () => {
     const url = await authorizationRedirect();
 
@@ -62,6 +69,13 @@ describe("GET /auth/telegram/start", () => {
 });
 
 describe("returnTo", () => {
+  it("4. после входа сохраняет путь, параметры и фрагмент returnTo", async () => {
+    const returnTo = "/settings?from=link#profile";
+    const response = await telegram.callback(await telegram.start(returnTo));
+
+    expectRedirect(response, returnTo);
+  });
+
   it("2. после успешного входа редирект идёт на returnTo /tasks/1", async () => {
     const response = await telegram.callback(await telegram.start("/tasks/1"));
 
@@ -69,7 +83,7 @@ describe("returnTo", () => {
   });
 
   it.each(unsafeReturnTos)(
-    "2. при returnTo %s редирект после входа идёт на /",
+    "4. при returnTo %s редирект после входа идёт на /",
     async (returnTo) => {
       const response = await telegram.callback(await telegram.start(returnTo));
 
@@ -77,7 +91,7 @@ describe("returnTo", () => {
     },
   );
 
-  it("2. без returnTo редирект после входа идёт на /", async () => {
+  it("4. без returnTo редирект после входа идёт на /", async () => {
     const response = await telegram.callback(await telegram.start());
 
     expectRedirect(response, "/");

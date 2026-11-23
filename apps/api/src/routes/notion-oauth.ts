@@ -7,7 +7,7 @@ import {
   type ConnectOutcome,
 } from "../notion/connect.ts";
 
-const SIGN_IN_PATH = "/login?returnTo=/settings";
+const SIGN_IN_PATH = "/?returnTo=/settings";
 
 export const notionOauth = new Hono<AppEnv>()
   .get("/oauth/start", async (c) => {

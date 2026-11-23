@@ -1,16 +1,13 @@
-import { createRouter, createWebHistory, type RouteLocationNormalized } from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 import { onReconnect } from "./connection.ts";
 import { privacyPolicy, termsOfUse } from "./legal-documents.ts";
 import ArchivePage from "./pages/ArchivePage.vue";
 import LegalPage from "./pages/LegalPage.vue";
-import LoginPage from "./pages/LoginPage.vue";
 import RootPage from "./pages/RootPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import TaskPage from "./pages/TaskPage.vue";
 import TasksPage from "./pages/TasksPage.vue";
 import { useSessionStore } from "./stores/session.ts";
-
-const LOGIN_PATH = "/login";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -32,7 +29,7 @@ export const router = createRouter({
       props: { document: termsOfUse },
       meta: { public: true, outsideMenu: true },
     },
-    { path: LOGIN_PATH, component: LoginPage, meta: { public: true } },
+    { path: "/login", redirect: { path: "/" } },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });
@@ -41,14 +38,10 @@ router.beforeEach(async (to) => {
   const session = useSessionStore();
   await session.ensureLoaded();
   if (to.meta.public === true || session.user !== null || session.unverified) return true;
-  return loginRedirect(to);
+  return { path: "/", query: { returnTo: to.fullPath } };
 });
 
 onReconnect(recheckSession);
-
-function loginRedirect(to: RouteLocationNormalized) {
-  return { path: LOGIN_PATH, query: { returnTo: to.fullPath } };
-}
 
 function recheckSession(): void {
   if (!useSessionStore().unverified) return;

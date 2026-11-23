@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { REPO_URL } from "@stt/shared";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { RouterLink, useRoute } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
+import { fetchEnvironment } from "../api.ts";
 import { APP_ICON } from "../app-icon.ts";
+import { useGuestSignIn } from "../guest-sign-in.ts";
 import { useSessionStore } from "../stores/session.ts";
 import AccountMenu from "./AccountMenu.vue";
 import LanguageMenu from "./LanguageMenu.vue";
@@ -12,10 +14,32 @@ import GitHubMark from "./ui/GitHubMark.vue";
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const session = useSessionStore();
+const { returnTo, telegramStartUrl } = useGuestSignIn();
+const isDev = ref(false);
 
 const onGuestHome = computed(() => route.path === "/" && session.isGuest);
 const logoTag = computed(() => (onGuestHome.value ? "div" : "h1"));
+
+watch(
+  onGuestHome,
+  async (onHome, _, onCleanup) => {
+    isDev.value = false;
+    if (!onHome) return;
+
+    let active = true;
+    onCleanup(() => (active = false));
+    const environment = await fetchEnvironment().catch(() => undefined);
+    if (active) isDev.value = environment === "dev";
+  },
+  { immediate: true },
+);
+
+function signInAsTestUser(): Promise<void> {
+  const destination = returnTo.value;
+  return session.signInAsTestUser(() => router.replace(destination));
+}
 </script>
 
 <template>
@@ -49,8 +73,17 @@ const logoTag = computed(() => (onGuestHome.value ? "div" : "h1"));
       >
         <GitHubMark class="size-[18px]" />
       </a>
-      <AppButton href="/login" variant="quiet-accent" size="sm">
+      <AppButton :href="telegramStartUrl" variant="quiet-accent" size="sm">
         {{ t("guest.signIn") }}
+      </AppButton>
+      <AppButton
+        v-if="isDev"
+        variant="quiet"
+        size="sm"
+        :disabled="session.devSignInPending"
+        @click="signInAsTestUser"
+      >
+        {{ t("guest.devSignIn") }}
       </AppButton>
     </div>
   </header>

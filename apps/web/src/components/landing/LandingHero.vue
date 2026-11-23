@@ -1,15 +1,29 @@
 <script setup lang="ts">
 import { Check } from "@lucide/vue";
-import { formatClock, REPO_URL } from "@stt/shared";
-import { onMounted, onUnmounted, ref } from "vue";
+import { formatClock, REPO_URL, type MessageKey } from "@stt/shared";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import AppFormError from "../ui/AppFormError.vue";
 import AppPulseDot from "../ui/AppPulseDot.vue";
 import GitHubMark from "../ui/GitHubMark.vue";
 import LandingCta from "./LandingCta.vue";
 
 const TICK_MS = 1000;
+const ERROR_MESSAGES = new Map<string, MessageKey>([
+  ["cancelled", "login.error.cancelled"],
+  ["state", "login.error.state"],
+  ["token", "login.error.failed"],
+  ["unavailable", "login.error.failed"],
+]);
 
 const { t } = useI18n();
+const route = useRoute();
+const errorMessage = computed(() => {
+  const { error } = route.query;
+  const key = typeof error === "string" ? ERROR_MESSAGES.get(error) : undefined;
+  return key === undefined ? undefined : t(key);
+});
 const secondsOnPage = ref(0);
 let openedAt = 0;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -42,6 +56,9 @@ onUnmounted(() => clearInterval(timer));
     <p class="mt-5 max-w-[600px] text-[clamp(17px,1.6vw,20px)] leading-[1.45] text-fg-muted">
       {{ t("guest.subtitle") }}
     </p>
+    <AppFormError v-if="errorMessage" class="mt-6" placement="form">
+      {{ errorMessage }}
+    </AppFormError>
     <div class="mt-8 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-3">
       <LandingCta />
       <a

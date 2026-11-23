@@ -49,10 +49,10 @@ async function loginAndStart(opts: SessionOpts = {}): Promise<StartedConnect> {
 }
 
 describe("GET /notion/oauth/start", () => {
-  it("1. без сессии ведёт на /login?returnTo=/settings", async () => {
+  it("4. без сессии ведёт на гостевую главную с returnTo=/settings", async () => {
     const url = await startRedirect();
 
-    expect(endpointOf(url)).toBe(`${testEnv.APP_URL}/login`);
+    expect(endpointOf(url)).toBe(`${testEnv.APP_URL}/`);
     expect(Object.fromEntries(url.searchParams)).toMatchObject({ returnTo: "/settings" });
   });
 

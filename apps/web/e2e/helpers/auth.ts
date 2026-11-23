@@ -21,7 +21,7 @@ export async function loginAs(page: Page, options: LoginOptions = {}): Promise<D
     telegramId: options.telegramId ?? uniqueTelegramId(),
     name: options.name ?? "Тестовый пользователь",
   };
-  await page.goto("/login");
+  await page.goto("/");
   const status = await page.evaluate(postDevLogin, {
     ...devUser,
     locale: options.locale ?? "ru",

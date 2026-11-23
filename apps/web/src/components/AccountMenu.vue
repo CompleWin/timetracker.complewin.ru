@@ -82,7 +82,7 @@ function stopListening(): void {
 async function signOut(): Promise<void> {
   close();
   await session.signOut();
-  await router.push("/login");
+  await router.push(TRACKER_PATH);
 }
 </script>
 

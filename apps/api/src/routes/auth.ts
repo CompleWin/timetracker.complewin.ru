@@ -52,5 +52,7 @@ export const auth = new Hono<AppEnv>()
 
 function signInFailurePath(error: unknown): string {
   if (!(error instanceof SignInFailure)) throw error;
-  return `/login?${new URLSearchParams({ error: error.reason })}`;
+  const query = new URLSearchParams({ error: error.reason });
+  if (error.returnTo !== "/") query.set("returnTo", error.returnTo);
+  return `/?${query}`;
 }

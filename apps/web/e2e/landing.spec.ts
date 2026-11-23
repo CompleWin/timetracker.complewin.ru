@@ -42,11 +42,6 @@ const NOTION_TEXT =
 const NOOPENER = /(^|\s)noopener(\s|$)/;
 const BADGE_WAIT_MS = 3_000;
 
-const loginLinks: NamedLink[] = [
-  { name: "«Попробовать бесплатно»", find: (page) => link(page, "Попробовать бесплатно") },
-  { name: "«Войти» в шапке", find: (page) => link(page.getByRole("banner"), "Войти") },
-];
-
 const githubLinks: NamedLink[] = [
   { name: "«Star на GitHub»", find: (page) => link(page, "Star на GitHub") },
   { name: "«GitHub» в шапке", find: (page) => link(page.getByRole("banner"), "GitHub") },
@@ -84,7 +79,7 @@ const featureCards: FeatureCard[] = [
 const asGuest = (): Promise<void> => Promise.resolve();
 
 const footerHosts: FooterHost[] = [
-  { path: "/login", prepare: asGuest },
+  { path: "/", prepare: asGuest },
   { path: "/settings", prepare: loginAs },
 ];
 
@@ -130,16 +125,6 @@ test("2. / без сессии показывает h1, подзаголовок
   await expect(textOf(page, "Открытый исходный код")).toBeVisible();
   await expect(page).toHaveTitle(RUSSIAN_TITLE);
 });
-
-for (const loginLink of loginLinks) {
-  test(`3. ссылка ${loginLink.name} на главной для гостя ведёт на /login`, async ({ page }) => {
-    await page.goto("/");
-
-    await loginLink.find(page).click();
-
-    await expect(page).toHaveURL(urlMatching("/login"));
-  });
-}
 
 for (const githubLink of githubLinks) {
   test(`4. ссылка ${githubLink.name} на главной для гостя ведёт на REPO_URL в новой вкладке`, async ({
@@ -202,6 +187,9 @@ test("7. «Язык» открывает список «Русский» и «En
 
   await expect(languageList(page)).toBeHidden();
   await expectEnglishLanding(page);
+  await expect(
+    page.getByRole("banner").getByRole("button", { name: "dev", exact: true }),
+  ).toBeVisible();
 
   await page.reload();
 

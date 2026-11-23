@@ -28,7 +28,7 @@ async function deleteForever(): Promise<void> {
   deleting.value = true;
   try {
     await session.deleteAccount();
-    await router.push("/login");
+    await router.push("/");
   } catch {
     deleting.value = false;
   }

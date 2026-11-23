@@ -15,7 +15,10 @@ import { grantsBotAccess, profileFromClaims, type TelegramProfile } from "./tele
 export type SignInError = "cancelled" | "state" | "token" | "unavailable";
 
 export class SignInFailure extends Error {
-  constructor(readonly reason: SignInError) {
+  constructor(
+    readonly reason: SignInError,
+    readonly returnTo = "/",
+  ) {
     super(`Telegram sign-in failed: ${reason}`);
   }
 }
@@ -36,9 +39,10 @@ export async function beginTelegramLogin(
   returnTo: string | undefined,
   now: Date,
 ): Promise<string> {
+  const destination = safeReturnTo(returnTo);
   const client = telegramClient(env);
-  const discovery = await orFail(loadDiscovery(client), "unavailable");
-  const loginState = await createLoginState(database(env), safeReturnTo(returnTo), now);
+  const discovery = await orFail(loadDiscovery(client), "unavailable", destination);
+  const loginState = await createLoginState(database(env), destination, now);
   return authorizationUrl(client, discovery, loginState);
 }
 
@@ -47,27 +51,30 @@ export async function completeTelegramLogin(
   { query, locale, now }: CallbackRequest,
 ): Promise<CompletedLogin> {
   const db = database(env);
-  const loginState = query.state && (await consumeLoginState(db, query.state, now));
-  if (query.error !== undefined) throw new SignInFailure("cancelled");
+  const loginState = query.state ? await consumeLoginState(db, query.state, now) : undefined;
+  if (query.error !== undefined) throw new SignInFailure("cancelled", loginState?.returnTo);
   if (!loginState) throw new SignInFailure("state");
-  if (!query.code) throw new SignInFailure("token");
+  const { returnTo } = loginState;
+  if (!query.code) throw new SignInFailure("token", returnTo);
 
   const client = telegramClient(env);
-  const discovery = await orFail(loadDiscovery(client), "unavailable");
+  const discovery = await orFail(loadDiscovery(client), "unavailable", returnTo);
   const tokens = await orFail(
     exchangeCode(client, discovery, query.code, loginState.codeVerifier),
     "token",
+    returnTo,
   );
   const claims = await orFail(
     verifyIdToken(client, discovery, tokens.id_token, { nonce: loginState.nonce, now }),
     "token",
+    returnTo,
   );
   const profile = profileFromClaims(claims);
-  if (profile === undefined) throw new SignInFailure("token");
+  if (profile === undefined) throw new SignInFailure("token", returnTo);
 
   const signIn = telegramSignIn(profile, grantsBotAccess(tokens.scope), locale);
   const user = await signInUser(db, profile.telegramId, signIn, now);
-  return { user, returnTo: loginState.returnTo };
+  return { user, returnTo };
 }
 
 function telegramSignIn(
@@ -81,11 +88,11 @@ function telegramSignIn(
   };
 }
 
-async function orFail<T>(promise: Promise<T>, reason: SignInError): Promise<T> {
+async function orFail<T>(promise: Promise<T>, reason: SignInError, returnTo: string): Promise<T> {
   try {
     return await promise;
   } catch (error) {
     console.warn(`Telegram sign-in step failed (${reason}):`, String(error));
-    throw new SignInFailure(reason);
+    throw new SignInFailure(reason, returnTo);
   }
 }
