@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAs } from "./helpers/auth.ts";
-import { button, dialog, field } from "./helpers/ui.ts";
+import { RUSSIAN_HEADLINE } from "./helpers/landing.ts";
+import { button, dialog, field, pageTitle } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
 type DeletionTexts = {
@@ -55,16 +56,23 @@ async function expectConfirmEnabledOnlyByWord(
   await expect(confirm).toBeEnabled();
 }
 
-test("13. «Удалить навсегда» неактивна, пока не введено «удалить»; после подтверждения открывается /login", async ({
+test("5. «Удалить навсегда» активна после ввода «удалить» и возвращает на гостевую главную", async ({
   page,
 }) => {
   await loginAs(page);
   const deletion = await openDeletionDialog(page, russian);
 
   await expectConfirmEnabledOnlyByWord(deletion, russian);
+  const telegramStarts: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/auth/telegram/start")
+      telegramStarts.push(request.url());
+  });
   await button(deletion, russian.confirmButton).click();
 
-  await expect(page).toHaveURL(urlMatching("/login"));
+  await expect(page).toHaveURL(urlMatching("/"));
+  await expect(pageTitle(page, RUSSIAN_HEADLINE)).toBeVisible();
+  expect(telegramStarts).toHaveLength(0);
 });
 
 test("13. в английском интерфейсе «Delete forever» активна только после ввода delete", async ({

@@ -1,7 +1,8 @@
 import { api, type Opts, type TestResponse } from "./api.ts";
 import { base64url, base64urlJson } from "./encoding.ts";
 import { external, type ExternalCall } from "./external.ts";
-import { expectRedirect } from "./redirect.ts";
+import { expect } from "vitest";
+import { redirectTarget } from "./redirect.ts";
 import { expectNoSessionCookie } from "./session.ts";
 import { testEnv } from "./test-env.ts";
 
@@ -139,7 +140,11 @@ export function startPath(returnTo?: string): string {
 }
 
 export function expectSignInError(response: TestResponse, error: SignInError): void {
-  expectRedirect(response, `/login?error=${error}`);
+  expect(response.status).toBe(302);
+  const target = new URL(redirectTarget(response) ?? "/", testEnv.APP_URL);
+  expect(target.origin).toBe(testEnv.APP_URL);
+  expect(target.pathname).toBe("/");
+  expect(target.searchParams.get("error")).toBe(error);
   expectNoSessionCookie(response);
 }
 

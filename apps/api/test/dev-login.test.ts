@@ -1,7 +1,25 @@
+import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { expectValidationError } from "./harness/assertions.ts";
 import { api, type Opts, type TestResponse } from "./harness/index.ts";
-import { currentUser, expectSessionCookie, sessionFrom, UUID } from "./harness/session.ts";
+import {
+  currentUser,
+  expectNoSessionCookie,
+  expectSessionCookie,
+  sessionFrom,
+  UUID,
+} from "./harness/session.ts";
+
+async function devLoginIn(environment: string): Promise<TestResponse> {
+  const bindings = env as { ENV: string };
+  const previous = bindings.ENV;
+  bindings.ENV = environment;
+  try {
+    return await devLogin({});
+  } finally {
+    bindings.ENV = previous;
+  }
+}
 
 function devLogin(body: Record<string, unknown>, opts?: Opts): Promise<TestResponse> {
   return api.post("/auth/dev-login", body, opts);
@@ -12,6 +30,23 @@ function withAcceptLanguage(acceptLanguage: string): Opts {
 }
 
 describe("POST /auth/dev-login", () => {
+  it.each(["dev", "test"])("3. в окружении %s dev-вход создаёт сессию", async (environment) => {
+    const response = await devLoginIn(environment);
+
+    expect(response).toMatchObject({ status: 200, body: { user: { name: "Dev User" } } });
+    expectSessionCookie(response);
+  });
+
+  it.each(["staging", "production"])(
+    "3. в окружении %s dev-вход отвечает 404",
+    async (environment) => {
+      const response = await devLoginIn(environment);
+
+      expect(response).toMatchObject({ status: 404 });
+      expectNoSessionCookie(response);
+    },
+  );
+
   it("16. создаёт пользователя с переданным telegramId и возвращает cookie сессии", async () => {
     const response = await devLogin({ telegramId: 4242 });
 

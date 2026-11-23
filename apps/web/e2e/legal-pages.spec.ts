@@ -25,7 +25,6 @@ const asGuest = (): Promise<void> => Promise.resolve();
 
 const footerHosts: FooterHost[] = [
   { name: "главной для гостя", path: "/", prepare: asGuest },
-  { name: "/login", path: "/login", prepare: asGuest },
   { name: "/settings", path: "/settings", prepare: loginAs },
 ];
 

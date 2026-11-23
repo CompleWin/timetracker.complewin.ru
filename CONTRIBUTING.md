@@ -30,7 +30,7 @@
 
 ## Вход локально
 
-- На `/login` в `dev` есть кнопка "Войти как тестовый пользователь". Она входит без Telegram.
+- В `dev` кнопка "dev" справа от "Войти" на гостевой главной открывает трекер под учётной записью "Dev User".
 - Для входа через настоящий Telegram Worker'у нужны `TG_CLIENT_ID` и `TG_CLIENT_SECRET` в `apps/api/.dev.vars`, а адрес `http://localhost:5173/auth/telegram/callback` должен быть в Redirect URIs бота. Файл `.dev.vars` не попадает в git.
 - Для подключения Notion в `apps/api/.dev.vars` нужны `NOTION_CLIENT_ID`, `NOTION_CLIENT_SECRET` и `TOKEN_ENC_KEY`, а адрес `http://localhost:5173/notion/oauth/callback` должен быть в Redirect URIs подключения. Без них страница настроек открывается, но "Подключить Notion" не сработает.
 - Бот локально не работает: Telegram не достучится до localhost.
