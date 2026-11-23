@@ -7,6 +7,6 @@ const session = useSessionStore();
 </script>
 
 <template>
-  <GuestHomePage v-if="session.isGuest" />
+  <GuestHomePage v-if="session.isGuest || session.devSignInPending" />
   <HomePage v-else />
 </template>

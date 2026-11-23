@@ -18,7 +18,6 @@ const router = useRouter();
 const session = useSessionStore();
 const { returnTo, telegramStartUrl } = useGuestSignIn();
 const isDev = ref(false);
-const signingIn = ref(false);
 
 const onGuestHome = computed(() => route.path === "/" && session.isGuest);
 const logoTag = computed(() => (onGuestHome.value ? "div" : "h1"));
@@ -37,15 +36,9 @@ watch(
   { immediate: true },
 );
 
-async function signInAsTestUser(): Promise<void> {
+function signInAsTestUser(): Promise<void> {
   const destination = returnTo.value;
-  signingIn.value = true;
-  try {
-    await session.signInAsTestUser();
-    await router.replace(destination);
-  } finally {
-    signingIn.value = false;
-  }
+  return session.signInAsTestUser(() => router.replace(destination));
 }
 </script>
 
@@ -87,7 +80,7 @@ async function signInAsTestUser(): Promise<void> {
         v-if="isDev"
         variant="quiet"
         size="sm"
-        :disabled="signingIn"
+        :disabled="session.devSignInPending"
         @click="signInAsTestUser"
       >
         {{ t("guest.devSignIn") }}

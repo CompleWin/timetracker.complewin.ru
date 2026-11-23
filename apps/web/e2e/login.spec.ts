@@ -2,9 +2,11 @@ import { expect, test, type Page, type Request } from "@playwright/test";
 import { accountMenu, menuButton, openAccountMenu } from "./helpers/account-menu.ts";
 import { RUSSIAN_HEADLINE, chooseLanguage } from "./helpers/landing.ts";
 import { PHONE_VIEWPORT } from "./helpers/layout.ts";
+import { afterNextFrames } from "./helpers/timeline.ts";
 import { button, link, pageTitle, textOf } from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
+const HEALTH = "/api/health";
 const TELEGRAM_START = "/auth/telegram/start";
 const PROTECTED_PATH = "/settings?from=link#profile";
 
@@ -28,6 +30,10 @@ test.use({ serviceWorkers: "block" });
 
 function devButton(page: Page) {
   return button(page.getByRole("banner"), "dev");
+}
+
+function isHealthRead(request: Request): boolean {
+  return request.method() === "GET" && urlMatching(HEALTH)(new URL(request.url()));
 }
 
 async function recordTelegramStarts(page: Page): Promise<Request[]> {
@@ -135,6 +141,65 @@ test("2. dev стоит справа от «Войти» на десктопе �
 
   expect(requests).toHaveLength(0);
 });
+
+test("3. до ответа health кнопка dev скрыта и «Войти» запускает Telegram", async ({ page }) => {
+  let releaseHealth!: () => void;
+  const healthGate = new Promise<void>((resolve) => {
+    releaseHealth = resolve;
+  });
+  await page.route(urlMatching(HEALTH), async (route) => {
+    await healthGate;
+    await route.continue();
+  });
+  await page.route(urlMatching(TELEGRAM_START), (route) => route.fulfill({ status: 204 }));
+
+  try {
+    await Promise.all([page.waitForRequest(isHealthRead), page.goto("/", { waitUntil: "commit" })]);
+    await expectGuestHome(page);
+    await expect(devButton(page)).toHaveCount(0);
+
+    const [request] = await Promise.all([
+      page.waitForRequest((request) =>
+        urlMatching(TELEGRAM_START, { returnTo: "/" })(new URL(request.url())),
+      ),
+      link(page.getByRole("banner"), "Войти").click(),
+    ]);
+    expect(request.method()).toBe("GET");
+  } finally {
+    releaseHealth();
+  }
+
+  await expect(devButton(page)).toBeVisible();
+});
+
+for (const scenario of ["test", "staging", "production", "HTTP 503", "сетевая ошибка"]) {
+  test(`3. health: ${scenario}, кнопка dev скрыта и «Войти» запускает Telegram`, async ({
+    page,
+  }) => {
+    const requests = await recordTelegramStarts(page);
+    await page.route(urlMatching(HEALTH), async (route) => {
+      if (scenario === "сетевая ошибка") return route.abort();
+      if (scenario === "HTTP 503") return route.fulfill({ status: 503 });
+      const response = await route.fetch();
+      await expect(response).toBeOK();
+      const body = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({ response, json: { ...body, env: scenario } });
+    });
+
+    const healthCompleted =
+      scenario === "сетевая ошибка"
+        ? page.waitForEvent("requestfailed", isHealthRead)
+        : page.waitForEvent("requestfinished", isHealthRead);
+    await Promise.all([healthCompleted, page.goto("/", { waitUntil: "commit" })]);
+    await expectGuestHome(page);
+    await afterNextFrames(page);
+    await expect(devButton(page)).toHaveCount(0);
+
+    await link(page.getByRole("banner"), "Войти").click();
+
+    await expectTelegramStart(page, requests, "/");
+  });
+}
 
 test("4. Notion OAuth без сессии показывает гостевую главную с возвратом в настройки", async ({
   page,
