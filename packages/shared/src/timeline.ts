@@ -15,24 +15,28 @@ export type TimelineGap = {
   endMs: number;
 };
 
+type LaneGroup = {
+  endMs: number;
+  laneEnds: number[];
+};
+
 const MS_PER_SECOND = 1000;
 
 export function timelineLanes(items: TimelineItem[]): TimelineLane[] {
-  const laneEnds: number[] = [];
-  const laneOf = new Map<string, number>();
+  const laneOf = new Map<string, { lane: number; group: LaneGroup }>();
+  let group: LaneGroup = { endMs: -Infinity, laneEnds: [] };
   for (const item of byStart(items)) {
-    const free = laneEnds.findIndex((endMs) => endMs <= item.startMs);
-    const lane = free === -1 ? laneEnds.length : free;
-    laneEnds[lane] = item.endMs;
-    laneOf.set(item.id, lane);
+    if (group.endMs <= item.startMs) group = { endMs: item.endMs, laneEnds: [] };
+    const free = group.laneEnds.findIndex((endMs) => endMs <= item.startMs);
+    const lane = free === -1 ? group.laneEnds.length : free;
+    group.laneEnds[lane] = item.endMs;
+    group.endMs = Math.max(group.endMs, item.endMs);
+    laneOf.set(item.id, { lane, group });
   }
-  const lanes = (item: TimelineItem) =>
-    Math.max(
-      ...items
-        .filter((other) => other === item || overlaps(item, other))
-        .map((other) => (laneOf.get(other.id) ?? 0) + 1),
-    );
-  return items.map((item) => ({ id: item.id, lane: laneOf.get(item.id) ?? 0, lanes: lanes(item) }));
+  return items.map(({ id }) => {
+    const placement = laneOf.get(id);
+    return { id, lane: placement?.lane ?? 0, lanes: placement?.group.laneEnds.length ?? 1 };
+  });
 }
 
 export function timelineGaps(items: TimelineItem[], minSec: number): TimelineGap[] {
@@ -63,10 +67,6 @@ export function parallelSec(items: TimelineItem[]): number {
     previousMs = edge.atMs;
   }
   return Math.floor(parallelMs / MS_PER_SECOND);
-}
-
-function overlaps(a: TimelineItem, b: TimelineItem): boolean {
-  return a.startMs < b.endMs && b.startMs < a.endMs;
 }
 
 function byStart(items: TimelineItem[]): TimelineItem[] {

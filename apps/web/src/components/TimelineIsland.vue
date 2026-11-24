@@ -86,18 +86,29 @@ const scaleStart = computed(() => scaleHours.value[0]?.at ?? dayHours.value[0].a
 const scaleHeight = computed(() => offsetOf(scaleHours.value.at(-1)?.at ?? scaleStart.value));
 
 const placedSessions = computed<PlacedSession[]>(() => {
-  const lanes = new Map(timelineLanes(items.value).map((lane) => [lane.id, lane]));
-  return props.sessions.map((session, index) => {
+  const blocks = props.sessions.map((session, index) => {
     const item = items.value[index];
-    const lane = lanes.get(session.id) ?? { lane: 0, lanes: 1 };
-    const top = offsetOf(item?.startMs ?? 0);
-    const bottom = Math.min(offsetOf(item?.endMs ?? 0), scaleHeight.value);
+    const startMs = item?.startMs ?? 0;
+    const endMs = item?.endMs ?? 0;
+    const top = offsetOf(startMs);
+    const bottom = Math.min(offsetOf(endMs), scaleHeight.value);
     const heightPx = Math.max(BLOCK_MIN_HEIGHT_PX, bottom - top - BLOCK_INSET_PX);
+    return { session, startMs, endMs, top, heightPx };
+  });
+  const lanes = timelineLanes(
+    blocks.map(({ session, startMs, endMs, heightPx }) => ({
+      id: session.id,
+      startMs,
+      endMs: Math.max(endMs, startMs + (heightPx * HOUR_MS) / HOUR_HEIGHT_PX),
+    })),
+  );
+  return blocks.map(({ session, startMs, top, heightPx }, index) => {
+    const lane = lanes[index] ?? { lane: 0, lanes: 1 };
     return {
       session,
       heightPx,
-      startMs: item?.startMs ?? 0,
-      bottomPx: Math.max(bottom, top + BLOCK_MIN_HEIGHT_PX + BLOCK_INSET_PX),
+      startMs,
+      bottomPx: top + heightPx + BLOCK_INSET_PX,
       style: {
         top: `${top + 1}px`,
         height: `${heightPx}px`,
