@@ -55,6 +55,14 @@ export function desiredPage(task: TaskSnapshot, target: PageTarget, locale: Loca
   };
 }
 
+export function importedPage(title: string, project: string | null, locale: Locale): SentPage {
+  return {
+    title,
+    project,
+    time: timeValues({ title, project, totalSec: 0, running: false, lastStartedAt: null }, locale),
+  };
+}
+
 export function hasChanges(target: PageTarget, desired: SentPage, sent: SentPage): boolean {
   return (
     desired.title !== sent.title ||

@@ -15,6 +15,7 @@ import { projectOfRecord, type ProjectBook } from "../notion/record-projects.ts"
 import { normalizedNotionId } from "../notion/webhook-events.ts";
 import { enqueueTasksWithSessions } from "./outbox.ts";
 import { attachPage, insertPageTask } from "./page-links.ts";
+import { importedPage } from "./page-state.ts";
 import type { SyncRun } from "./task-pages.ts";
 
 type PagelessTasks = Map<string, string[]>;
@@ -45,7 +46,7 @@ export async function importPages(
       notionDatabaseId: target.id,
       notionPageId: page.id,
       notionPageUrl: page.url,
-      notionSent: { title, project: sentProject, time: null },
+      notionSent: importedPage(title, sentProject, run.owner.locale),
       notionDefaultProject: defaultProject,
     };
     const taskId = pageless.get(taskKey(projectId, title))?.shift();
@@ -78,7 +79,7 @@ export async function importPages(
 function isWanted(page: NotionPageSnapshot, target: NotionDatabaseRow): boolean {
   const status = statusOptionId(page, target.statusPropId);
   const skipped = status !== undefined && target.skippedStatusIds?.includes(status) === true;
-  return !skipped && pageTitle(page, target.propertyIds.title).trim() !== "";
+  return !page.inTrash && !skipped && pageTitle(page, target.propertyIds.title).trim() !== "";
 }
 
 async function pagelessTasks(run: SyncRun): Promise<PagelessTasks> {

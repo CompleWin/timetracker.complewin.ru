@@ -3,7 +3,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
 import { notionDatabases, projects } from "../db/schema.ts";
-import { notFound, validationError } from "../http/errors.ts";
+import { notFound } from "../http/errors.ts";
 import { clearQueue, removeQueuedTasksOfDatabase } from "../sync/outbox.ts";
 import {
   forgetDatabaseLines,
@@ -99,25 +99,24 @@ export async function updateNotionDatabase(
   db: Database,
   current: NotionDatabaseRow,
   changes: NotionDatabaseChanges,
-  requireCurrentTimeFields = false,
+  onTimeFieldsChanged?: () => Error,
 ): Promise<NotionDatabaseRow> {
   const settings = notionDatabases.timeFieldSettings;
-  const unchangedTimeFields = requireCurrentTimeFields
-    ? and(
-        eq(notionDatabases.timeProperties, current.timeProperties),
-        current.timeFieldSettings === null
-          ? and(isNull(settings), eq(notionDatabases.propertyIds, current.propertyIds))
-          : eq(settings, current.timeFieldSettings),
-      )
-    : undefined;
+  const unchangedTimeFields =
+    onTimeFieldsChanged !== undefined
+      ? and(
+          eq(notionDatabases.timeProperties, current.timeProperties),
+          current.timeFieldSettings === null
+            ? and(isNull(settings), eq(notionDatabases.propertyIds, current.propertyIds))
+            : eq(settings, current.timeFieldSettings),
+        )
+      : undefined;
   const [row] = await db
     .update(notionDatabases)
     .set(changes)
     .where(and(eq(notionDatabases.id, current.id), unchangedTimeFields))
     .returning();
-  if (row === undefined && requireCurrentTimeFields) {
-    throw validationError({ timeFields: "Duration settings changed" });
-  }
+  if (row === undefined && onTimeFieldsChanged !== undefined) throw onTimeFieldsChanged();
   if (row === undefined) throw new Error(`Notion database ${current.id} was not updated`);
   return row;
 }

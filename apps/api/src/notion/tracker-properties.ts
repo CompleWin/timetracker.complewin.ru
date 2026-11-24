@@ -24,6 +24,7 @@ export type TrackerPropertyIds = Partial<Record<TrackerProperty | "title", strin
 export type TimeFieldSettings = {
   propertyIds: NotionTimeFieldIds;
   revision: string | null;
+  automaticFields?: readonly NotionTimeField[];
 };
 
 type TimeFieldTarget = {
@@ -136,6 +137,19 @@ export function timeFieldIdsOf(target: TimeFieldTarget): NotionTimeFieldIds {
   return (
     target.timeFieldSettings?.propertyIds ??
     (target.timeProperties ? selectTimeFieldIds(target.propertyIds) : {})
+  );
+}
+
+export function missingAutomaticTimeFields(
+  schema: SchemaProperty[],
+  settings: TimeFieldSettings | null,
+): NotionTimeField[] {
+  if (settings === null) return [];
+  return (settings.automaticFields ?? []).filter(
+    (field) =>
+      !schema.some(
+        ({ id, type }) => id === settings.propertyIds[field] && type === propertyTypes[field],
+      ),
   );
 }
 

@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { Database } from "../db/client.ts";
-import { tasks, timeEntries } from "../db/schema.ts";
+import { notionDatabases, tasks, timeEntries } from "../db/schema.ts";
 import { alreadyLinked, notFound } from "../http/errors.ts";
 import { forgetDeletedNotionPage, pageWasNotDeleted } from "../notion/deleted-pages.ts";
 import type { SentPage } from "./page-state.ts";
@@ -60,10 +60,11 @@ export async function unlinkTask(db: Database, taskId: string): Promise<void> {
 
 type TaskRow = typeof tasks.$inferSelect;
 
-export type TaskPageLink = Pick<
-  TaskRow,
-  "notionDatabaseId" | "notionPageUrl" | "notionSent" | "notionDefaultProject"
-> & { notionPageId: string };
+export type TaskPageLink = Pick<TaskRow, "notionPageUrl" | "notionDefaultProject"> & {
+  notionDatabaseId: string;
+  notionPageId: string;
+  notionSent: SentPage;
+};
 
 type PageTaskInsert = typeof tasks.$inferInsert & TaskPageLink;
 
@@ -94,7 +95,7 @@ export function attachPage(
 ) {
   return db
     .update(tasks)
-    .set({ ...link, updatedAt: now })
+    .set({ ...link, notionSent: importedPageState(db, link), updatedAt: now })
     .where(
       and(
         eq(tasks.userId, userId),
@@ -108,14 +109,25 @@ export function attachPage(
 
 export function insertPageTask(db: Database, row: PageTaskInsert, mode: "automatic" | "manual") {
   const { userId, notionPageId: pageId } = row;
-  const values = Object.entries(getTableColumns(tasks)).map(([key, column]) =>
-    driverValue(column, row[key as keyof typeof row]),
-  );
+  const values = Object.entries(getTableColumns(tasks)).map(([key, column]) => {
+    if (mode === "automatic" && key === "notionSent") return importedPageState(db, row);
+    return driverValue(column, row[key as keyof typeof row]);
+  });
   const allowed = and(
     pageIsFree(db, userId, pageId),
     mode === "automatic" ? pageWasNotDeleted(db, userId, pageId) : undefined,
   );
   return db.insert(tasks).select(sql`select ${sql.join(values, sql`, `)} where ${allowed}`);
+}
+
+function importedPageState(db: Database, link: TaskPageLink) {
+  const revision = db
+    .select({
+      value: sql<string | null>`json_extract(${notionDatabases.timeFieldSettings}, '$.revision')`,
+    })
+    .from(notionDatabases)
+    .where(eq(notionDatabases.id, link.notionDatabaseId));
+  return sql`json_set(${JSON.stringify(link.notionSent)}, '$.timeFieldsRevision', (${revision}))`;
 }
 
 function driverValue(column: Column, value: unknown) {

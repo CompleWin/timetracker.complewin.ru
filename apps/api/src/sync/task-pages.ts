@@ -6,7 +6,11 @@ import type { NotionClient } from "../notion/client.ts";
 import { retrieveDataSource, titlePropertyId } from "../notion/data-sources.ts";
 import { ensureTrackerProperties } from "../notion/database-setup.ts";
 import { updateNotionDatabase, type NotionDatabaseRow } from "../notion/databases.ts";
-import { trackerPropertiesFor } from "../notion/tracker-properties.ts";
+import {
+  missingAutomaticTimeFields,
+  selectTimeFieldIds,
+  trackerPropertiesFor,
+} from "../notion/tracker-properties.ts";
 import { updateTask } from "../tasks/tasks.ts";
 import { IDLE_TIMER, taskTimers } from "../timers/time-entries.ts";
 import { markSynced, unlinkTask } from "./page-links.ts";
@@ -65,7 +69,8 @@ export async function pushTask(run: SyncRun, taskId: string): Promise<void> {
   if (task === undefined || !isLinked(task)) return;
   const target = run.databases.find((database) => database.id === task.notionDatabaseId);
   if (target === undefined) return;
-  const taskRun = { ...run, client: taskPushClient(run, task, target) };
+  const taskRun = { ...run };
+  taskRun.client = taskPushClient(taskRun, task);
   try {
     if (await updateTaskPage(taskRun, task, target)) await syncTimeBlock(taskRun, taskId);
   } catch (error) {
@@ -75,8 +80,11 @@ export async function pushTask(run: SyncRun, taskId: string): Promise<void> {
   }
 }
 
-function taskPushClient(run: SyncRun, task: LinkedTask, target: NotionDatabaseRow): NotionClient {
-  async function beforeSend(pagePatch: boolean): Promise<void> {
+function taskPushClient(run: SyncRun, task: LinkedTask): NotionClient {
+  const client = run.client;
+  async function beforeSend(checkTimeFields: boolean): Promise<void> {
+    const target = run.databases.find(({ id }) => id === task.notionDatabaseId);
+    if (target === undefined) throw new TaskNoLongerLinked();
     const [current] = await run.db
       .select({
         timeProperties: notionDatabases.timeProperties,
@@ -94,7 +102,7 @@ function taskPushClient(run: SyncRun, task: LinkedTask, target: NotionDatabaseRo
       );
     if (current === undefined) throw new TaskNoLongerLinked();
     if (
-      pagePatch &&
+      checkTimeFields &&
       (current.timeProperties !== target.timeProperties ||
         JSON.stringify(current.timeFieldSettings) !== JSON.stringify(target.timeFieldSettings))
     ) {
@@ -104,11 +112,13 @@ function taskPushClient(run: SyncRun, task: LinkedTask, target: NotionDatabaseRo
 
   return {
     request: (request) => {
-      const pagePatch = request.method === "PATCH" && request.path.startsWith("/v1/pages/");
-      return run.client.request(
+      const checkTimeFields =
+        request.method === "PATCH" &&
+        (request.path.startsWith("/v1/pages/") || request.path.startsWith("/v1/data_sources/"));
+      return client.request(
         request.method === "GET"
           ? request
-          : { ...request, beforeSend: () => beforeSend(pagePatch) },
+          : { ...request, beforeSend: () => beforeSend(checkTimeFields) },
       );
     },
   };
@@ -189,7 +199,7 @@ async function patchTaskPage(
   const reply = await patch(database);
   if (isNotFound(reply)) throw new PageGone();
   if (isBadRequest(reply) && (await isTrashed(run, task.notionPageId))) {
-    await updateTask(run.db, run.owner.id, task.id, { archived: true }, run.now);
+    await dropDeletedPage(run, task.id);
     return false;
   }
   const accepted = isMissingProperty(reply)
@@ -224,9 +234,21 @@ async function refreshProperties(
   const source = await retrieveDataSource(run.client, target.dataSourceId);
   if (source === undefined) throw new PageRejected("Notion data source was not found");
   const wanted = trackerPropertiesFor(target);
-  const ids = await ensureTrackerProperties(run.client, source, wanted, run.owner);
-  const propertyIds = { ...target.propertyIds, title: titlePropertyId(source), ...ids };
-  const refreshed = await updateNotionDatabase(run.db, target, { propertyIds });
+  const settings = target.timeFieldSettings;
+  const missing = missingAutomaticTimeFields(source.properties, settings);
+  const ids = await ensureTrackerProperties(run.client, source, [...wanted, ...missing], run.owner);
+  const propertyIds = { ...target.propertyIds, title: titlePropertyId(source) };
+  for (const property of wanted) propertyIds[property] = ids[property];
+  const timeFieldSettings =
+    settings !== null && missing.length > 0
+      ? { ...settings, propertyIds: { ...settings.propertyIds, ...selectTimeFieldIds(ids) } }
+      : undefined;
+  const refreshed = await updateNotionDatabase(
+    run.db,
+    target,
+    { propertyIds, timeFieldSettings },
+    () => new TimeFieldsChanged(),
+  );
   run.databases = run.databases.map((database) =>
     database.id === refreshed.id ? refreshed : database,
   );

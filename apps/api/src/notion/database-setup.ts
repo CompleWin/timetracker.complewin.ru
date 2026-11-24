@@ -134,7 +134,7 @@ export async function addDatabase(
   const timeFieldSettings =
     settings.timeFields === undefined && defaultTimeFields === undefined
       ? null
-      : selectedTimeFieldSettings(ids);
+      : selectedTimeFieldSettings(ids, undefined, defaultTimeFields);
   const values = {
     userId: owner.id,
     connectionId,
@@ -200,7 +200,9 @@ export async function changeNotionDatabase(
       timeFieldSettings,
       blockPosition: changes.blockPosition,
     },
-    retainingBothFormats,
+    retainingBothFormats
+      ? () => validationError({ timeFields: "Duration settings changed" })
+      : undefined,
   );
   if (updated.blockPosition !== current.blockPosition) {
     await enqueueBlockInheritingTasks(db, owner.id, id, now);
@@ -287,6 +289,7 @@ function checkDurationFormats(
 function selectedTimeFieldSettings(
   ids: TrackerPropertyIds,
   current?: NotionDatabaseRow,
+  defaults?: readonly NotionTimeField[],
 ): TimeFieldSettings {
   const propertyIds = selectTimeFieldIds(ids);
   if (Object.keys(propertyIds).length === 0) return { propertyIds, revision: null };
@@ -297,7 +300,12 @@ function selectedTimeFieldSettings(
   const revision = newlyEnabled
     ? crypto.randomUUID()
     : (current?.timeFieldSettings?.revision ?? null);
-  return { propertyIds, revision };
+  const automaticFields =
+    defaults ??
+    current?.timeFieldSettings?.automaticFields?.filter(
+      (field) => propertyIds[field] !== undefined && propertyIds[field] === previousIds[field],
+    );
+  return { propertyIds, revision, ...(automaticFields?.length && { automaticFields }) };
 }
 
 function automaticIds(
