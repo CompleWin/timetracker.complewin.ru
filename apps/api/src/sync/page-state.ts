@@ -1,5 +1,6 @@
 import { formatDuration, type Locale } from "@stt/shared";
 import type { NotionDatabaseRow } from "../notion/databases.ts";
+import { timeFieldIdsOf } from "../notion/tracker-properties.ts";
 
 const SECONDS_PER_HOUR = 3600;
 const HOURS_PRECISION = 100;
@@ -15,6 +16,7 @@ export type SentPage = {
   title: string;
   project: string | null;
   time: TimeValues | null;
+  timeFieldsRevision?: string | null;
 };
 
 export type TaskSnapshot = {
@@ -29,7 +31,12 @@ export type PageProperties = Record<string, unknown>;
 
 export type PageTarget = Pick<
   NotionDatabaseRow,
-  "propertyIds" | "projectMode" | "projectPropId" | "projectPropType" | "timeProperties"
+  | "propertyIds"
+  | "projectMode"
+  | "projectPropId"
+  | "projectPropType"
+  | "timeProperties"
+  | "timeFieldSettings"
 >;
 
 export function pushedTarget<Target extends PageTarget>(
@@ -43,7 +50,8 @@ export function desiredPage(task: TaskSnapshot, target: PageTarget, locale: Loca
   return {
     title: task.title,
     project: task.project,
-    time: target.timeProperties ? timeValues(task, locale) : null,
+    time: Object.keys(timeFieldIdsOf(target)).length > 0 ? timeValues(task, locale) : null,
+    timeFieldsRevision: target.timeFieldSettings?.revision ?? null,
   };
 }
 
@@ -51,7 +59,9 @@ export function hasChanges(target: PageTarget, desired: SentPage, sent: SentPage
   return (
     desired.title !== sent.title ||
     projectChanged(target, desired, sent) ||
-    (desired.time !== null && !sameTime(desired.time, sent.time))
+    (desired.time !== null &&
+      (desired.timeFieldsRevision !== (sent.timeFieldsRevision ?? null) ||
+        !sameTime(desired.time, sent.time)))
   );
 }
 
@@ -68,6 +78,7 @@ export function sentOnUpdate(target: PageTarget, desired: SentPage, sent: SentPa
     title: desired.title,
     project: target.projectMode === "none" ? sent.project : desired.project,
     time: desired.time ?? sent.time,
+    timeFieldsRevision: desired.timeFieldsRevision,
   };
 }
 
@@ -129,7 +140,7 @@ function projectProperty(
 
 function timeProperties(target: PageTarget, time: TimeValues | null): PageProperties {
   if (time === null) return {};
-  const ids = target.propertyIds;
+  const ids = timeFieldIdsOf(target);
   return {
     ...property(ids.spentHours, { number: time.spentHours }),
     ...property(ids.spent, { rich_text: [{ text: { content: time.spent } }] }),

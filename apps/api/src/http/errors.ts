@@ -77,7 +77,7 @@ export const propertyConflict = (name: string) =>
   new ApiError(
     409,
     "property_conflict",
-    "The database has a property of another type with our name",
+    "A Notion property name conflicts with the database settings",
     {
       name,
     },

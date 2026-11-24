@@ -29,6 +29,10 @@ export type TestStatusOption = {
   complete: boolean;
 };
 
+type TimeField = "spentHours" | "spent" | "running" | "lastTracked";
+
+type TimeFieldChoice = { mode: "create"; name: string } | { mode: "existing"; propertyId: string };
+
 export type TestNotionDatabase = {
   id: string;
   dataSourceId: string;
@@ -40,6 +44,7 @@ export type TestNotionDatabase = {
   skippedStatusIds: string[];
   blockPosition: BlockPosition;
   timeProperties: boolean;
+  timeFields: Partial<Record<TimeField, string>>;
   createdAt: string;
 };
 
@@ -56,6 +61,7 @@ export type DatabaseSettings = {
   projectPropertyId?: string;
   blockPosition?: BlockPosition;
   timeProperties?: boolean;
+  timeFields?: Partial<Record<TimeField, TimeFieldChoice>>;
   skippedStatusIds?: string[];
 };
 
@@ -63,7 +69,7 @@ export type DatabaseBody = DatabaseSettings & {
   dataSourceId: string;
 };
 
-export type TrackerField = "spentHours" | "spent" | "running" | "lastTracked" | "project";
+export type TrackerField = TimeField | "project";
 
 export const MAX_DATABASES = 50;
 export const STOPWATCH = "⏱";

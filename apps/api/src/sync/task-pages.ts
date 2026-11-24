@@ -1,7 +1,7 @@
 import type { Locale } from "@stt/shared";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
-import { projects, tasks } from "../db/schema.ts";
+import { notionDatabases, projects, tasks } from "../db/schema.ts";
 import type { NotionClient } from "../notion/client.ts";
 import { retrieveDataSource, titlePropertyId } from "../notion/data-sources.ts";
 import { ensureTrackerProperties } from "../notion/database-setup.ts";
@@ -58,12 +58,14 @@ type PageSender = (target: NotionDatabaseRow) => Promise<PageReply>;
 
 class TaskNoLongerLinked extends Error {}
 
+export class TimeFieldsChanged extends Error {}
+
 export async function pushTask(run: SyncRun, taskId: string): Promise<void> {
   const task = await loadTask(run, taskId);
   if (task === undefined || !isLinked(task)) return;
   const target = run.databases.find((database) => database.id === task.notionDatabaseId);
   if (target === undefined) return;
-  const taskRun = { ...run, client: taskPushClient(run, task) };
+  const taskRun = { ...run, client: taskPushClient(run, task, target) };
   try {
     if (await updateTaskPage(taskRun, task, target)) await syncTimeBlock(taskRun, taskId);
   } catch (error) {
@@ -73,22 +75,42 @@ export async function pushTask(run: SyncRun, taskId: string): Promise<void> {
   }
 }
 
-function taskPushClient(run: SyncRun, task: LinkedTask): NotionClient {
-  async function beforeSend(): Promise<void> {
-    const linked = await run.db.query.tasks.findFirst({
-      columns: { id: true },
-      where: and(
-        eq(tasks.id, task.id),
-        eq(tasks.userId, run.owner.id),
-        eq(tasks.notionPageId, task.notionPageId),
-      ),
-    });
-    if (linked === undefined) throw new TaskNoLongerLinked();
+function taskPushClient(run: SyncRun, task: LinkedTask, target: NotionDatabaseRow): NotionClient {
+  async function beforeSend(pagePatch: boolean): Promise<void> {
+    const [current] = await run.db
+      .select({
+        timeProperties: notionDatabases.timeProperties,
+        timeFieldSettings: notionDatabases.timeFieldSettings,
+      })
+      .from(tasks)
+      .innerJoin(notionDatabases, eq(notionDatabases.id, tasks.notionDatabaseId))
+      .where(
+        and(
+          eq(tasks.id, task.id),
+          eq(tasks.userId, run.owner.id),
+          eq(tasks.notionPageId, task.notionPageId),
+          eq(tasks.notionDatabaseId, target.id),
+        ),
+      );
+    if (current === undefined) throw new TaskNoLongerLinked();
+    if (
+      pagePatch &&
+      (current.timeProperties !== target.timeProperties ||
+        JSON.stringify(current.timeFieldSettings) !== JSON.stringify(target.timeFieldSettings))
+    ) {
+      throw new TimeFieldsChanged();
+    }
   }
 
   return {
-    request: (request) =>
-      run.client.request(request.method === "GET" ? request : { ...request, beforeSend }),
+    request: (request) => {
+      const pagePatch = request.method === "PATCH" && request.path.startsWith("/v1/pages/");
+      return run.client.request(
+        request.method === "GET"
+          ? request
+          : { ...request, beforeSend: () => beforeSend(pagePatch) },
+      );
+    },
   };
 }
 

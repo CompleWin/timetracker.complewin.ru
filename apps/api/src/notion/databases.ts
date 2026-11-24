@@ -1,9 +1,9 @@
 import type { NotionDatabase, NotionProperty, NotionStatusProperty } from "@stt/shared";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { sortByName } from "../db/order.ts";
 import { notionDatabases, projects } from "../db/schema.ts";
-import { notFound } from "../http/errors.ts";
+import { notFound, validationError } from "../http/errors.ts";
 import { clearQueue, removeQueuedTasksOfDatabase } from "../sync/outbox.ts";
 import {
   forgetDatabaseLines,
@@ -12,6 +12,7 @@ import {
   unlinkUserTasks,
 } from "../sync/page-links.ts";
 import type { StatusField } from "./data-sources.ts";
+import { timeFieldIdsOf } from "./tracker-properties.ts";
 
 export type NotionDatabaseRow = typeof notionDatabases.$inferSelect;
 
@@ -98,12 +99,25 @@ export async function updateNotionDatabase(
   db: Database,
   current: NotionDatabaseRow,
   changes: NotionDatabaseChanges,
+  requireCurrentTimeFields = false,
 ): Promise<NotionDatabaseRow> {
+  const settings = notionDatabases.timeFieldSettings;
+  const unchangedTimeFields = requireCurrentTimeFields
+    ? and(
+        eq(notionDatabases.timeProperties, current.timeProperties),
+        current.timeFieldSettings === null
+          ? and(isNull(settings), eq(notionDatabases.propertyIds, current.propertyIds))
+          : eq(settings, current.timeFieldSettings),
+      )
+    : undefined;
   const [row] = await db
     .update(notionDatabases)
     .set(changes)
-    .where(eq(notionDatabases.id, current.id))
+    .where(and(eq(notionDatabases.id, current.id), unchangedTimeFields))
     .returning();
+  if (row === undefined && requireCurrentTimeFields) {
+    throw validationError({ timeFields: "Duration settings changed" });
+  }
   if (row === undefined) throw new Error(`Notion database ${current.id} was not updated`);
   return row;
 }
@@ -158,6 +172,7 @@ function storedStatusProperty(row: NotionDatabaseRow): NotionStatusProperty | nu
 }
 
 export function toNotionDatabase(row: NotionDatabaseRow): NotionDatabase {
+  const timeFields = timeFieldIdsOf(row);
   return {
     id: row.id,
     dataSourceId: row.dataSourceId,
@@ -166,7 +181,8 @@ export function toNotionDatabase(row: NotionDatabaseRow): NotionDatabase {
     projectMode: row.projectMode,
     projectProperty: storedProjectProperty(row),
     blockPosition: row.blockPosition,
-    timeProperties: row.timeProperties,
+    timeProperties: Object.keys(timeFields).length > 0,
+    timeFields,
     statusProperty: storedStatusProperty(row),
     skippedStatusIds: row.skippedStatusIds ?? [],
     createdAt: row.createdAt.toISOString(),

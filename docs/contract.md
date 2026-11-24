@@ -39,7 +39,7 @@
 | 409  | `too_many_running`       | уже идут 20 таймеров                             |
 | 409  | `overlap`                | сессия пересекается с другой сессией этой задачи |
 | 409  | `notion_reauth_required` | Notion нужно переподключить                      |
-| 409  | `property_conflict`      | в базе есть поле с нашим именем, но другого типа |
+| 409  | `property_conflict`      | конфликт имени или типа колонки Notion           |
 | 409  | `database_already_added` | эта база уже добавлена в трекер                  |
 | 409  | `too_many_databases`     | добавлено 50 баз                                 |
 | 409  | `already_linked`         | страница Notion уже связана с задачей            |

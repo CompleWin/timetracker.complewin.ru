@@ -43,6 +43,7 @@ export async function describeDatabaseProperties(
   const statusField = statusFieldOf(source);
   return {
     properties: projectPropertiesOf(source),
+    columns: source.properties.map(({ id, name, type }) => ({ id, name, type })),
     statusProperty: statusField?.property ?? null,
     statuses: statusField?.statuses ?? [],
   };

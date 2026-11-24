@@ -20,7 +20,7 @@ import AppIsland from "./ui/AppIsland.vue";
 type OpenDialog = { kind: "add" } | { kind: "configure"; database: NotionDatabase };
 
 const props = defineProps<{ databases: NotionDatabase[]; projects: Project[] }>();
-const emit = defineEmits<{ changed: [] }>();
+const emit = defineEmits<{ changed: [database?: NotionDatabase] }>();
 
 const { t } = useI18n();
 const titleId = useId();
@@ -57,9 +57,9 @@ function projectSource(database: NotionDatabase): string {
   return t("home.noProject");
 }
 
-function onSaved(): void {
+function onSaved(database: NotionDatabase): void {
   dialog.value = null;
-  emit("changed");
+  emit("changed", database);
 }
 
 async function removeConfirmed(): Promise<void> {

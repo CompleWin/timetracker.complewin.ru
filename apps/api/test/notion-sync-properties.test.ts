@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { ExternalCall } from "./harness/index.ts";
 import { atMinute } from "./harness/clock.ts";
 import { addSession, editSession } from "./harness/manual-sessions.ts";
-import { TIME_FIELDS, type Locale } from "./harness/notion-databases.ts";
+import {
+  TIME_FIELDS,
+  addDatabase,
+  trackerFieldSpecs,
+  type Locale,
+} from "./harness/notion-databases.ts";
 import { multiSelectValue } from "./harness/notion-pull.ts";
 import {
+  SETUP_TIME,
   TASKS_DATABASE,
   cronAt,
   fakeNotionSync,
@@ -204,6 +210,33 @@ describe("проект на странице", () => {
 
 describe("база без полей с временем", () => {
   const withoutTimeFields = { ...TASKS_DATABASE, timeProperties: false };
+
+  it("1. ручное добавление без выбора не включает даже готовые стандартные колонки", async () => {
+    const session = await loginForSync();
+    await fake.notion.connect(session, undefined, SETUP_TIME);
+    const dataSource = fake.workspace.dataSource({
+      properties: trackerFieldSpecs("ru", TIME_FIELDS),
+    });
+    const database = await addDatabase(
+      session,
+      dataSource,
+      { projectMode: "none", blockPosition: "none" },
+      SETUP_TIME,
+    );
+    expect(database.timeFields).toEqual({});
+    const { task, page } = await linkedTask(
+      fake,
+      session,
+      { database, dataSource },
+      { title: "Anki" },
+    );
+
+    await startTimer(session, task.id, atMinute(1));
+    await cronAt(atMinute(2));
+
+    expect(fake.workspace.schemaUpdates(dataSource)).toEqual([]);
+    expect(fake.pages.updates(page)).toEqual([]);
+  });
 
   it("21. timeProperties = false: задача после link на проекте по умолчанию, cron не отправляет PATCH страницы", async () => {
     const { page } = await userWithTaskPage(fake, withoutTimeFields);

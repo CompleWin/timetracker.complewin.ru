@@ -57,6 +57,10 @@ export function enqueueBlockInheritingTasks(
   return enqueueWhere(db, userId, inheriting, now, "event");
 }
 
+export function enqueueDatabaseTasks(db: Database, userId: string, databaseId: string, now: Date) {
+  return enqueueWhere(db, userId, eq(tasks.notionDatabaseId, databaseId), now, "event");
+}
+
 export function enqueueStaleTasks(
   db: Database,
   userId: string,

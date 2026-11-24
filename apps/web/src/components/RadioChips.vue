@@ -4,7 +4,12 @@ import AppChip from "./ui/AppChip.vue";
 import AppSectionLabel from "./ui/AppSectionLabel.vue";
 import AppTooltip from "./ui/AppTooltip.vue";
 
-defineProps<{ legend: string; hint?: string; options: { value: Value; label: string }[] }>();
+defineProps<{
+  legend: string;
+  legendHidden?: boolean;
+  hint?: string;
+  options: { value: Value; label: string }[];
+}>();
 
 const model = defineModel<Value>({ required: true });
 const groupName = useId();
@@ -13,7 +18,7 @@ const legendId = useId();
 
 <template>
   <fieldset :aria-labelledby="legendId">
-    <legend class="relative mb-2 flex items-center gap-2">
+    <legend :class="legendHidden ? 'sr-only' : 'relative mb-2 flex items-center gap-2'">
       <AppSectionLabel :id="legendId">{{ legend }}</AppSectionLabel>
       <AppTooltip v-if="hint !== undefined" :subject="legend" :text="hint" />
     </legend>

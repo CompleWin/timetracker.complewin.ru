@@ -13,6 +13,36 @@ export const notionBlockPositions = ["start", "end", "none"] as const;
 
 export type NotionBlockPosition = (typeof notionBlockPositions)[number];
 
+export const notionTimeFields = ["spentHours", "spent", "running", "lastTracked"] as const;
+
+export type NotionTimeField = (typeof notionTimeFields)[number];
+
+export const notionTimeFieldTypes = {
+  spentHours: "number",
+  spent: "rich_text",
+  running: "checkbox",
+  lastTracked: "date",
+} as const satisfies Record<NotionTimeField, string>;
+
+const notionColumnSchema = z.object({ id: z.string(), name: z.string(), type: z.string() });
+
+export type NotionColumn = z.infer<typeof notionColumnSchema>;
+
+const notionTimeFieldIds = z.partialRecord(z.enum(notionTimeFields), z.string());
+
+export type NotionTimeFieldIds = z.infer<typeof notionTimeFieldIds>;
+
+const notionTimeFieldChoice = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("create"), name: z.string().trim().min(1) }),
+  z.object({ mode: z.literal("existing"), propertyId: z.string().trim().min(1) }),
+]);
+
+const notionTimeFieldChoices = z.partialRecord(z.enum(notionTimeFields), notionTimeFieldChoice);
+
+export type NotionTimeFieldChoice = z.infer<typeof notionTimeFieldChoice>;
+
+export type NotionTimeFieldChoices = z.infer<typeof notionTimeFieldChoices>;
+
 export const notionProjectPropertyTypes = ["select", "multi_select"] as const;
 
 export type NotionProjectPropertyType = (typeof notionProjectPropertyTypes)[number];
@@ -48,6 +78,7 @@ export const notionDatabaseSchema = z.object({
   projectProperty: notionPropertySchema.nullable(),
   blockPosition: z.enum(notionBlockPositions),
   timeProperties: z.boolean(),
+  timeFields: notionTimeFieldIds,
   statusProperty: notionStatusPropertySchema.nullable(),
   skippedStatusIds: z.array(z.string()),
   createdAt: z.string(),
@@ -86,6 +117,7 @@ export const availableNotionDatabasesResponse = z.object({
 
 export const notionPropertiesResponse = z.object({
   properties: z.array(notionPropertySchema),
+  columns: z.array(notionColumnSchema),
   statusProperty: notionStatusPropertySchema.nullable(),
   statuses: z.array(notionStatusSchema),
 });
@@ -101,6 +133,7 @@ const notionDatabaseSettings = z.object({
   projectPropertyId: z.string().trim().min(1).optional(),
   blockPosition: z.enum(notionBlockPositions),
   timeProperties: z.boolean().optional(),
+  timeFields: notionTimeFieldChoices.optional(),
   skippedStatusIds: z.array(z.string()).optional(),
 });
 
@@ -118,16 +151,31 @@ const projectPropertyRule = {
   path: ["projectPropertyId"],
 };
 
+function hasOneTimeFieldFormat({
+  timeFields,
+  timeProperties,
+}: {
+  timeFields?: NotionTimeFieldChoices;
+  timeProperties?: boolean;
+}) {
+  return timeFields === undefined || timeProperties === undefined;
+}
+
+const timeFieldFormatRule = {
+  message: "Cannot combine timeFields and timeProperties",
+  path: ["timeFields"],
+};
+
 export const addNotionDatabaseBody = notionDatabaseSettings
   .extend({ dataSourceId: z.string().trim().min(1) })
-  .refine(hasProjectPropertyWhenNeeded, projectPropertyRule);
+  .refine(hasProjectPropertyWhenNeeded, projectPropertyRule)
+  .refine(hasOneTimeFieldFormat, timeFieldFormatRule);
 
 export type AddNotionDatabaseBody = z.infer<typeof addNotionDatabaseBody>;
 
-export const updateNotionDatabaseBody = atLeastOneField(notionDatabaseSettings.partial()).refine(
-  hasProjectPropertyWhenNeeded,
-  projectPropertyRule,
-);
+export const updateNotionDatabaseBody = atLeastOneField(notionDatabaseSettings.partial())
+  .refine(hasProjectPropertyWhenNeeded, projectPropertyRule)
+  .refine(hasOneTimeFieldFormat, timeFieldFormatRule);
 
 export type UpdateNotionDatabaseBody = z.infer<typeof updateNotionDatabaseBody>;
 

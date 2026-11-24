@@ -1,11 +1,17 @@
-import { and, asc, eq, exists, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, exists, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
-import { notionConnections, syncOutbox, tasks, timeEntries } from "../db/schema.ts";
+import {
+  notionConnections,
+  notionDatabases,
+  syncOutbox,
+  tasks,
+  timeEntries,
+} from "../db/schema.ts";
 import { ApiError } from "../http/errors.ts";
 import { NotionReauthRequired } from "../notion/client.ts";
 import { enqueueStaleTasks, FAILED_ATTEMPTS, pendingItems } from "./outbox.ts";
 import { BudgetExhausted, PageRejected, RateLimited, ServerFailure } from "./page-requests.ts";
-import { pushTask, type SyncRun } from "./task-pages.ts";
+import { pushTask, TimeFieldsChanged, type SyncRun } from "./task-pages.ts";
 
 const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60_000;
@@ -22,10 +28,27 @@ type ItemOutcome = "next" | "stop";
 
 export async function pushUserChanges(run: SyncRun, connectionId: string): Promise<void> {
   await queueRunningTasks(run.db, run.owner.id, run.now);
+  if (run.databases.some((database) => database.timeFieldSettings?.revision != null)) {
+    await queueTimeFieldBackfills(run.db, run.owner.id, run.now);
+  }
   for (const item of await dueItems(run.db, run.owner.id, run.now)) {
     const outcome = await pushQueuedTask(run, connectionId, item);
     if (outcome === "stop") break;
   }
+}
+
+async function queueTimeFieldBackfills(db: Database, userId: string, now: Date): Promise<void> {
+  const configuredRevision = sql<string>`json_extract(${notionDatabases.timeFieldSettings}, '$.revision')`;
+  const sentRevision = sql<string>`coalesce(json_extract(${tasks.notionSent}, '$.timeFieldsRevision'), '')`;
+  const needsBackfill = exists(
+    db
+      .select({ id: notionDatabases.id })
+      .from(notionDatabases)
+      .where(
+        and(eq(notionDatabases.id, tasks.notionDatabaseId), ne(configuredRevision, sentRevision)),
+      ),
+  );
+  await enqueueStaleTasks(db, userId, and(isNotNull(tasks.notionSent), needsBackfill), now);
 }
 
 async function queueRunningTasks(db: Database, userId: string, now: Date): Promise<void> {
@@ -81,7 +104,13 @@ async function handleFailure(
     await postpone(run, connectionId, item, error.retryAfterSec);
     return "stop";
   }
-  if (error instanceof BudgetExhausted || isReauthRequired(error)) return "stop";
+  if (
+    error instanceof BudgetExhausted ||
+    error instanceof TimeFieldsChanged ||
+    isReauthRequired(error)
+  ) {
+    return "stop";
+  }
   if (error instanceof PageRejected || isRejectedByApi(error)) {
     await markFailed(run.db, item, errorText(error));
     return "next";

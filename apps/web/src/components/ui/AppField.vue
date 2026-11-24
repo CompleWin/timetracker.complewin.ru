@@ -94,7 +94,9 @@ defineExpose({ focus });
       :id="fieldId"
       ref="control"
       v-model="model"
-      :class="[CONTROL, SINGLE_LINE, CALM]"
+      :aria-invalid="invalid"
+      :aria-describedby="describedBy"
+      :class="[CONTROL, SINGLE_LINE, state]"
       class="rounded-field px-4"
     >
       <slot />

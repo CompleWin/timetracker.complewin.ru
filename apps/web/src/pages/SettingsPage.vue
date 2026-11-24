@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { NotionConnection, Project, SyncStatus } from "@stt/shared";
+import type { NotionConnection, NotionDatabase, Project, SyncStatus } from "@stt/shared";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import * as api from "../api.ts";
@@ -63,6 +63,19 @@ async function reload(): Promise<void> {
   loaded.value = true;
 }
 
+function databaseChanged(updated?: NotionDatabase): Promise<void> {
+  const current = connection.value;
+  if (updated !== undefined && current !== null) {
+    connection.value = {
+      ...current,
+      databases: current.databases.map((database) =>
+        database.id === updated.id ? updated : database,
+      ),
+    };
+  }
+  return reload();
+}
+
 function hasSync(loadedConnection: NotionConnection | null): boolean {
   return loadedConnection?.status === "ok" && loadedConnection.databases.length > 0;
 }
@@ -93,7 +106,7 @@ function showSection(id: string): void {
         :databases="connection.databases"
         :projects
         class="scroll-mt-4"
-        @changed="reload"
+        @changed="databaseChanged"
       />
       <NotionSync
         v-if="shownSync"

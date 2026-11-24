@@ -1,15 +1,18 @@
 import {
   MAX_NOTION_DATABASES,
+  notionTimeFields,
   type AddNotionDatabaseBody,
   type NotionDatabase,
   type NotionProperty,
+  type NotionTimeField,
+  type NotionTimeFieldChoices,
   type UpdateNotionDatabaseBody,
   type User,
 } from "@stt/shared";
 import { database, type Database } from "../db/client.ts";
 import type { Bindings } from "../env.ts";
 import { databaseAlreadyAdded, tooManyDatabases, validationError } from "../http/errors.ts";
-import { enqueueBlockInheritingTasks } from "../sync/outbox.ts";
+import { enqueueBlockInheritingTasks, enqueueDatabaseTasks } from "../sync/outbox.ts";
 import { notionClient, type NotionClient } from "./client.ts";
 import { requireUsableConnection, type ConnectedRow } from "./connections.ts";
 import {
@@ -41,7 +44,11 @@ import {
   addedPropertyIds,
   matchTrackerProperties,
   newlyNeededProperties,
+  planSelectedTimeFields,
+  selectTimeFieldIds,
+  timeFieldIdsOf,
   trackerPropertiesFor,
+  type TimeFieldSettings,
   type TrackerProperty,
   type TrackerPropertyIds,
 } from "./tracker-properties.ts";
@@ -99,7 +106,9 @@ export async function addNotionDatabase(
 export async function addDatabase(
   { db, client, connectionId, owner, now }: DatabaseSetup,
   settings: AddNotionDatabaseBody,
+  defaultTimeFields?: readonly NotionTimeField[],
 ): Promise<NotionDatabaseRow> {
+  checkDurationFormats(settings.timeFields);
   const added = await findDatabaseOfDataSource(db, owner.id, settings.dataSourceId);
   if (added !== undefined) throw databaseAlreadyAdded(added.id);
   if ((await countNotionDatabases(db, owner.id)) >= MAX_NOTION_DATABASES) throw tooManyDatabases();
@@ -117,20 +126,28 @@ export async function addDatabase(
     settings.skippedStatusIds ?? completeStatusIds(statusField),
   );
   const timeProperties = settings.timeProperties === true;
-  const wanted = trackerPropertiesFor({ projectMode: settings.projectMode, timeProperties });
-  const propertyIds = await ensureTrackerProperties(client, source, wanted, owner);
+  const wanted = [
+    ...trackerPropertiesFor({ projectMode: settings.projectMode, timeProperties }),
+    ...(defaultTimeFields ?? []),
+  ];
+  const ids = await ensureTrackerProperties(client, source, wanted, owner, settings.timeFields);
+  const timeFieldSettings =
+    settings.timeFields === undefined && defaultTimeFields === undefined
+      ? null
+      : selectedTimeFieldSettings(ids);
   const values = {
     userId: owner.id,
     connectionId,
     databaseId: source.databaseId,
     dataSourceId: source.id,
     title: source.title,
-    propertyIds: { title: titlePropertyId(source), ...propertyIds },
+    propertyIds: { title: titlePropertyId(source), ...automaticIds(ids, timeFieldSettings) },
     projectMode: settings.projectMode,
     ...projectPropertyColumns(projectProperty),
     ...statusFilterColumns(statusField, skippedStatusIds),
     blockPosition: settings.blockPosition,
     timeProperties,
+    timeFieldSettings,
     createdAt: now,
   };
   return insertNotionDatabase(db, values);
@@ -146,11 +163,13 @@ export async function changeNotionDatabase(
   const db = database(env);
   const connection = await requireUsableConnection(db, owner.id);
   const current = await requireNotionDatabase(db, owner.id, id);
+  const retainingBothFormats = checkDurationFormats(changes.timeFields, current);
   const client = notionClient(env, connection);
   const dataSource = dataSourceLoader(client, current.dataSourceId);
   const next = {
     projectMode: changes.projectMode ?? current.projectMode,
-    timeProperties: changes.timeProperties ?? current.timeProperties,
+    timeProperties:
+      changes.timeFields === undefined ? (changes.timeProperties ?? current.timeProperties) : false,
   };
   const projectProperty = await changedProjectProperty(dataSource, current, changes);
   const statusFilter = await changedStatusFilter(dataSource, current, changes);
@@ -159,16 +178,38 @@ export async function changeNotionDatabase(
     dataSource,
     newlyNeededProperties(current, next),
     owner,
+    changes.timeFields,
   );
-  const updated = await updateNotionDatabase(db, current, {
-    ...next,
-    ...projectPropertyColumns(projectProperty),
-    ...statusFilter,
-    propertyIds: { ...current.propertyIds, ...added },
-    blockPosition: changes.blockPosition,
-  });
+  const timeFieldSettings =
+    changes.timeFields === undefined
+      ? changes.timeProperties === undefined
+        ? undefined
+        : null
+      : selectedTimeFieldSettings(added, current);
+  const automatic = automaticIds(added, timeFieldSettings);
+  const updated = await updateNotionDatabase(
+    db,
+    current,
+    {
+      projectMode: changes.projectMode,
+      timeProperties: timeFieldSettings === undefined ? undefined : next.timeProperties,
+      ...projectPropertyColumns(projectProperty),
+      ...statusFilter,
+      propertyIds:
+        Object.keys(automatic).length > 0 ? { ...current.propertyIds, ...automatic } : undefined,
+      timeFieldSettings,
+      blockPosition: changes.blockPosition,
+    },
+    retainingBothFormats,
+  );
   if (updated.blockPosition !== current.blockPosition) {
     await enqueueBlockInheritingTasks(db, owner.id, id, now);
+  }
+  if (
+    timeFieldSettings?.revision &&
+    timeFieldSettings.revision !== current.timeFieldSettings?.revision
+  ) {
+    await enqueueDatabaseTasks(db, owner.id, id, now);
   }
   return toNotionDatabase(updated);
 }
@@ -217,9 +258,54 @@ async function addTrackerProperties(
   dataSource: DataSourceLoader,
   wanted: TrackerProperty[],
   owner: DatabaseOwner,
+  timeFields: NotionTimeFieldChoices | undefined,
 ): Promise<TrackerPropertyIds> {
-  if (wanted.length === 0) return {};
-  return ensureTrackerProperties(client, await dataSource(), wanted, owner);
+  if (wanted.length === 0 && Object.keys(timeFields ?? {}).length === 0) return {};
+  return ensureTrackerProperties(client, await dataSource(), wanted, owner, timeFields);
+}
+
+function checkDurationFormats(
+  choices: NotionTimeFieldChoices | undefined,
+  current?: NotionDatabaseRow,
+): boolean {
+  const text = choices?.spent;
+  const hours = choices?.spentHours;
+  if (text === undefined || hours === undefined) return false;
+
+  const saved = current === undefined ? {} : timeFieldIdsOf(current);
+  if (
+    text.mode === "existing" &&
+    hours.mode === "existing" &&
+    text.propertyId === saved.spent &&
+    hours.propertyId === saved.spentHours
+  ) {
+    return true;
+  }
+  throw validationError({ timeFields: "Choose one duration format" });
+}
+
+function selectedTimeFieldSettings(
+  ids: TrackerPropertyIds,
+  current?: NotionDatabaseRow,
+): TimeFieldSettings {
+  const propertyIds = selectTimeFieldIds(ids);
+  if (Object.keys(propertyIds).length === 0) return { propertyIds, revision: null };
+  const previousIds = current === undefined ? {} : timeFieldIdsOf(current);
+  const newlyEnabled = notionTimeFields.some(
+    (field) => propertyIds[field] !== undefined && propertyIds[field] !== previousIds[field],
+  );
+  const revision = newlyEnabled
+    ? crypto.randomUUID()
+    : (current?.timeFieldSettings?.revision ?? null);
+  return { propertyIds, revision };
+}
+
+function automaticIds(
+  ids: TrackerPropertyIds,
+  settings: TimeFieldSettings | null | undefined,
+): TrackerPropertyIds {
+  if (settings == null) return ids;
+  return ids.project === undefined ? {} : { project: ids.project };
 }
 
 function dataSourceLoader(client: NotionClient, id: string): DataSourceLoader {
@@ -248,8 +334,11 @@ export async function ensureTrackerProperties(
   source: DataSource,
   wanted: TrackerProperty[],
   owner: DatabaseOwner,
+  timeFields?: NotionTimeFieldChoices,
 ): Promise<TrackerPropertyIds> {
-  const { ids, missing } = matchTrackerProperties(source.properties, wanted, owner.locale);
+  const plan = matchTrackerProperties(source.properties, wanted, owner.locale);
+  if (timeFields !== undefined) planSelectedTimeFields(source.properties, timeFields, plan);
+  const { ids, missing } = plan;
   if (missing.length === 0) return ids;
   const updated = await addDataSourceProperties(client, source.id, missing);
   if (updated === undefined) throw dataSourceNotFound();
