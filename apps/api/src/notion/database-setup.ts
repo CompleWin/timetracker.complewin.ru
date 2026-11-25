@@ -12,7 +12,7 @@ import {
 import { database, type Database } from "../db/client.ts";
 import type { Bindings } from "../env.ts";
 import { databaseAlreadyAdded, tooManyDatabases, validationError } from "../http/errors.ts";
-import { enqueueBlockInheritingTasks, enqueueDatabaseTasks } from "../sync/outbox.ts";
+import { enqueueBlockInheritingTasks, enqueueDatabaseTasks, retryFailed } from "../sync/outbox.ts";
 import { notionClient, type NotionClient } from "./client.ts";
 import { requireUsableConnection, type ConnectedRow } from "./connections.ts";
 import {
@@ -212,6 +212,12 @@ export async function changeNotionDatabase(
     timeFieldSettings.revision !== current.timeFieldSettings?.revision
   ) {
     await enqueueDatabaseTasks(db, owner.id, id, now);
+  } else if (timeFieldSettings !== undefined) {
+    const previous = timeFieldIdsOf(current);
+    const active = timeFieldIdsOf(updated);
+    if (notionTimeFields.some((field) => previous[field] !== active[field])) {
+      await retryFailed(db, owner.id, now, id);
+    }
   }
   return toNotionDatabase(updated);
 }

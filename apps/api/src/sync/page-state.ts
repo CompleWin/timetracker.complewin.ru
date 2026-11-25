@@ -1,4 +1,4 @@
-import { formatDuration, type Locale } from "@stt/shared";
+import { formatDuration, notionTimeFields, type Locale } from "@stt/shared";
 import type { NotionDatabaseRow } from "../notion/databases.ts";
 import { timeFieldIdsOf } from "../notion/tracker-properties.ts";
 
@@ -69,7 +69,7 @@ export function hasChanges(target: PageTarget, desired: SentPage, sent: SentPage
     projectChanged(target, desired, sent) ||
     (desired.time !== null &&
       (desired.timeFieldsRevision !== (sent.timeFieldsRevision ?? null) ||
-        !sameTime(desired.time, sent.time)))
+        !sameTime(target, desired.time, sent.time)))
   );
 }
 
@@ -114,13 +114,11 @@ function timeValues(task: TaskSnapshot, locale: Locale): TimeValues {
   };
 }
 
-function sameTime(desired: TimeValues, sent: TimeValues | null): boolean {
-  return (
-    sent !== null &&
-    desired.spentHours === sent.spentHours &&
-    desired.spent === sent.spent &&
-    desired.running === sent.running &&
-    desired.lastTracked === sent.lastTracked
+function sameTime(target: PageTarget, desired: TimeValues, sent: TimeValues | null): boolean {
+  if (sent === null) return false;
+  const ids = timeFieldIdsOf(target);
+  return notionTimeFields.every(
+    (field) => ids[field] === undefined || desired[field] === sent[field],
   );
 }
 
