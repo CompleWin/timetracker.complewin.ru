@@ -166,11 +166,18 @@ export const ru = {
   "notionDatabases.blockPosition.start": "В начале страницы",
   "notionDatabases.blockPosition.end": "В конце страницы",
   "notionDatabases.blockPosition.none": "Не добавлять",
-  "notionDatabases.timeProperties": "Добавить в базу поля с временем",
-  "notionDatabases.timePropertiesNote":
-    "Трекер добавит в базу поля «{spentHours}», «{spent}», «{running}» и «{lastTracked}», если их там нет. Твои поля он не меняет.",
-  "notionDatabases.timePropertiesKept":
-    "Созданные поля останутся в Notion. Удалить их можно вручную.",
+  "notionDatabases.timeFields": "Поля времени",
+  "notionDatabases.timeField.durationFormat": "Формат длительности",
+  "notionDatabases.timeField.durationText": "Текст",
+  "notionDatabases.timeField.durationHours": "Число в часах",
+  "notionDatabases.timeField.savedDurationFormats":
+    "Длительность записывается текстом в «{text}» и числом в «{hours}». Выбери один формат, чтобы изменить настройку.",
+  "notionDatabases.timeField.create": "Создать поле",
+  "notionDatabases.timeField.existing": "Использовать существующее",
+  "notionDatabases.timeField.column": "Колонка Notion",
+  "notionDatabases.timeField.name": "Название колонки",
+  "notionDatabases.timeField.select": "Выбери колонку",
+  "notionDatabases.timeField.unavailable": "Эта колонка недоступна",
   "notionDatabases.importStatuses": "Импортировать задачи со статусами",
   "notionDatabases.importStatusesNote":
     "Задачи с другими статусами можно добавить вручную через «Добавить из Notion».",
@@ -180,8 +187,6 @@ export const ru = {
     "Твоё поле типа Select или Multi-select, куда трекер пишет название проекта. По нему же определяется проект, когда ты добавляешь задачу из Notion. Если поле пустое, задача попадает в проект с названием базы.",
   "notionDatabases.hint.blockPosition":
     "Блок «⏱ Всего: …» внутри страницы задачи: сводка времени и журнал сессий с заметками. Здесь выбирается, где он стоит и нужен ли он.",
-  "notionDatabases.hint.timeProperties":
-    "По этим полям можно сортировать задачи и считать сумму времени в представлениях базы. Без них время видно только в блоке на странице.",
   "notionDatabases.hint.importStatuses":
     "Трекер сам создаёт задачи из записей базы с этими статусами. Записи без статуса импортируются всегда. Уже созданные задачи при смене статуса остаются.",
   "notionDatabases.submit": "Добавить",
@@ -196,6 +201,18 @@ export const ru = {
     "{count} проект привязан|{count} проекта привязаны|{count} проектов привязаны",
   "notionDatabases.error.propertyConflict":
     "В базе уже есть поле «{name}» другого типа. Переименуй его в Notion и попробуй снова.",
+  "notionDatabases.error.timeFieldName": "Введи название колонки.",
+  "notionDatabases.error.timeFieldExists":
+    "Колонка «{name}» уже есть. Выбери её в списке существующих или введи другое название.",
+  "notionDatabases.error.timeFieldTypeConflict":
+    "Колонка «{name}» имеет другой тип. Введи другое название или выбери подходящую колонку.",
+  "notionDatabases.error.timeFieldDuplicate":
+    "Название «{name}» уже задано для другого поля. Введи другое название.",
+  "notionDatabases.error.timeFieldConflict":
+    "Название «{name}» занято. Введи другое название или выбери подходящую колонку.",
+  "notionDatabases.error.timeFieldSelection": "Выбери доступную колонку нужного типа.",
+  "notionDatabases.error.durationFormat": "Выбери один формат длительности.",
+  "notionDatabases.error.timeFieldColumns": "Не удалось загрузить колонки Notion.",
   "notionDatabases.error.alreadyAdded": "Эта база уже добавлена",
   "notionSync.title": "Синхронизация",
   "notionSync.pending": "В очереди: {count}",

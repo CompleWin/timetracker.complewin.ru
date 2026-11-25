@@ -57,6 +57,10 @@ export function enqueueBlockInheritingTasks(
   return enqueueWhere(db, userId, inheriting, now, "event");
 }
 
+export function enqueueDatabaseTasks(db: Database, userId: string, databaseId: string, now: Date) {
+  return enqueueWhere(db, userId, eq(tasks.notionDatabaseId, databaseId), now, "event");
+}
+
 export function enqueueStaleTasks(
   db: Database,
   userId: string,
@@ -67,22 +71,32 @@ export function enqueueStaleTasks(
 }
 
 export function removeQueuedTasksOfDatabase(db: Database, databaseId: string) {
+  return db.delete(syncOutbox).where(queuedTasksOfDatabase(db, databaseId));
+}
+
+function queuedTasksOfDatabase(db: Database, databaseId: string): SQL {
   const databaseTasks = db
     .select({ id: tasks.id })
     .from(tasks)
     .where(eq(tasks.notionDatabaseId, databaseId));
-  return db.delete(syncOutbox).where(inArray(syncOutbox.taskId, databaseTasks));
+  return inArray(syncOutbox.taskId, databaseTasks);
 }
 
 export function clearQueue(db: Database, userId: string) {
   return db.delete(syncOutbox).where(eq(syncOutbox.userId, userId));
 }
 
-export async function retryFailed(db: Database, userId: string, now: Date): Promise<void> {
+export async function retryFailed(
+  db: Database,
+  userId: string,
+  now: Date,
+  databaseId?: string,
+): Promise<void> {
+  const scope = databaseId === undefined ? undefined : queuedTasksOfDatabase(db, databaseId);
   await db
     .update(syncOutbox)
     .set({ attempts: 0, nextTryAt: now, lastError: null })
-    .where(and(eq(syncOutbox.userId, userId), failedItems));
+    .where(and(eq(syncOutbox.userId, userId), failedItems, scope));
 }
 
 async function enqueueWhere(

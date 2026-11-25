@@ -16,7 +16,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import type { TrackerPropertyIds } from "../notion/tracker-properties.ts";
+import type { TimeFieldSettings, TrackerPropertyIds } from "../notion/tracker-properties.ts";
 import type { TimeBlockLink } from "../sync/block-links.ts";
 import type { SentPage } from "../sync/page-state.ts";
 
@@ -131,6 +131,7 @@ export const notionDatabases = sqliteTable(
     projectPropType: text("project_prop_type", { enum: notionProjectPropertyTypes }),
     blockPosition: text("block_position", { enum: notionBlockPositions }).notNull(),
     timeProperties: integer("time_properties", { mode: "boolean" }).notNull().default(true),
+    timeFieldSettings: text("time_field_settings", { mode: "json" }).$type<TimeFieldSettings>(),
     statusPropId: text("status_prop_id"),
     statusPropName: text("status_prop_name"),
     skippedStatusIds: text("skipped_status_ids", { mode: "json" }).$type<string[]>(),

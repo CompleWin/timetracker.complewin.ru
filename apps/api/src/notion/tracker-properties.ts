@@ -1,9 +1,18 @@
-import { locales, t, type Locale, type MessageKey, type NotionProjectMode } from "@stt/shared";
-import { propertyConflict } from "../http/errors.ts";
+import {
+  locales,
+  notionTimeFields,
+  notionTimeFieldTypes,
+  t,
+  type Locale,
+  type MessageKey,
+  type NotionProjectMode,
+  type NotionTimeField,
+  type NotionTimeFieldChoices,
+  type NotionTimeFieldIds,
+} from "@stt/shared";
+import { propertyConflict, validationError } from "../http/errors.ts";
 
-const timeTrackerProperties = ["spentHours", "spent", "running", "lastTracked"] as const;
-
-export type TrackerProperty = (typeof timeTrackerProperties)[number] | "project";
+export type TrackerProperty = NotionTimeField | "project";
 
 export type TrackerPropertyChoice = {
   projectMode: NotionProjectMode;
@@ -11,6 +20,18 @@ export type TrackerPropertyChoice = {
 };
 
 export type TrackerPropertyIds = Partial<Record<TrackerProperty | "title", string>>;
+
+export type TimeFieldSettings = {
+  propertyIds: NotionTimeFieldIds;
+  revision: string | null;
+  automaticFields?: readonly NotionTimeField[];
+};
+
+type TimeFieldTarget = {
+  propertyIds: TrackerPropertyIds;
+  timeProperties: boolean;
+  timeFieldSettings: TimeFieldSettings | null;
+};
 
 export type SchemaProperty = {
   id: string;
@@ -30,10 +51,7 @@ export type TrackerPropertyMatch = {
 };
 
 const propertyTypes: Record<TrackerProperty, string> = {
-  spentHours: "number",
-  spent: "rich_text",
-  running: "checkbox",
-  lastTracked: "date",
+  ...notionTimeFieldTypes,
   project: "select",
 };
 
@@ -50,7 +68,7 @@ export function trackerPropertiesFor({
   timeProperties,
 }: TrackerPropertyChoice): TrackerProperty[] {
   return [
-    ...(timeProperties ? timeTrackerProperties : []),
+    ...(timeProperties ? notionTimeFields : []),
     ...(projectMode === "own" ? (["project"] as const) : []),
   ];
 }
@@ -78,13 +96,70 @@ export function matchTrackerProperties(
   return { ids, missing };
 }
 
+export function planSelectedTimeFields(
+  schema: SchemaProperty[],
+  choices: NotionTimeFieldChoices,
+  plan: TrackerPropertyMatch,
+): void {
+  const used = new Set(schema.flatMap(({ id, name }) => [id, name]));
+  for (const { name } of plan.missing) used.add(name);
+
+  for (const property of notionTimeFields) {
+    const choice = choices[property];
+    if (choice === undefined) continue;
+    const type = notionTimeFieldTypes[property];
+    if (choice.mode === "create") {
+      if (used.has(choice.name)) throw propertyConflict(choice.name);
+      used.add(choice.name);
+      plan.missing.push({ property, name: choice.name, type });
+    } else {
+      const column = schema.find(({ id }) => id === choice.propertyId);
+      if (column?.type !== type) {
+        throw validationError({
+          [`timeFields.${property}`]: `Expected a ${type} column of this database`,
+        });
+      }
+      plan.ids[property] = column.id;
+    }
+  }
+}
+
+export function selectTimeFieldIds(ids: TrackerPropertyIds): NotionTimeFieldIds {
+  const fields: NotionTimeFieldIds = {};
+  for (const field of notionTimeFields) {
+    const id = ids[field];
+    if (id !== undefined) fields[field] = id;
+  }
+  return fields;
+}
+
+export function timeFieldIdsOf(target: TimeFieldTarget): NotionTimeFieldIds {
+  return (
+    target.timeFieldSettings?.propertyIds ??
+    (target.timeProperties ? selectTimeFieldIds(target.propertyIds) : {})
+  );
+}
+
+export function missingAutomaticTimeFields(
+  schema: SchemaProperty[],
+  settings: TimeFieldSettings | null,
+): NotionTimeField[] {
+  if (settings === null) return [];
+  return (settings.automaticFields ?? []).filter(
+    (field) =>
+      !schema.some(
+        ({ id, type }) => id === settings.propertyIds[field] && type === propertyTypes[field],
+      ),
+  );
+}
+
 export function addedPropertyIds(
   schema: SchemaProperty[],
   added: MissingProperty[],
 ): TrackerPropertyIds {
   const ids: TrackerPropertyIds = {};
-  for (const { property, name } of added) {
-    const found = schema.find((candidate) => candidate.name === name);
+  for (const { property, name, type } of added) {
+    const found = schema.find((candidate) => candidate.name === name && candidate.type === type);
     if (found === undefined) throw new Error(`Notion did not add property "${name}"`);
     ids[property] = found.id;
   }

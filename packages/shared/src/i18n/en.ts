@@ -169,11 +169,18 @@ export const en: Messages = {
   "notionDatabases.blockPosition.start": "At the top of the page",
   "notionDatabases.blockPosition.end": "At the bottom of the page",
   "notionDatabases.blockPosition.none": "Don't add",
-  "notionDatabases.timeProperties": "Add time fields to the database",
-  "notionDatabases.timePropertiesNote":
-    "The tracker will add the fields “{spentHours}”, “{spent}”, “{running}” and “{lastTracked}” to the database if they aren't there. It doesn't change your fields.",
-  "notionDatabases.timePropertiesKept":
-    "The created fields will stay in Notion. You can delete them manually.",
+  "notionDatabases.timeFields": "Time fields",
+  "notionDatabases.timeField.durationFormat": "Duration format",
+  "notionDatabases.timeField.durationText": "Text",
+  "notionDatabases.timeField.durationHours": "Number in hours",
+  "notionDatabases.timeField.savedDurationFormats":
+    "Duration is written as text to “{text}” and as a number to “{hours}”. Choose one format to change this setting.",
+  "notionDatabases.timeField.create": "Create field",
+  "notionDatabases.timeField.existing": "Use existing field",
+  "notionDatabases.timeField.column": "Notion column",
+  "notionDatabases.timeField.name": "Column name",
+  "notionDatabases.timeField.select": "Choose a column",
+  "notionDatabases.timeField.unavailable": "This column is unavailable",
   "notionDatabases.importStatuses": "Import tasks with statuses",
   "notionDatabases.importStatusesNote":
     "Tasks with other statuses can be added manually with “Add from Notion”.",
@@ -183,8 +190,6 @@ export const en: Messages = {
     "Your Select or Multi-select field where the tracker writes the project name. It is also used to find the project when you add a task from Notion. If the field is empty, the task goes to the project named after the database.",
   "notionDatabases.hint.blockPosition":
     "The “⏱ Total: …” block inside the task page: a time summary and a log of sessions with notes. Here you choose where it goes and whether you need it.",
-  "notionDatabases.hint.timeProperties":
-    "These fields let you sort tasks and sum up time in database views. Without them, time is shown only in the block on the page.",
   "notionDatabases.hint.importStatuses":
     "The tracker creates tasks from database records with these statuses. Records without a status are always imported. Tasks already created stay when their status changes.",
   "notionDatabases.submit": "Add",
@@ -198,6 +203,18 @@ export const en: Messages = {
   "notionDatabases.summary.linked": "{count} project linked|{count} projects linked",
   "notionDatabases.error.propertyConflict":
     "The database already has a field “{name}” of another type. Rename it in Notion and try again.",
+  "notionDatabases.error.timeFieldName": "Enter a column name.",
+  "notionDatabases.error.timeFieldExists":
+    "The column “{name}” already exists. Choose it from the list or enter a different name.",
+  "notionDatabases.error.timeFieldTypeConflict":
+    "The column “{name}” has a different type. Enter a different name or choose a compatible column.",
+  "notionDatabases.error.timeFieldDuplicate":
+    "Another field already uses “{name}”. Enter a different name.",
+  "notionDatabases.error.timeFieldConflict":
+    "The name “{name}” is taken. Enter a different name or choose a compatible column.",
+  "notionDatabases.error.timeFieldSelection": "Choose an available column of the required type.",
+  "notionDatabases.error.durationFormat": "Choose one duration format.",
+  "notionDatabases.error.timeFieldColumns": "Couldn't load Notion columns.",
   "notionDatabases.error.alreadyAdded": "This database has already been added",
   "notionSync.title": "Sync",
   "notionSync.pending": "In queue: {count}",
