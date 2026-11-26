@@ -18,6 +18,7 @@ import { notionPages } from "./routes/notion-pages.ts";
 import { notionSync } from "./routes/notion-sync.ts";
 import { notionWebhook } from "./routes/notion-webhook.ts";
 import { projects } from "./routes/projects.ts";
+import { robots, sitemap } from "./routes/seo.ts";
 import { tasks } from "./routes/tasks.ts";
 import { telegramWebhook } from "./routes/telegram-webhook.ts";
 import { testHooks } from "./routes/test-hooks.ts";
@@ -64,6 +65,8 @@ export function createApp() {
       throw notFound();
     });
   }
+  app.get("/robots.txt", robots);
+  app.get("/sitemap.xml", sitemap);
   app.all("*", serveAssets);
 
   app.onError(handleError);
