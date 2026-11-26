@@ -87,3 +87,15 @@ test("5. GET /sw.js отвечает 200 с content-type JavaScript", async ({ r
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toMatch(JAVASCRIPT_CONTENT_TYPE);
 });
+
+for (const locale of ["ru", "en"]) {
+  const path = `/og-image/og-${locale}.png`;
+
+  test(`24. GET ${path} отвечает 200 и отдаёт PNG размером 1200 на 630`, async ({ request }) => {
+    const response = await request.get(path, { maxRedirects: 0 });
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toBe("image/png");
+    expect(pngSize(await response.body())).toBe("1200x630");
+  });
+}

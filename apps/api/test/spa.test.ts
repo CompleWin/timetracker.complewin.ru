@@ -293,4 +293,22 @@ describe("страница SPA", () => {
     expect(response.headers.get("Content-Type")).toMatch(/^application\/json\b/i);
     expectApiError(response, "not_found");
   });
+
+  it.each([
+    { path: "/ru", header: "en-US", image: "og-ru.png" },
+    { path: "/en", header: "ru-RU", image: "og-en.png" },
+    { path: "/", header: "ru-RU", image: "og-ru.png" },
+    { path: "/", header: "en-US", image: "og-en.png" },
+    { path: "/", header: undefined, image: "og-en.png" },
+  ])("23. $path с Accept-Language $header указывает на $image", async ({ path, header, image }) => {
+    const { head } = await readPage(await getPage(path, header));
+
+    expect(head.openGraph).toMatchObject({ "og:image": `${ORIGIN}/og-image/${image}` });
+  });
+
+  it.each(["/privacy", "/terms"])("23. на %s нет og:image", async (path) => {
+    const { head } = await readPage(await getPage(path));
+
+    expect(head.openGraph).not.toHaveProperty("og:image");
+  });
 });

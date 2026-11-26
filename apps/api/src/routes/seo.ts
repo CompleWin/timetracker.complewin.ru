@@ -106,6 +106,7 @@ function publicTags(
   ];
   if (page.landing) {
     head.push(
+      `<meta property="og:image" content="${attribute(`${origin}/og-image/og-${locale}.png`)}">`,
       `<link rel="alternate" hreflang="ru" href="${attribute(origin + "/ru")}">`,
       `<link rel="alternate" hreflang="en" href="${attribute(origin + "/en")}">`,
       `<link rel="alternate" hreflang="x-default" href="${attribute(origin + "/")}">`,
