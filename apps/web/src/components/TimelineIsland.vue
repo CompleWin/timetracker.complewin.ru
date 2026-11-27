@@ -16,7 +16,7 @@ import { useI18n } from "vue-i18n";
 import { isOnline } from "../connection.ts";
 import { timelineItems } from "../day-sessions.ts";
 import { currentLocale } from "../i18n.ts";
-import { HOUR_MS, pastScaleHours, timelineHours } from "../timeline-scale.ts";
+import { HOUR_MS, timelineHours } from "../timeline-scale.ts";
 import type { SessionRange } from "./SessionDialog.vue";
 import TimelineDayPicker from "./TimelineDayPicker.vue";
 import TimelineSession from "./TimelineSession.vue";
@@ -78,12 +78,9 @@ const scale = useTemplateRef("scale");
 
 const nowIso = computed(() => new Date(props.now).toISOString());
 const items = computed(() => timelineItems(props.sessions, props.now));
-const dayHours = computed(() => timelineHours(props.day, props.timeZone));
-const scaleHours = computed(() =>
-  props.isToday ? dayHours.value : pastScaleHours(dayHours.value, items.value),
-);
-const scaleStart = computed(() => scaleHours.value[0]?.at ?? dayHours.value[0].at);
-const scaleHeight = computed(() => offsetOf(scaleHours.value.at(-1)?.at ?? scaleStart.value));
+const scaleHours = computed(() => timelineHours(props.day, props.timeZone));
+const scaleStart = computed(() => scaleHours.value[0].at);
+const scaleHeight = computed(() => offsetOf(Date.parse(props.day.to)));
 
 const placedSessions = computed<PlacedSession[]>(() => {
   const blocks = props.sessions.map((session, index) => {
@@ -136,9 +133,21 @@ watch([scroller, () => props.day.from], scrollToDay, { flush: "post" });
 
 function scrollToDay(): void {
   if (scroller.value === null || scale.value === null) return;
-  scroller.value.scrollTop = props.isToday
-    ? scale.value.offsetTop + nowTop.value - scroller.value.clientHeight * NOW_WINDOW_SHARE
-    : 0;
+  if (props.isToday) {
+    scroller.value.scrollTop =
+      scale.value.offsetTop + nowTop.value - scroller.value.clientHeight * NOW_WINDOW_SHARE;
+    return;
+  }
+  if (items.value.length === 0) {
+    scroller.value.scrollTop = 0;
+    return;
+  }
+  const firstStart = items.value.reduce(
+    (earliest, { startMs }) => Math.min(earliest, startMs),
+    Infinity,
+  );
+  const openingHour = scaleHours.value.findLast(({ at }) => at <= firstStart);
+  scroller.value.scrollTop = offsetOf(openingHour?.at ?? scaleStart.value);
 }
 
 function offsetOf(epochMs: number): number {

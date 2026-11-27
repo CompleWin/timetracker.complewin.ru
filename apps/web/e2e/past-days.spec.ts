@@ -10,9 +10,13 @@ import {
 import { addSession, createProject, createTask, setTimeZone, startTimer } from "./helpers/api.ts";
 import { loginAs } from "./helpers/auth.ts";
 import { expectNoHorizontalScroll, PHONE_VIEWPORT } from "./helpers/layout.ts";
-import { boxOf } from "./helpers/picker-size.ts";
+import { boxOf, expectPx } from "./helpers/picker-size.ts";
 import { stopTimerButton } from "./helpers/picker.ts";
 import {
+  DAY_MARKS,
+  expectFirstMarkShownInScale,
+  expectLastMarkShownInScale,
+  expectShownInScale,
   fillGapButton,
   hourMarkTexts,
   middleOf,
@@ -22,10 +26,19 @@ import {
   spanOf,
   timeScale,
   timeline,
-  waitPastFullHour,
   zoneAtHour,
 } from "./helpers/timeline.ts";
-import { button, dialog, field, group, heading, island, runningNow, textOf } from "./helpers/ui.ts";
+import {
+  button,
+  dialog,
+  field,
+  group,
+  heading,
+  island,
+  region,
+  runningNow,
+  textOf,
+} from "./helpers/ui.ts";
 import { urlMatching } from "./helpers/url.ts";
 
 const ZONE = zoneAtHour(13);
@@ -33,6 +46,8 @@ const WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
 const PREVIOUS_WEEK = "Предыдущая неделя";
 const NEXT_WEEK = "Следующая неделя";
 const TODAY = "Сегодня";
+const HOUR_PX = 64;
+const SCALE_WINDOW_PX = 640;
 const TODAY_FROM_MONDAY = WEEKDAYS.indexOf(weekdayShortRu(ZONE));
 const DATE_FORMAT = new Intl.DateTimeFormat("ru-RU", {
   timeZone: ZONE.timezoneId,
@@ -80,7 +95,7 @@ async function expectWeek(page: Page, mondayDaysAgo: number): Promise<void> {
 async function selectYesterday(page: Page): Promise<void> {
   if (TODAY_FROM_MONDAY === 0) await button(week(page), PREVIOUS_WEEK).click();
   await dayButton(page, 1).click();
-  await expect(timelineDate(page, dayName(1))).toBeVisible();
+  await expect(button(timeline(page), `Выбрать день: ${dayName(1)}`)).toBeVisible();
 }
 
 async function expectScaleLimits(page: Page, first: string, last: string): Promise<void> {
@@ -234,44 +249,91 @@ test.describe("Прошлые дни", () => {
     await expect(textOf(summary, "1 ч").first()).toBeVisible();
   });
 
-  test("9. во вчерашней хронологии нет линии текущего времени", async ({ page }) => {
-    await waitPastFullHour();
+  test("1. вчерашние вечерние сессии открываются на своих местах, обе полуночи доступны", async ({
+    page,
+  }) => {
+    const reading = await createTask(page, { title: "Чтение" });
+    const writing = await createTask(page, { title: "Заметки" });
+    await addLocalSession(page, ZONE, reading.id, { start: "20:45", end: "20:55", daysAgo: 1 });
+    await addLocalSession(page, ZONE, writing.id, { start: "22:45", end: "22:55", daysAgo: 1 });
     await page.goto("/");
-    const currentTime = timeScale(page).getByText(/^\d{2}:(?!00)\d{2}$/);
-    await expect(currentTime).toBeVisible();
 
     await selectYesterday(page);
 
-    await expect(currentTime).toHaveCount(0);
+    const scale = timeScale(page);
+    const first = sessionBlock(page, reading.title, "20:45\u201320:55");
+    const second = sessionBlock(page, writing.title, "22:45\u201322:55");
+    const gap = fillGapButton(page, "20:55\u201322:45");
+    await expect(async () => {
+      await expectShownInScale(page, await spanOf(first));
+    }).toPass();
+    await expect.poll(() => hourMarkTexts(page)).toEqual(DAY_MARKS);
+    await expectPx(async () => (await boxOf(second)).y - (await boxOf(first)).y, 2 * HOUR_PX);
+    for (const [card, hour] of [
+      [first, 20],
+      [second, 22],
+    ] as const) {
+      const start = (await spanOf(card)).top;
+      expect(start).toBeGreaterThan(middleOf(await spanOf(textOf(scale, `${hour}:00`))));
+      expect(start).toBeLessThan(middleOf(await spanOf(textOf(scale, `${hour + 1}:00`))));
+    }
+    await expect(scale.getByRole("button", { name: /^Заполнить пропуск / })).toHaveCount(1);
+
+    await scale.press("Home");
+    await expectFirstMarkShownInScale(page);
+    await scale.press("End");
+    await expectLastMarkShownInScale(page);
+    await expectShownInScale(page, await spanOf(second));
+    await expectShownInScale(page, await spanOf(gap));
   });
 
-  test("10. ранняя сессия даёт шкалу от 06:00 до 18:00", async ({ page }) => {
+  test("2. вчера без сессий и после добавления сессии 06:15\u201306:30 шкала охватывает сутки", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await selectYesterday(page);
+    await expect.poll(() => hourMarkTexts(page)).toEqual(DAY_MARKS);
+
     const task = await createTask(page, { title: "Раннее чтение" });
-    await addLocalSession(page, ZONE, task.id, { start: "06:20", end: "07:10", daysAgo: 1 });
-    await page.goto("/");
-
+    await addLocalSession(page, ZONE, task.id, { start: "06:15", end: "06:30", daysAgo: 1 });
+    await page.reload();
     await selectYesterday(page);
 
-    await expectScaleLimits(page, "06:00", "18:00");
+    await expect(sessionBlock(page, task.title, "06:15\u201306:30")).toBeVisible();
+    await expect.poll(() => hourMarkTexts(page)).toEqual(DAY_MARKS);
   });
 
-  test("11. сессия до 22:40 даёт последнюю отметку 23:00", async ({ page }) => {
-    const task = await createTask(page, { title: "Вечернее чтение" });
-    await addLocalSession(page, ZONE, task.id, { start: "21:00", end: "22:40", daysAgo: 1 });
-    await page.goto("/");
+  for (const viewport of [{ width: 1280, height: 900 }, PHONE_VIEWPORT]) {
+    test(`4. на ширине ${viewport.width} px полные сутки прокручиваются в окне 640 px под шапкой`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await selectYesterday(page);
 
-    await selectYesterday(page);
+      const chronology = timeline(page);
+      const scale = timeScale(page);
+      const header = [
+        heading(chronology, "Хронология"),
+        button(chronology, `Выбрать день: ${dayName(1)}`),
+        button(chronology, "Сессия"),
+      ];
+      await expectPx(async () => (await boxOf(scale)).height, SCALE_WINDOW_PX);
+      await expectPx(async () => {
+        const first = await boxOf(textOf(scale, "01:00"));
+        const second = await boxOf(textOf(scale, "02:00"));
+        return second.y - first.y;
+      }, HOUR_PX);
 
-    await expect.poll(async () => (await hourMarkTexts(page)).at(-1)).toBe("23:00");
-  });
+      await scale.press("End");
+      await expectLastMarkShownInScale(page);
+      await scale.press("Home");
+      await expectFirstMarkShownInScale(page);
 
-  test("12. вчера без сессий шкала от 08:00 до 18:00", async ({ page }) => {
-    await page.goto("/");
-
-    await selectYesterday(page);
-
-    await expectScaleLimits(page, "08:00", "18:00");
-  });
+      const scaleTop = (await spanOf(scale)).top;
+      for (const item of header) expect((await spanOf(item)).bottom).toBeLessThanOrEqual(scaleTop);
+    });
+  }
 
   test("13. вчерашний пропуск с секундами в границах заполняется без правки времени", async ({
     page,
@@ -553,6 +615,62 @@ test.describe("Неделя и шкала при фиксированном вр
       const now = middleOf(await spanOf(textOf(scale, "12:30")));
       expect(Math.abs(now - (noon + one) / 2)).toBeLessThan(2);
     });
+  });
+
+  test.describe("Europe/Berlin", () => {
+    test.use({ timezoneId: "Europe/Berlin" });
+
+    test("3. в Берлине выбор 29 марта из недели показывает 23 часа без 02:00", async ({ page }) => {
+      await openHomeAt(page, new Date("2026-03-30T22:30:00.000Z"));
+      const strip = week(page);
+      await button(strip, PREVIOUS_WEEK).click();
+      const springDay = button(strip, "воскресенье, 29 марта");
+      await springDay.click();
+
+      await expect(springDay).toHaveAttribute("aria-pressed", "true");
+      await expect
+        .poll(() => hourMarkTexts(page))
+        .toEqual(DAY_MARKS.filter((mark) => mark !== "02:00"));
+    });
+
+    test("3. в Берлине выбор 25 октября из календаря показывает 25 часов с двумя 02:00", async ({
+      page,
+    }) => {
+      await openHomeAt(page, new Date("2026-11-01T23:30:00.000Z"));
+      const chronology = timeline(page);
+      await button(chronology, "Выбрать день: понедельник, 2 ноября").click();
+      const calendar = region(page, "Календарь");
+      await button(calendar, "Предыдущий месяц").click();
+      await button(calendar, "воскресенье, 25 октября").click();
+
+      await expect(button(chronology, "Выбрать день: воскресенье, 25 октября")).toBeVisible();
+      await expect
+        .poll(() => hourMarkTexts(page))
+        .toEqual([...DAY_MARKS.slice(0, 3), "02:00", ...DAY_MARKS.slice(3)]);
+    });
+  });
+
+  test("5. линия сейчас скрывается в прошлом и видна сразу при возврате на сегодня", async ({
+    page,
+  }) => {
+    await openHomeAt(page, new Date("2026-11-14T13:30:00.000Z"));
+    await page.clock.resume();
+    const currentTime = textOf(timeScale(page), "13:30");
+    await expect(currentTime).toBeVisible();
+
+    await button(week(page), "пятница, 13 ноября").click();
+    await expect(timelineDate(page, "пятница, 13 ноября")).toBeVisible();
+    await expect(currentTime).toHaveCount(0);
+    await timeScale(page).press("Home");
+    await expectFirstMarkShownInScale(page);
+
+    await button(page, TODAY).press("Enter");
+
+    await expect(timelineDate(page, "суббота, 14 ноября")).toBeVisible();
+    await expect.poll(() => hourMarkTexts(page)).toEqual(DAY_MARKS);
+    await expect(async () => {
+      await expectShownInScale(page, await spanOf(currentTime));
+    }).toPass();
   });
 
   for (const { date, label } of [
