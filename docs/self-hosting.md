@@ -196,6 +196,14 @@ npm run bot:setup -- --env production
 5. Запусти workflow "Deploy production". Cloudflare привяжет домен к Worker'у при деплое, адрес `workers.dev` выключится.
 6. Перезапусти `npm run bot:setup` с новым `APP_URL`.
 
+## Поисковики
+
+В production лендинг и юридические страницы открыты для индексации. Карта сайта находится по адресу `<APP_URL>/sitemap.xml`.
+
+Подтверди владение доменом с помощью TXT-записей в DNS. [Google Search Console](https://support.google.com/webmasters/answer/9008080), [Яндекс Вебмастер](https://yandex.com/support/webmaster/en/service/rights).
+
+Для своего домена включи в Cloudflare "Always Use HTTPS". Без этой настройки сайт доступен по HTTP. [Инструкция Cloudflare](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/).
+
 ## Обновление
 
 1. На странице форка нажми Sync fork, чтобы забрать изменения из исходного репозитория.

@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Request } from "@playwright/test";
 import { accountMenu, menuButton, openAccountMenu } from "./helpers/account-menu.ts";
-import { RUSSIAN_HEADLINE, chooseLanguage } from "./helpers/landing.ts";
+import { ENGLISH_HEADLINE, RUSSIAN_HEADLINE, chooseLanguage } from "./helpers/landing.ts";
 import { PHONE_VIEWPORT } from "./helpers/layout.ts";
 import { afterNextFrames } from "./helpers/timeline.ts";
 import { button, link, pageTitle, textOf } from "./helpers/ui.ts";
@@ -110,6 +110,35 @@ for (const signIn of signInLinks) {
     await expectTelegramStart(page, requests, PROTECTED_PATH);
   });
 }
+
+test("14. ссылка Sign in на /en запускает Telegram с возвратом на /", async ({ page }) => {
+  const requests = await recordTelegramStarts(page);
+  await page.goto("/en");
+  await expect(pageTitle(page, ENGLISH_HEADLINE)).toBeVisible();
+  expect(requests).toHaveLength(0);
+
+  await link(page.getByRole("banner"), "Sign in").click();
+
+  await expectTelegramStart(page, requests, "/");
+});
+
+test("20. Try it free на /en запускает Telegram и сохраняет английский язык для /", async ({
+  page,
+}) => {
+  const requests = await recordTelegramStarts(page);
+  await page.goto("/ru");
+  await expect(pageTitle(page, RUSSIAN_HEADLINE)).toBeVisible();
+
+  await page.goto("/en");
+  await expect(pageTitle(page, ENGLISH_HEADLINE)).toBeVisible();
+  expect(requests).toHaveLength(0);
+
+  await link(page, "Try it free").click();
+
+  await expectTelegramStart(page, requests, "/");
+  await page.goto("/");
+  await expect(pageTitle(page, ENGLISH_HEADLINE)).toBeVisible();
+});
 
 test("2. dev стоит справа от «Войти» на десктопе и при 390 px и открывает трекер как Dev User", async ({
   page,

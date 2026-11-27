@@ -3,9 +3,12 @@ import { Check, ChevronDown, Globe } from "@lucide/vue";
 import { locales, type Locale } from "@stt/shared";
 import { onBeforeUnmount, ref, useId, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import { applyLocale, currentLocale, rememberLocale } from "../i18n.ts";
 
 const { t } = useI18n();
+const route = useRoute();
+const router = useRouter();
 const open = ref(false);
 const root = useTemplateRef("root");
 const trigger = useTemplateRef("trigger");
@@ -19,9 +22,13 @@ watch(open, (isOpen) => {
 onBeforeUnmount(stopListening);
 
 function choose(locale: Locale): void {
+  open.value = false;
+  if (route.meta.landingLocale !== undefined) {
+    void router.push({ path: `/${locale}`, query: route.query, hash: route.hash });
+    return;
+  }
   applyLocale(locale);
   rememberLocale(locale);
-  open.value = false;
 }
 
 function closeOnPressOutside(event: PointerEvent): void {

@@ -5,6 +5,7 @@ import { VitePWA, type ManifestOptions } from "vite-plugin-pwa";
 
 const WORKER_URL = "http://localhost:8787";
 const WORKER_PREFIXES = ["/api/", "/auth/", "/notion/", "/tg/", "/__test/"];
+const SEO_PATHS = ["/robots.txt", "/sitemap.xml"];
 
 const manifest: Partial<ManifestOptions> = {
   name: "SimpleTimeTracker",
@@ -31,8 +32,19 @@ export default defineConfig({
       manifest,
       workbox: {
         globPatterns: ["**/*.{html,js,css,woff2,png,svg}"],
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: WORKER_PREFIXES.map((prefix) => new RegExp(`^${prefix}`)),
+        directoryIndex: null,
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, sameOrigin, url }) =>
+              sameOrigin &&
+              request.mode === "navigate" &&
+              !/^\/(?:api|auth|notion|tg|__test)(?:\/|$)/.test(url.pathname) &&
+              !/^\/(?:robots\.txt|sitemap\.xml)$/.test(url.pathname),
+            handler: "NetworkOnly",
+            options: { precacheFallback: { fallbackURL: "/index.html" } },
+          },
+        ],
         clientsClaim: true,
         skipWaiting: true,
       },
@@ -41,6 +53,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    proxy: Object.fromEntries(WORKER_PREFIXES.map((prefix) => [prefix, WORKER_URL])),
+    proxy: Object.fromEntries(
+      [...WORKER_PREFIXES, ...SEO_PATHS].map((prefix) => [prefix, WORKER_URL]),
+    ),
   },
 });

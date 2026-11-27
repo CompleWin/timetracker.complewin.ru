@@ -19,7 +19,7 @@ const session = useSessionStore();
 const { returnTo, telegramStartUrl } = useGuestSignIn();
 const isDev = ref(false);
 
-const onGuestHome = computed(() => route.path === "/" && session.isGuest);
+const onGuestHome = computed(() => route.meta.landing === true && session.isGuest);
 const logoTag = computed(() => (onGuestHome.value ? "div" : "h1"));
 
 watch(
